@@ -172,7 +172,7 @@ config_ai_services = ["gemini", "openai", "claude"]
 # table
 config_table_exclude_from_users_delete = ["spatial_ref_sys", "users", "log_users_delete"]
 config_table_write_blocked = ["log_api", "log_users_password", "log_users_delete", "script_run", "queue_job", "otp", "spatial_ref_sys"]
-config_table_my_create_blocked = ["users", "api_key", "log_api", "log_users_password", "otp", "script_run", "queue_job", "spatial_ref_sys"]
+config_table_my_create_blocked = ["users", "api_key", "ticket_comment", "log_api", "log_users_password", "otp", "script_run", "queue_job", "spatial_ref_sys"]
 config_table_my_read_blocked = ["users", "config", "log_users_password", "otp", "script_run", "queue_job", "spatial_ref_sys"]
 config_table_my_delete_all_allowed = ["test", "message", "notification"]
 config_table_public_create_allowed = ["test", "ticket"]
@@ -181,7 +181,7 @@ config_mongodb_my_create_allowed = {"test": ["post"]}
 config_table_private_read_allowed = ["test"]
 
 # permission
-config_permission_table = {"ticket": {"read": 120, "update": 121, "delete": 122}}
+config_permission_table = {"ticket": {"read": 120, "update": 121, "delete": 122}, "ticket_comment": {"create": 123, "read": 124, "update": 125, "delete": 126}}
 config_permission_user_roles = []
 config_permission_user_column_blocked = ["role", "permissions", "username", "email", "mobile", "verified_at", "verified_by_id", "deactivated_by_id", "parent_id", "source", "id_ext", "google_login_id", "google_login_metadata"]
 
@@ -217,7 +217,7 @@ config_options = {
 config_column_int_mapping = {
 "users": {
 "role": {1: "Admin"},
-"permissions": {61: "Create user", 62: "Update user", 86: "Postgres query runner write", 120: "Ticket read", 121: "Ticket update", 122: "Ticket delete"},
+"permissions": {61: "Create user", 62: "Update user", 86: "Postgres query runner write", 120: "Ticket read", 121: "Ticket update", 122: "Ticket delete", 123: "Ticket comment create", 124: "Ticket comment read", 125: "Ticket comment update", 126: "Ticket comment delete"},
 },
 "blob": {
 "type": {1: "File", 2: "Presigned Url"},
@@ -230,7 +230,8 @@ config_column_int_mapping = {
 },
 "ticket": {
 "type": {1: "Support", 2: "Feedback", 3: "Bug"},
-"status": {1: "To Do", 2: "In Progress", 3: "Blocked", 4: "Review", 5: "Done"},
+"priority": {1: "Low", 2: "Normal", 3: "High"},
+"status": {1: "Open", 2: "In Progress", 3: "Closed"},
 },
 "log_users_delete": {
 "type": {1: "User Soft Deleted", 2: "User Restored", 3: "User Hard Deleted"},
@@ -373,12 +374,24 @@ config_postgres = {
 {"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id,id)"},
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"updated_by_id","datatype":"bigint"},
-{"name":"type","datatype":"smallint","is_mandatory": True,"default":1,"in":(1,2,3),"index":"btree(type,status)"},
-{"name":"status","datatype":"smallint","is_mandatory": True,"default":1,"in":(1,2,3,4,5),"index":"btree(status,id)"},
+{"name":"type","datatype":"smallint","is_mandatory": True,"default":1,"in":(1,2,3),"index":"btree(type,id)"},
+{"name":"priority","datatype":"smallint","is_mandatory": True,"default":2,"in":(1,2,3),"index":"btree(priority,id)"},
+{"name":"status","datatype":"smallint","is_mandatory": True,"default":1,"in":(1,2,3),"index":"btree(status,id)"},
 {"name":"title","datatype":"text","is_mandatory": True,"index":"gin_trgm(title)"},
 {"name":"description","datatype":"text"},
-{"name":"email","datatype":"text","index":"btree(email)"},
-{"name":"reply","datatype":"text"}
+{"name":"name","datatype":"text","index":"gin_trgm(name)"},
+{"name":"email","datatype":"text","index":"gin_trgm(email)"},
+{"name":"mobile","datatype":"text","index":"gin_trgm(mobile)"},
+{"name":"closed_at","datatype":"timestamptz"}
+],
+"ticket_comment":[
+{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
+{"name":"created_at","datatype":"timestamptz","default":"now()"},
+{"name":"created_by_id","datatype":"bigint","is_mandatory": True,"index":"btree(created_by_id,id)"},
+{"name":"updated_at","datatype":"timestamptz"},
+{"name":"updated_by_id","datatype":"bigint"},
+{"name":"ticket_id","datatype":"bigint","is_mandatory": True,"index":"btree(ticket_id,id)"},
+{"name":"description","datatype":"text","is_mandatory": True}
 ],
 "log_api":[
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
@@ -465,6 +478,8 @@ config_postgres = {
 "table_row_delete_disable_bulk":[["users", 100]],
 },
 "sql":{
+"ticket_closed_at":"CREATE OR REPLACE FUNCTION ticket_closed_at() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.status = 3 THEN NEW.closed_at = CASE WHEN TG_OP = 'UPDATE' AND OLD.status = 3 THEN OLD.closed_at ELSE now() END; ELSE NEW.closed_at = NULL; END IF; RETURN NEW; END $$; CREATE OR REPLACE TRIGGER ticket_closed_at BEFORE INSERT OR UPDATE OF status ON ticket FOR EACH ROW EXECUTE FUNCTION ticket_closed_at();",
+"ticket_delete_comments":"CREATE OR REPLACE FUNCTION ticket_delete_comments() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN DELETE FROM ticket_comment WHERE ticket_id = OLD.id; RETURN OLD; END $$; CREATE OR REPLACE TRIGGER ticket_delete_comments AFTER DELETE ON ticket FOR EACH ROW EXECUTE FUNCTION ticket_delete_comments();",
 },
 }
 

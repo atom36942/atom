@@ -169,16 +169,16 @@ dialog.dlg .choices button[aria-checked="true"]{background:var(--card);border-co
 .choices svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 /* ==== end atom page: look ==== */
 /* ==== page look: a team app's navy palette and sizes on top of Atom's tokens, light by default, dark from Settings ==== */
-:root{--bg:#0e1216;--card:#161b21;--panel:#1d232a;--field:#161b21;--text:#e4e9ee;--muted:#9aa6b2;--faint:#6e7a86;--line:#283039;--line-strong:#38424d;--brand:#24508f;--brand-hover:#2c5aa0;--brand-soft:#d6e0f2;--brand-ink:#9db9ea;--brand-tint:#1d2e47;--brand-fill:#1b293d;--brand-line:#2f4a73;--accent:#9db9ea;--primary:#5ec48d;--success:#5ec48d;--success-soft:#14301f;--warn:#e3a640;--warn-soft:#33270f;--danger:#f07470;--danger-soft:#3a1a1b;--info:#6ea9ea;--info-soft:#152639;--neutral-soft:#232a32;--ring:0 0 0 3px rgba(157,185,234,.3);--topbar-h:64px;--btn-h:36px;--cell-pad:10px 12px;--control-h:36px}
-:root[data-theme="light"]{--bg:#f7f8fa;--card:#fff;--panel:#f2f4f7;--field:#fff;--text:#1f2933;--muted:#5f6b7a;--faint:#8a94a3;--line:#e3e7ed;--line-strong:#cfd5de;--brand:#1a396f;--brand-hover:#142c57;--brand-soft:#dce6f5;--brand-ink:#1a396f;--brand-tint:#dce6f5;--brand-fill:#edf2fa;--brand-line:#b7c8e3;--accent:#1a396f;--primary:#2e7d4f;--success:#2e7d4f;--success-soft:#e8f4ec;--warn:#9a6200;--warn-soft:#fdf3e1;--danger:#c62828;--danger-soft:#fdecec;--info:#2f6bad;--info-soft:#eaf1f9;--neutral-soft:#eef1f5;--ring:0 0 0 3px rgba(26,57,111,.22)}
-:root[data-density="compact"]{--topbar-h:52px;--btn-h:30px;--cell-pad:6px 10px;--control-h:30px}
+:root{--bg:#0e1216;--card:#161b21;--panel:#1d232a;--field:#161b21;--text:#e4e9ee;--muted:#9aa6b2;--faint:#6e7a86;--line:#283039;--line-strong:#38424d;--brand:#24508f;--brand-hover:#2c5aa0;--brand-soft:#d6e0f2;--brand-ink:#9db9ea;--brand-tint:#1d2e47;--brand-fill:#1b293d;--brand-line:#2f4a73;--accent:#9db9ea;--primary:#5ec48d;--success:#5ec48d;--success-soft:#14301f;--warn:#e3a640;--warn-soft:#33270f;--danger:#f07470;--danger-soft:#3a1a1b;--info:#6ea9ea;--info-soft:#152639;--ring:0 0 0 3px rgba(157,185,234,.3);--shadow:0 1px 2px rgba(0,0,0,.4);--topbar-h:64px;--btn-h:36px;--cell-pad:10px 12px;--control-h:36px;--card-pad:10px 12px}
+:root[data-theme="light"]{--bg:#f7f8fa;--card:#fff;--panel:#f2f4f7;--field:#fff;--text:#1f2933;--muted:#5f6b7a;--faint:#8a94a3;--line:#e3e7ed;--line-strong:#cfd5de;--brand:#1a396f;--brand-hover:#142c57;--brand-soft:#dce6f5;--brand-ink:#1a396f;--brand-tint:#dce6f5;--brand-fill:#edf2fa;--brand-line:#b7c8e3;--accent:#1a396f;--primary:#2e7d4f;--success:#2e7d4f;--success-soft:#e8f4ec;--warn:#9a6200;--warn-soft:#fdf3e1;--danger:#c62828;--danger-soft:#fdecec;--info:#2f6bad;--info-soft:#eaf1f9;--ring:0 0 0 3px rgba(26,57,111,.22);--shadow:0 1px 2px rgba(16,24,40,.06)}
+:root[data-density="compact"]{--topbar-h:52px;--btn-h:30px;--cell-pad:6px 10px;--control-h:30px;--card-pad:6px 10px}
 body{font-size:13px}
 :where(input:focus,select:focus,textarea:focus){border-color:var(--brand-ink);box-shadow:var(--ring)}
+:where(button:hover:not(:disabled)){border-color:var(--line-strong);background:var(--panel)}
 button.primary{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
 button.primary:hover:not(:disabled){background:var(--brand-hover);border-color:var(--brand-hover)}
 button.danger{background:var(--danger);border-color:var(--danger);color:#fff;font-weight:600}
 button.danger:hover:not(:disabled){background:var(--danger);border-color:var(--danger);filter:brightness(.92)}
-:where(button:hover:not(:disabled)){border-color:var(--line-strong);background:var(--panel)}
 .avatar,.avatar:hover:not(:disabled),.avatar[aria-expanded="true"]{width:36px;height:36px;font-size:14px;background:var(--brand)}
 .avatar[aria-expanded="true"]{box-shadow:var(--ring)}
 .login-btn{background:var(--brand)}
@@ -186,60 +186,167 @@ button.danger:hover:not(:disabled){background:var(--danger);border-color:var(--d
 .login-page{background:var(--bg)}
 .login-badge,.feature-icon{background:var(--brand-fill);color:var(--brand-ink)}
 .toast-icon{background:var(--success)}
-/* top bar: the logo mark and name at the left, the page's actions then the avatar at the right */
-.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:16px;height:var(--topbar-h);padding:0 24px;background:var(--card);border-bottom:1px solid var(--line)}
+svg.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+/* top bar: the logo mark and name, the page's actions, then the avatar */
+.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:14px;height:var(--topbar-h);padding:0 24px;background:var(--card);border-bottom:1px solid var(--line)}
 .brand{display:flex;align-items:center;gap:10px;color:var(--text);text-decoration:none;font-size:17px;font-weight:700}
 .mark{display:grid;place-items:center;width:32px;height:32px;border-radius:var(--radius);background:var(--brand);color:#fff;font-size:16px;font-weight:700}
 .top-actions{display:flex;align-items:center;gap:8px}
 .hbtn{display:inline-flex;align-items:center;gap:6px;height:var(--btn-h);padding:0 12px;border:1px solid var(--line);border-radius:var(--radius);background:var(--card);font-weight:600}
-.hbtn svg,.icon-btn svg,.pager-btn svg,.search-box svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
-main{padding:20px 24px 40px;display:grid;gap:16px}
-/* filters: one grey card holding the dropdowns and the search, Clear filters at its end; the list's own controls in a second card */
-.filter-row{display:flex;gap:12px;align-items:stretch;flex-wrap:wrap}
-.filter-card{flex:1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 16px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
-.side-card{display:flex;align-items:center;gap:8px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
-.filter-card select{min-width:150px;background-color:var(--field)}
-.filter-card select.in-use{background-color:var(--brand-fill);border-color:var(--brand-line)}
-.search-box{display:flex;align-items:center;flex:1;min-width:260px;max-width:460px;height:var(--control-h);border:1px solid var(--line-strong);border-radius:var(--radius);background:var(--field);overflow:hidden}
+main{padding:24px 24px 48px}
+/* the filters in one grey card (Clear filters at its end), the view icons and Refresh in a second card at the right */
+.list-toolbar{display:flex;align-items:stretch;gap:12px;margin-bottom:16px}
+.filters{flex:1;min-width:0;display:grid;grid-template-columns:repeat(5,minmax(96px,1fr)) minmax(230px,2.2fr) auto;gap:9px;padding:12px 16px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.filters select{width:100%;min-width:0;background-color:var(--field);border-color:var(--line-strong)}
+.filters select.in-use{background-color:var(--brand-fill);border-color:var(--brand-line);color:var(--brand-ink);font-weight:600}
+.list-controls{display:flex;flex:none;align-items:center;gap:9px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.view-switch{display:flex;align-items:center;gap:4px;height:var(--control-h);padding:3px;border:1px solid var(--line-strong);border-radius:var(--radius);background:var(--card)}
+.view-switch button{width:28px;height:28px;padding:0;border:0;border-radius:6px;background:none;color:var(--muted);display:grid;place-items:center}
+.view-switch button[aria-pressed="true"]{background:var(--brand-fill);color:var(--brand-ink)}
+.search-box{display:flex;align-items:center;min-width:0;height:var(--control-h);border:1px solid var(--line-strong);border-radius:var(--radius);background:var(--field);overflow:hidden}
 .search-box:focus-within{border-color:var(--brand-ink);box-shadow:var(--ring)}
-.search-box select{height:100%;min-width:0;width:auto;border:0;border-right:1px solid var(--line);border-radius:0;background-color:var(--panel);font-weight:600}
+.search-box select{height:100%;width:auto;flex:none;border:0;border-right:1px solid var(--line);border-radius:0;background-color:var(--panel);font-weight:600;font-size:12px}
+.search-box select:focus{box-shadow:none}
 .search-box input{flex:1;min-width:0;height:100%;border:0;border-radius:0;background:transparent;box-shadow:none}
 .search-box input:focus{box-shadow:none}
-.search-box button{width:32px;height:100%;padding:0;border:0;border-radius:0;background:none;color:var(--muted);display:inline-flex;align-items:center;justify-content:center}
-.search-box .search-submit{color:var(--brand-ink)}
-.clear-btn{margin-left:auto}
+.search-box button{width:30px;height:100%;padding:0;border:0;border-radius:0;background:none;color:var(--muted);display:inline-flex;align-items:center;justify-content:center}
+.search-box .search-go{color:var(--brand-ink)}
 .clear-btn:not(:disabled){background:var(--danger-soft);border-color:var(--danger-soft);color:var(--danger)}
-/* the list: a white card, its header row in the brand tint, the pager under it */
-.card{border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:hidden}
-.card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
-.card-head h2{margin:0;font-size:15px;font-weight:700}
-.table-wrap{overflow-x:auto}
-table{width:100%;border-collapse:collapse;table-layout:fixed}
-th{padding:var(--cell-pad);text-align:left;background:var(--brand-tint);color:var(--text);font-size:12px;font-weight:600;white-space:nowrap}
-td{padding:var(--cell-pad);border-bottom:1px solid var(--line);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-tbody tr{cursor:pointer}
-tbody tr:hover{background:var(--panel)}
-tbody tr:last-child td{border-bottom:none}
-.list.is-loading tbody{opacity:.5}
-.col-id{width:70px}.col-created{width:110px}.col-type{width:110px}.col-from{width:22%}.col-status{width:120px}
-.empty td{padding:24px 16px;color:var(--muted);cursor:default;text-align:center}
-.empty:hover{background:none}
-.pill{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:11px;font-weight:600;background:var(--neutral-soft);color:var(--muted)}
-.pill.s2{background:var(--info-soft);color:var(--info)}.pill.s3{background:var(--danger-soft);color:var(--danger)}.pill.s4{background:var(--warn-soft);color:var(--warn)}.pill.s5{background:var(--success-soft);color:var(--success)}
-.pager{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid var(--line)}
+@media (max-width:1360px){.list-toolbar{flex-direction:column}.list-controls{align-self:flex-end}}
+@media (max-width:1060px){.filters{grid-template-columns:1fr 1fr}.search-box{grid-column:1/-1}}
+@media (max-width:520px){.filters{grid-template-columns:1fr}.search-box{grid-column:auto}}
+/* the board: one column per status, its first page read for every column in one call, the next pages as a column scrolls */
+.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.column{min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;transition:border-color .12s,box-shadow .12s}
+.column.hidden-column{visibility:hidden}
+.column.drop-target{border-color:var(--brand-ink);box-shadow:var(--ring)}
+.column-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 11px;border-bottom:1px solid var(--line);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+.column[data-status="1"] .column-head{background:var(--panel);color:var(--muted);border-top:3px solid var(--faint)}
+.column[data-status="2"] .column-head{background:var(--info-soft);color:var(--info);border-top:3px solid var(--info)}
+.column[data-status="3"] .column-head{background:var(--success-soft);color:var(--success);border-top:3px solid var(--success)}
+.count{min-width:22px;height:22px;display:inline-grid;place-items:center;padding:0 8px;border-radius:999px;background:var(--card);font-size:11px;font-weight:600}
+.cards{display:grid;align-content:start;gap:7px;height:min(600px,calc(100vh - 250px));min-height:220px;padding:8px;overflow-y:auto;overscroll-behavior:contain}
+.card{min-width:0;border:1px solid var(--line);border-radius:12px;background:var(--card);padding:var(--card-pad);text-align:left;cursor:grab;transition:border-color .15s,box-shadow .15s,transform .15s}
+.card:hover{border-color:var(--line-strong);box-shadow:var(--shadow)}
+@media (prefers-reduced-motion:no-preference){.card:hover{transform:translateY(-1px)}}
+.card.dragging{opacity:.45}
+.card.updating{cursor:wait;opacity:.65}
+.card-title{overflow-wrap:anywhere;font-weight:500;line-height:1.35}
+.card-meta{display:flex;align-items:center;gap:3px;margin-top:11px;min-width:0}
+.card-meta>*{flex:none}
+.card-meta .badge{width:20px;height:20px;font-size:9px;margin-right:5px}
+.card-meta .meta{height:18px;display:inline-flex;align-items:center;font-size:10.5px;font-weight:500;white-space:nowrap}
+.card-meta .meta+.meta{margin-left:8px}
+.card-meta .meta.type{color:var(--muted)}
+.card-meta .age{margin-left:auto;padding-left:4px;color:var(--faint);font-size:10px;font-weight:500;white-space:nowrap}
+.high{color:var(--danger)!important;font-weight:600!important}
+.age.old{color:var(--danger);font-weight:600}
+.column-state{padding:14px 8px;text-align:center;color:var(--muted);font-size:12px}
+.column-state.error{color:var(--danger)}
+/* a person as initials (full name on hover), the same badge on cards and comments */
+.badge{position:relative;display:grid;flex:none;place-items:center;width:22px;height:22px;border:1px solid var(--line-strong);border-radius:50%;background:var(--panel);color:var(--muted);font-size:10px;font-weight:700;cursor:default}
+.badge[data-tip]:hover::after{content:attr(data-tip);position:absolute;top:50%;left:calc(100% + 6px);z-index:5;padding:3px 8px;border-radius:6px;background:var(--text);color:var(--card);font-size:11px;font-weight:500;white-space:nowrap;transform:translateY(-50%);pointer-events:none}
+/* the table: newest first, 25 a page after the cursor */
+.table-wrap{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.ticket-table{width:100%;border-collapse:collapse;table-layout:fixed}
+.ticket-table th{padding:var(--cell-pad);text-align:left;background:var(--brand-tint);color:var(--text);font-size:12px;font-weight:600;white-space:nowrap}
+.ticket-table td{padding:var(--cell-pad);border-bottom:1px solid var(--line);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ticket-table td.title-cell{white-space:normal;overflow-wrap:anywhere}
+.ticket-table tbody tr{cursor:pointer}
+.ticket-table tbody tr:hover{background:var(--panel)}
+.ticket-table tbody tr:last-child td{border-bottom:0}
+.c-id{width:70px}.c-contact{width:22%}.c-type{width:90px}.c-priority{width:80px}.c-status{width:110px}.c-created{width:110px}.c-age{width:70px;text-align:center}
+.ticket-table td.c-age{text-align:center}
+.pill{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:11px;font-weight:600;background:var(--panel);color:var(--muted)}
+.pill.s2{background:var(--info-soft);color:var(--info)}.pill.s3{background:var(--success-soft);color:var(--success)}
+.list.is-loading{opacity:.55}
+.empty{background:var(--card);border:1px dashed var(--line-strong);border-radius:12px;text-align:center;padding:54px 20px;color:var(--muted)}
+.pager{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:14px}
 .pager-btn{width:30px;height:30px;padding:0;display:inline-flex;align-items:center;justify-content:center}
 .pager-label{font-size:12px;font-weight:600;color:var(--muted)}
-.page-error{margin:0}
-/* the ticket dialog: wider, the facts in rows, then status and reply */
-dialog.dlg.wide{width:min(640px,calc(100vw - 32px))}
-.kv td.pre{white-space:pre-wrap}
-dialog.dlg textarea{width:100%;min-height:110px;font-family:var(--font);font-size:var(--fs);background:var(--field);border:1px solid var(--line);border-radius:var(--radius)}
-.dlg-actions .push{margin-right:auto}
-.export-note{margin:0;color:var(--muted);font-size:12px}
+@media (max-width:720px){
+  main,.topbar{padding-left:16px;padding-right:16px}
+  .board{grid-template-columns:1fr}.column.hidden-column{display:none}.cards{height:420px;min-height:180px}
+  .hbtn span{display:none}
+  .table-wrap{border:0;background:transparent}
+  .ticket-table,.ticket-table tbody{display:block}.ticket-table thead{display:none}
+  .ticket-table tbody{display:grid;gap:9px}
+  .ticket-table tbody tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px 14px;padding:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:12px}
+  .ticket-table td{display:block;width:auto!important;padding:0!important;border:0!important;min-width:0;text-align:left!important}
+  .ticket-table td::before{content:attr(data-label);display:block;margin-bottom:2px;color:var(--muted);font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+  .ticket-table td.title-cell{order:-1;grid-column:1/-1}
+}
+@media (max-width:1000px){.hbtn span{display:none}}
+/* the ticket detail: the facts and the description at the left, the comments at the right */
+dialog.view{width:min(1080px,calc(100vw - 32px));height:min(780px,calc(100vh - 32px));padding:0;border:1px solid var(--line-strong);border-radius:12px;background:var(--card);color:var(--text);box-shadow:0 20px 50px rgba(0,0,0,.35);overflow:hidden}
+dialog.view[open]{display:flex;flex-direction:column}
+dialog.view::backdrop{background:rgba(16,24,40,.45)}
+.view-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 20px;background:var(--brand);color:#fff}
+.view-head h3{margin:0;font-size:17px;font-weight:600;color:#fff}
+.view-id{display:flex;align-items:center;gap:6px;margin-top:3px;color:var(--brand-soft);font-size:12px}
+.head-actions{display:flex;gap:6px}
+.head-btn{width:30px;height:30px;padding:0;border:1px solid #ffffff59;border-radius:var(--radius);background:transparent;color:#fff;display:grid;place-items:center}
+.head-btn:hover:not(:disabled){background:rgba(255,255,255,.14);border-color:#ffffff59}
+.view-id .mini{width:22px;height:22px;padding:0;border:0;background:none;color:var(--brand-soft);display:grid;place-items:center}
+.view-id .mini:hover:not(:disabled){background:rgba(255,255,255,.14);border:0}
+.view-grid{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,.9fr) minmax(380px,1.1fr);gap:10px;padding:10px;background:var(--bg)}
+.detail-cards{display:grid;gap:10px;grid-template-rows:auto minmax(0,1fr);min-height:0}
+.detail-card{min-width:0;padding:4px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.facts{width:100%;border-collapse:collapse;table-layout:fixed}
+.facts th{width:96px;padding:5px 0;text-align:left;color:var(--muted);font-size:12px;font-weight:600;vertical-align:middle;border-bottom:1px solid var(--line)}
+.facts td{padding:5px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+.facts tr:last-child th,.facts tr:last-child td{border-bottom:0}
+.facts select{width:100%;height:30px}
+.facts select.s2{background-color:var(--info-soft);color:var(--info);font-weight:600}.facts select.s3{background-color:var(--success-soft);color:var(--success);font-weight:600}
+.facts a{color:var(--brand-ink)}
+.description-card{display:flex;flex-direction:column;min-height:0;padding:10px 12px}
+.description-card h4{margin:0 0 6px;font-size:13px;font-weight:600;overflow-wrap:anywhere}
+.description-text{flex:1;min-height:0;overflow:auto}
+.comments-pane{min-height:0;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.comments-title{padding:10px 12px 6px;font-weight:600}
+.comments{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;padding:8px 12px;overflow-y:auto}
+.comments-empty{flex:1;display:grid;place-items:center;color:var(--muted)}
+.comment{flex:none;padding:8px 10px;border-radius:var(--radius);background:var(--panel)}
+.comment-top{display:flex;align-items:center;gap:6px;margin-bottom:4px;color:var(--muted);font-size:12px}
+.comment-time{font-size:11px;color:var(--faint);cursor:default}
+.comment-actions{display:flex;gap:2px;margin-left:auto}
+.comment-action{width:25px;height:25px;padding:0;border:0;border-radius:6px;background:transparent;color:var(--muted);display:grid;place-items:center}
+.comment-action:hover:not(:disabled){background:var(--card);color:var(--text);border:0}
+.comment-action.delete{color:var(--danger)}
+.comment-action svg{width:14px;height:14px}
+.comment-edit{display:grid;gap:6px}
+.comment-edit textarea{width:100%;min-height:70px;font-family:var(--font);font-size:12px}
+.comment-edit div{display:flex;justify-content:flex-end;gap:6px}
+.comment-form{display:flex;align-items:flex-end;gap:7px;padding:10px 12px;border-top:1px solid var(--line)}
+.comment-form textarea{flex:1;min-height:var(--control-h);max-height:160px;height:var(--control-h);padding:8px 10px;line-height:1.4;resize:none;overflow-y:auto;font-family:var(--font);font-size:var(--fs)}
+.comments-older{display:block;margin:10px auto 4px}
+@media (max-width:760px){.view-grid{grid-template-columns:1fr;grid-template-rows:auto minmax(260px,1fr);overflow-y:auto}}
+/* Markdown in comments and the description: drawn by the page, the text escaped first */
+.md{font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.md>*+*,.md blockquote>*+*{margin-top:6px}
+.md p,.md ul,.md ol,.md blockquote,.md hr,.md .md-heading{margin:0}
+.md .md-heading{font-size:1.05em;font-weight:650;line-height:1.35}
+.md h1.md-heading{font-size:1.25em}.md h2.md-heading{font-size:1.15em}
+.md ul,.md ol{padding-left:20px}
+.md li+li,.md li>ul,.md li>ol{margin-top:2px}
+.md li.md-task{list-style:none;margin-left:-18px}
+.md li.md-task input{width:auto;height:auto;margin:0 6px 0 0;vertical-align:-2px}
+.md blockquote{padding:2px 0 2px 10px;border-left:3px solid var(--line-strong);color:var(--muted)}
+.md hr{border:0;border-top:1px solid var(--line)}
+.md-code{padding:1px 4px;border:1px solid var(--line);border-radius:4px;background:var(--card);font:.92em var(--mono)}
+.md-link{color:var(--brand-ink);text-decoration:underline;text-underline-offset:2px}
+.md pre{margin:2px 0 0;padding:9px 10px;border:1px solid var(--line);border-radius:7px;background:var(--card);font:12px/1.5 var(--mono);white-space:pre-wrap;overflow:auto}
+.md-table-wrap{max-width:100%;overflow-x:auto}
+.md-table{border-collapse:collapse}
+.md-table th,.md-table td{border:1px solid var(--line);padding:4px 8px;text-align:left;vertical-align:top}
+.md-table th{background:var(--card);font-weight:600}
+dialog.dlg .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+dialog.dlg .form-grid .wide{grid-column:1/-1}
+dialog.dlg textarea{width:100%;min-height:90px;font-family:var(--font);font-size:var(--fs);background:var(--field);border:1px solid var(--line);border-radius:var(--radius)}
+dialog.dlg.wide{width:min(620px,calc(100vw - 32px))}
 .check{display:flex;align-items:center;gap:8px}
 dialog.dlg .check input{width:16px;height:16px}
-@media (max-width:1000px){.hbtn span{display:none}}
-@media (max-width:700px){.side-card{margin-left:auto}.topbar,main{padding-left:16px;padding-right:16px}.col-created,.col-type,.col-from{display:none}.search-box{max-width:none}}
+.export-note{margin:0;color:var(--muted);font-size:12px}
 </style>
 </head>
 <body>
@@ -247,7 +354,8 @@ dialog.dlg .check input{width:16px;height:16px}
   <header class="topbar">
     <a class="brand" href="/page/ticket" id="homeLink"><span class="mark">T</span><span>Tickets</span></a>
     <div class="top-actions">
-      <button type="button" class="hbtn" id="exportBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg><span>Export</span></button>
+      <button type="button" class="hbtn" id="addBtn"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add ticket</span></button>
+      <button type="button" class="hbtn" id="exportBtn"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg><span>Export</span></button>
 <!-- ==== atom page: account header ==== -->
 <div class="atom-account">
   <button type="button" class="primary" id="loginOpenBtn" hidden>Log in</button>
@@ -266,38 +374,59 @@ dialog.dlg .check input{width:16px;height:16px}
     </div>
   </header>
   <main>
-    <div class="filter-row">
-      <div class="filter-card">
+    <div class="list-toolbar">
+      <div class="filters">
+        <select id="statusFilter" aria-label="Status" data-all="Status"></select>
+        <select id="priorityFilter" aria-label="Priority" data-all="Priority"></select>
+        <select id="typeFilter" aria-label="Type" data-all="Type"></select>
+        <select id="sourceFilter" aria-label="Source"><option value="">Source</option><option value="login">Logged in</option><option value="public">Public</option></select>
+        <select id="createdFilter" aria-label="Created"><option value="">Created</option><option value="0">Today</option><option value="1">Yesterday</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="month">This month</option><option value="90">Last 90 days</option></select>
         <form class="search-box" id="searchForm" role="search">
-          <select id="searchField" aria-label="Search column"><option value="title">Title</option><option value="email">Email</option><option value="id">ID</option></select>
-          <input id="searchText" placeholder="Search Title" aria-label="Search text" autocomplete="off">
-          <button type="button" id="searchClear" aria-label="Clear search" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
-          <button type="submit" class="search-submit" id="searchGo" aria-label="Search" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+          <select id="searchField" aria-label="Search column"><option value="title">Title</option><option value="name">Name</option><option value="email">Email</option><option value="mobile">Mobile</option><option value="id">ID</option></select>
+          <input id="searchText" placeholder="Search title…" aria-label="Search text" autocomplete="off" maxlength="120">
+          <button type="button" id="searchClear" aria-label="Clear search" hidden><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+          <button type="submit" class="search-go" id="searchGo" aria-label="Search" hidden><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
         </form>
-        <select id="typeFilter" aria-label="Type"></select>
-        <select id="statusFilter" aria-label="Status"></select>
         <button type="button" class="clear-btn" id="clearBtn" disabled>Clear filters</button>
       </div>
-      <div class="side-card"><button type="button" class="hbtn" id="refreshBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5"/><path d="M19.4 12A7.5 7.5 0 1 1 17 6.6L20 9"/></svg><span>Refresh</span></button></div>
+      <div class="list-controls">
+        <div class="view-switch" role="group" aria-label="View">
+          <button type="button" id="kanbanBtn" aria-label="Kanban" aria-pressed="true"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="4" height="14" rx="1"/><rect x="10" y="4" width="4" height="9" rx="1"/><rect x="16" y="4" width="4" height="11" rx="1"/></svg></button>
+          <button type="button" id="tableBtn" aria-label="Table" aria-pressed="false"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M4 14.5h16M10 10v9"/></svg></button>
+        </div>
+        <button type="button" class="hbtn" id="refreshBtn"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5"/><path d="M19.4 12A7.5 7.5 0 1 1 17 6.6L20 9"/></svg><span>Refresh</span></button>
+      </div>
     </div>
-    <div class="error-box page-error" id="pageError" hidden></div>
-    <section class="card">
-      <div class="card-head"><h2>Tickets</h2></div>
-      <div class="table-wrap list" id="list">
-        <table>
-          <colgroup><col class="col-id"><col class="col-created"><col class="col-type"><col><col class="col-from"><col class="col-status"></colgroup>
-          <thead><tr><th>ID</th><th class="col-created">Created</th><th class="col-type">Type</th><th>Title</th><th class="col-from">From</th><th>Status</th></tr></thead>
-          <tbody id="rows"><tr class="empty"><td colspan="6">Loading…</td></tr></tbody>
-        </table>
-      </div>
-      <div class="pager" role="group" aria-label="Pages">
-        <button type="button" class="pager-btn" id="prevBtn" aria-label="Previous page" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
-        <span class="pager-label" id="pageLabel">Page 1</span>
-        <button type="button" class="pager-btn" id="nextBtn" aria-label="Next page" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
-      </div>
-    </section>
+    <div class="error-box" id="pageError" hidden></div>
+    <div class="list" id="ticketList"></div>
+    <div class="pager" id="pager" role="group" aria-label="Pages" hidden>
+      <button type="button" class="pager-btn" id="prevBtn" aria-label="Previous page"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+      <span class="pager-label" id="pageLabel">Page 1</span>
+      <button type="button" class="pager-btn" id="nextBtn" aria-label="Next page"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
+    </div>
   </main>
 </div>
+<dialog class="view" id="viewDialog" aria-labelledby="viewTitle">
+  <div class="view-head">
+    <div><h3 id="viewTitle">Ticket detail</h3><div class="view-id"><span id="viewId"></span><button type="button" class="mini" id="viewCopy" aria-label="Copy ticket ID"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button></div></div>
+    <div class="head-actions">
+      <button type="button" class="head-btn" id="viewReload" aria-label="Reload ticket"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5"/><path d="M19.4 12A7.5 7.5 0 1 1 17 6.6L20 9"/></svg></button>
+      <button type="button" class="head-btn" id="viewDelete" aria-label="Delete ticket"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5"/></svg></button>
+      <button type="button" class="head-btn" id="viewClose" aria-label="Close"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+    </div>
+  </div>
+  <div class="view-grid">
+    <div class="detail-cards">
+      <div class="detail-card"><table class="facts"><tbody id="facts"></tbody></table></div>
+      <div class="detail-card description-card"><h4 id="viewTicketTitle"></h4><div class="description-text md" id="viewDescription"></div></div>
+    </div>
+    <section class="comments-pane">
+      <div class="comments-title">Comments</div>
+      <div class="comments" id="commentList"></div>
+      <form class="comment-form" id="commentForm"><textarea id="commentInput" placeholder="Add a comment…" aria-label="Add a comment" maxlength="5000" rows="1"></textarea><button type="submit" class="primary" id="commentSend">Send</button></form>
+    </section>
+  </div>
+</dialog>
 <!-- ==== atom page: dialogs ==== -->
 <section class="login-page" id="loginPage" aria-labelledby="loginTitle" hidden>
   <div class="login-wordmark" id="loginWordmark"><span class="login-mark">A</span><span id="loginPageName"></span></div>
@@ -329,9 +458,10 @@ dialog.dlg .check input{width:16px;height:16px}
 <!-- ==== end atom page: dialogs ==== -->
 <script>
 /* ==== page settings and the account block ==== */
-// Tickets: the support team's list of the tickets users send (table ticket, created by /my/object-create or /public/object-create).
-// Any role may log in; the page reads and changes tickets only through /permission/object-*, so it works for whoever holds ticket read (120), update (121) and delete (122): root holds them all
-const PAGE = { key: "ticket", title: "Tickets", role: null, loginRequired: true, idb: false, intro: { heading: "Answer what your users report", text: "Support requests, feedback and bugs sent from your apps, in one list for the support team.", features: [['<path d="M4 6h16v12H4z"/><path d="m4 7 8 6 8-6"/>', "Every ticket", "Sent by users, logged in or not."], ['<path d="M4 6h16M7 12h10M10 18h4"/>', "Filters", "By type, status, title or email."], ['<path d="M20 6 9 17l-5-5"/>', "Status", "To Do to Done, with a reply."], ['<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>', "Export", "The list as CSV, filtered or all."]] }, onIn: () => pageOpen(), onOut: () => { el("appView").hidden = true } };
+// Tickets: the support team's desk for what customers send (table ticket, from a project's form: /my/object-create logged in, /public/object-create without a login).
+// Any role may log in; the page needs ticket read (120) to open, and reads and changes everything through /permission/object-*: ticket 120 read, 121 update, 122 delete;
+// ticket_comment 123 create, 124 read, 125 update and 126 delete anyone's (a comment's author changes their own through /my). Root holds them all.
+const PAGE = { key: "ticket", title: "Tickets", role: null, loginRequired: true, idb: false, intro: { heading: "Answer what your customers send", text: "Support requests, feedback and bugs from your apps, on one board for the support team.", features: [['<rect x="4" y="4" width="4" height="14" rx="1"/><rect x="10" y="4" width="4" height="9" rx="1"/><rect x="16" y="4" width="4" height="11" rx="1"/>', "Board", "Open, In Progress, Closed: drag to move."], ['<path d="M4 6h16M7 12h10M10 18h4"/>', "Filters", "Status, priority, type, source, date, search."], ['<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>', "Comments", "The team's notes on every ticket."], ['<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>', "Export", "The list as CSV, filtered or all."]] }, onIn: () => pageOpen(), onOut: () => { el("appView").hidden = true; if (el("viewDialog").open) el("viewDialog").close() } };
 /* ==== atom page: account ==== */
 // Identical in every Atom page that logs in (docs/frontend.md, Page standard); the page sets PAGE just above this block and calls Page.start() last. A test checks the copies match.
 // localStorage[PAGE.key] = {v, token, user, info, synced_at, ...the page's choices}; IndexedDB database PAGE.key, store "cache", records {name, user_id, saved_at, data} (pages with PAGE.idb).
@@ -748,118 +878,463 @@ const Page = (() => {
 })();
 /* ==== end atom page: account ==== */
 
-/* ==== the ticket list ==== */
+/* ==== settings and helpers ==== */
 const el = id => document.getElementById(id);
-const { esc, dash, toast, dialog, dialogClose, dialogError, kv, api, request, read } = Page;
-const PAGE_SIZE = 25;
-const ICON_SEARCH = { title: "Title", email: "Email", id: "ID" };
-// labels from /info (config_column_int_mapping.ticket), saved by Sync; the number alone before the first sync
-const labels = column => read().info?.config_column_int_mapping?.ticket?.[column] || {};
+const { esc, toast, api, request, read, save } = Page;
+const PAGE_SIZE = 25, COMMENT_PAGE_SIZE = 50, OLD_DAYS = 7;
+const PERMISSION = { read: 120, update: 121, delete: 122, commentCreate: 123, commentRead: 124, commentUpdate: 125, commentDelete: 126 };
+const COLUMNS = "id,title,type,priority,status,name,email,mobile,created_by_id,created_at,closed_at";
+const SEARCH_LABEL = { title: "title", name: "name", email: "email", mobile: "mobile", id: "ID" };
+const DEFAULTS = { status: { 1: "Open", 2: "In Progress", 3: "Closed" }, priority: { 1: "Low", 2: "Normal", 3: "High" }, type: { 1: "Support", 2: "Feedback", 3: "Bug" } };
+const NOT_ALLOWED = "You are not allowed to do this. Ask an admin for access.";
+// labels from /info (config_column_int_mapping.ticket), saved by Sync; Atom's defaults before the first sync
+const labels = column => { const map = read().info?.config_column_int_mapping?.ticket?.[column]; return map && Object.keys(map).length ? map : DEFAULTS[column] };
 const label = (column, value) => value == null ? "-" : labels(column)[value] ?? String(value);
-const state = { after: [null], page: 0, next: null, loading: false };
-const filters = () => {
-  const list = [], type = el("typeFilter").value, status = el("statusFilter").value, text = el("searchText").value.trim(), field = el("searchField").value;
-  if (type) list.push(`type = ${type}`);
-  if (status) list.push(`status = ${status}`);
-  if (text) list.push(field === "id" ? `id = ${/^\d+$/.test(text) ? text : 0}` : { [field]: `ilike,%${text}%` });
+const holds = id => (Page.user()?.permissions || []).map(Number).includes(id);
+const me = () => Page.user()?.id;
+const failText = failure => failure.status === 403 ? NOT_ALLOWED : failure.message;
+const ago = iso => { const days = Math.floor((Date.now() - new Date(iso)) / 864e5); return days < 1 ? "today" : `${days}d` };
+const ageDays = iso => Math.max(0, Math.floor((Date.now() - new Date(iso)) / 864e5));
+const dateText = iso => { if (!iso) return "-"; const d = new Date(iso); return Number.isNaN(d.getTime()) ? "-" : `${String(d.getDate()).padStart(2, "0")}-${d.toLocaleString("en-GB", { month: "short" })}-${d.getFullYear()}` };
+const dateTimeText = iso => iso ? `${dateText(iso)} ${new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}` : "-";
+const timeAgo = iso => { if (!iso) return "-"; const s = Math.max(0, Math.round((Date.now() - new Date(iso)) / 1000)); if (s < 60) return "just now"; for (const [size, unit] of [[31536000, "yr"], [2592000, "mo"], [86400, "day"], [3600, "hr"], [60, "min"]]) if (s >= size) { const n = Math.floor(s / size); return `${n} ${unit}${n === 1 || unit === "min" || unit === "hr" ? "" : "s"} ago` } };
+const contactName = row => row.name || row.email || row.mobile || (row.created_by_id ? userName(row.created_by_id) : "Unknown");
+const contactLine = row => [row.name, row.email, row.mobile].filter(Boolean).join(" · ") || (row.created_by_id ? userName(row.created_by_id) : "-");
+const icon = path => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${path}</svg>`;
+
+/* ==== people: usernames for comment authors and logged-in senders, one /private/user-read call for the ids not known yet ==== */
+const users = new Map();
+const userName = id => users.get(Number(id)) || `User ${id}`;
+const usersLoad = async ids => {
+  const missing = [...new Set(ids.filter(id => id != null && !users.has(Number(id))).map(Number))].slice(0, 100);
+  if (!missing.length) return;
+  try { for (const u of (await api(`/private/user-read?${new URLSearchParams({ filter: JSON.stringify([`id in ${missing.join(",")}`]), limit: "100" })}`)).obj_list || []) users.set(Number(u.id), u.username) }
+  catch { /* names stay "User <id>" */ }
+};
+
+/* ==== filters: built once as Atom's filter list, the same for the board, the table and the export; each condition on an indexed column ==== */
+const state = { layout: read().layout === "table" ? "table" : "kanban", columns: new Map(), boardId: 0, table: { afters: [null], page: 0, rows: [], loading: false }, tableId: 0, rows: new Map(), moving: new Set() };
+const filterValues = () => ({ status: el("statusFilter").value, priority: el("priorityFilter").value, type: el("typeFilter").value, source: el("sourceFilter").value, created: el("createdFilter").value, field: el("searchField").value, text: el("searchText").value.trim() });
+const createdFrom = choice => { const d = new Date(); d.setHours(0, 0, 0, 0); if (choice === "month") d.setDate(1); else d.setDate(d.getDate() - Number(choice)); return d };
+const filterList = (values = filterValues(), withStatus = true) => {
+  const list = [];
+  if (withStatus && values.status) list.push(`status = ${values.status}`);
+  if (values.priority) list.push(`priority = ${values.priority}`);
+  if (values.type) list.push(`type = ${values.type}`);
+  if (values.source) list.push(values.source === "login" ? "created_by_id is not null" : "created_by_id is null");
+  if (values.created) { list.push(`created_at >= ${createdFrom(values.created).toISOString()}`); if (values.created === "1") { const end = createdFrom("0"); list.push(`created_at < ${end.toISOString()}`) } }
+  if (values.text) list.push(values.field === "id" ? `id = ${/^\d{1,18}$/.test(values.text) ? values.text : 0}` : { [values.field]: `ilike,%${values.text}%` });
   return list;
 };
-const filterInUse = () => !!(el("typeFilter").value || el("statusFilter").value || el("searchText").value.trim());
+const filterInUse = () => { const v = filterValues(); return !!(v.status || v.priority || v.type || v.source || v.created || v.text) };
+// whether a ticket still passes the filters after a change made here (a search the page can't judge exactly reloads instead)
+const matches = row => {
+  const v = filterValues();
+  if (v.priority && String(row.priority) !== v.priority) return false;
+  if (v.type && String(row.type) !== v.type) return false;
+  if (state.layout === "table" && v.status && String(row.status) !== v.status) return false;
+  return true;
+};
 const drawFilters = () => {
-  for (const [id, column, all] of [["typeFilter", "type", "All types"], ["statusFilter", "status", "All statuses"]]) {
-    const select = el(id), value = select.value, options = Object.entries(labels(column));
-    select.innerHTML = `<option value="">${all}</option>` + (options.length ? options : column === "type" ? [["1"], ["2"], ["3"]] : [["1"], ["2"], ["3"], ["4"], ["5"]]).map(([key, text]) => `<option value="${esc(key)}">${esc(text ?? key)}</option>`).join("");
+  for (const [id, column] of [["statusFilter", "status"], ["priorityFilter", "priority"], ["typeFilter", "type"]]) {
+    const select = el(id), value = select.value;
+    select.innerHTML = `<option value="">${select.dataset.all}</option>` + Object.entries(labels(column)).map(([key, text]) => `<option value="${esc(key)}">${esc(text)}</option>`).join("");
     select.value = value;
   }
   drawFilterState();
 };
 const drawFilterState = () => {
-  el("typeFilter").classList.toggle("in-use", !!el("typeFilter").value);
-  el("statusFilter").classList.toggle("in-use", !!el("statusFilter").value);
+  for (const id of ["statusFilter", "priorityFilter", "typeFilter", "sourceFilter", "createdFilter"]) el(id).classList.toggle("in-use", !!el(id).value);
   el("clearBtn").disabled = !filterInUse();
-  const hasText = !!el("searchText").value;
-  el("searchClear").hidden = el("searchGo").hidden = !hasText;
-  el("searchText").placeholder = `Search ${ICON_SEARCH[el("searchField").value]}`;
-};
-const createdText = iso => { if (!iso) return "-"; const d = new Date(iso); return `<span title="${esc(d.toLocaleString())}">${esc(d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" }).replace(/ /g, "-"))}</span>` };
-const fromText = row => row.email ? esc(row.email) : row.created_by_id ? `User ${esc(row.created_by_id)}` : "-";
-const statusPill = value => `<span class="pill s${esc(value)}">${esc(label("status", value))}</span>`;
-let rowsById = new Map();
-const drawRows = rows => {
-  rowsById = new Map(rows.map(row => [row.id, row]));
-  el("rows").innerHTML = rows.length ? rows.map(row => `<tr data-id="${esc(row.id)}" tabindex="0"><td>#${esc(row.id)}</td><td class="col-created">${createdText(row.created_at)}</td><td class="col-type">${esc(label("type", row.type))}</td><td title="${esc(row.title)}">${esc(row.title)}</td><td class="col-from">${fromText(row)}</td><td>${statusPill(row.status)}</td></tr>`).join("") : `<tr class="empty"><td colspan="6">${filterInUse() ? "No results" : "No tickets"}</td></tr>`;
+  el("searchClear").hidden = el("searchGo").hidden = !el("searchText").value;
+  el("searchText").placeholder = `Search ${SEARCH_LABEL[el("searchField").value]}…`;
 };
 const pageError = text => { el("pageError").textContent = text || ""; el("pageError").hidden = !text };
-// one page after the cursor (newest first); any filter change starts again at page 1
-const load = async (page = 0) => {
-  state.loading = true;
-  el("list").classList.add("is-loading");
-  pageError("");
+
+/* ==== board: the first page of every column in one call (group_column=status), the next pages of a column as it scrolls ==== */
+const statuses = () => Object.entries(labels("status"));
+const boardResetColumns = () => {
+  state.boardId++;
+  const only = el("statusFilter").value;
+  state.columns = new Map(statuses().filter(([status]) => !only || status === only).map(([status, text]) => [status, { status, label: text, items: [], after: null, hasNext: true, loading: true, error: "" }]));
+};
+const boardLoad = async () => {
+  boardResetColumns();
+  drawBoard();
+  const id = state.boardId, columns = [...state.columns.values()];
+  if (!columns.length) return;
   try {
-    const query = new URLSearchParams({ table: "ticket", limit: String(PAGE_SIZE), order: "id desc", filter: JSON.stringify(filters()) });
-    if (state.after[page]) query.set("after", state.after[page]);
-    const result = await api(`/permission/object-read?${query}`);
-    state.page = page;
-    state.after[page + 1] = result.after;
-    state.after.length = page + 2;
-    drawRows(result.obj_list || []);
+    const query = new URLSearchParams({ table: "ticket", group_column: "status", group_values: JSON.stringify(columns.map(c => Number(c.status))), filter: JSON.stringify(filterList(undefined, false)), order: "id desc", limit: String(PAGE_SIZE), column: COLUMNS });
+    const groups = (await api(`/permission/object-read?${query}`)).groups || {};
+    if (id !== state.boardId) return;
+    for (const column of columns) { const page = groups[column.status] || { obj_list: [], after: null }; column.items = page.obj_list; column.after = page.after; column.hasNext = !!page.after; column.loading = false }
+    await usersLoad(columns.flatMap(c => c.items.map(row => row.created_by_id)));
   } catch (failure) {
-    if (failure.status === 401) return;
-    drawRows([]);
-    pageError(failure.status === 403 ? "You are not allowed to see tickets. Ask an admin for the ticket read permission." : failure.message);
+    if (id !== state.boardId || failure.status === 401) return;
+    for (const column of columns) { column.loading = false; column.error = failText(failure) }
+  }
+  if (id === state.boardId) drawBoard();
+};
+const columnMore = async column => {
+  if (column.loading || !column.hasNext || state.layout !== "kanban") return;
+  const id = state.boardId;
+  column.loading = true;
+  drawBoard();
+  try {
+    const query = new URLSearchParams({ table: "ticket", filter: JSON.stringify([...filterList(undefined, false), `status = ${column.status}`]), order: "id desc", limit: String(PAGE_SIZE), column: COLUMNS, after: column.after });
+    const page = await api(`/permission/object-read?${query}`);
+    if (id !== state.boardId) return;
+    const seen = new Set(column.items.map(row => row.id));
+    column.items.push(...(page.obj_list || []).filter(row => !seen.has(row.id)));
+    column.after = page.after;
+    column.hasNext = !!page.after;
+    await usersLoad(column.items.map(row => row.created_by_id));
+  } catch (failure) { if (id === state.boardId) column.error = failText(failure) }
+  if (id === state.boardId) { column.loading = false; drawBoard() }
+};
+const cardMarkup = row => {
+  const who = contactName(row), old = row.status !== 3 && ageDays(row.created_at) >= OLD_DAYS;
+  return `<article class="card${state.moving.has(row.id) ? " updating" : ""}" data-id="${row.id}" draggable="${state.moving.has(row.id) ? "false" : "true"}" tabindex="0" role="button" aria-label="Open ticket ${row.id}: ${esc(row.title)}"><div class="card-title">${esc(row.title)}</div><div class="card-meta"><span class="badge" data-tip="${esc(contactLine(row))}">${esc(Page.initials(who))}</span><span class="meta${row.priority === 3 ? " high" : ""}">${esc(label("priority", row.priority))}</span><span class="meta type">${esc(label("type", row.type))}</span><span class="age${old ? " old" : ""}" title="Created ${esc(dateTimeText(row.created_at))}${old ? `, open over ${OLD_DAYS} days` : ""}">${esc(ago(row.created_at))}</span></div></article>`;
+};
+const drawBoard = () => {
+  const scroll = new Map([...document.querySelectorAll(".cards[data-status]")].map(node => [node.dataset.status, node.scrollTop]));
+  for (const column of state.columns.values()) for (const row of column.items) state.rows.set(row.id, row);
+  el("ticketList").innerHTML = `<div class="board">${statuses().map(([status]) => {
+    const column = state.columns.get(status);
+    if (!column) return '<section class="column hidden-column" aria-hidden="true"></section>';
+    const note = column.error ? `<div class="column-state error">${esc(column.error)}</div>` : column.loading ? '<div class="column-state">Loading…</div>' : !column.items.length ? '<div class="column-state">No tickets</div>' : column.hasNext ? '<div class="column-state">Scroll for more</div>' : "";
+    return `<section class="column" data-status="${status}"><header class="column-head"><span>${esc(column.label)}</span><span class="count">${column.items.length}${column.hasNext && !column.loading ? "+" : ""}</span></header><div class="cards" data-status="${status}">${column.items.map(cardMarkup).join("")}${note}</div></section>`;
+  }).join("")}</div>`;
+  requestAnimationFrame(() => document.querySelectorAll(".cards[data-status]").forEach(node => { node.scrollTop = scroll.get(node.dataset.status) || 0 }));
+};
+
+/* ==== table: newest first, 25 a page after the cursor; Previous goes back through the cursors already seen ==== */
+const tableLoad = async (page = 0) => {
+  const id = ++state.tableId, table = state.table;
+  table.loading = true;
+  el("ticketList").classList.add("is-loading");
+  if (!table.rows.length) el("ticketList").innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const query = new URLSearchParams({ table: "ticket", filter: JSON.stringify(filterList()), order: "id desc", limit: String(PAGE_SIZE), column: COLUMNS });
+    if (table.afters[page]) query.set("after", table.afters[page]);
+    const result = await api(`/permission/object-read?${query}`);
+    if (id !== state.tableId) return;
+    table.page = page;
+    table.afters[page + 1] = result.after;
+    table.afters.length = page + 2;
+    table.rows = result.obj_list || [];
+    await usersLoad(table.rows.map(row => row.created_by_id));
+  } catch (failure) {
+    if (id !== state.tableId || failure.status === 401) return;
+    table.rows = [];
+    pageError(failText(failure));
   } finally {
-    state.loading = false;
-    el("list").classList.remove("is-loading");
-    el("pageLabel").textContent = `Page ${state.page + 1}`;
-    el("prevBtn").disabled = state.page === 0;
-    el("nextBtn").disabled = !state.after[state.page + 1];
+    if (id === state.tableId) { table.loading = false; el("ticketList").classList.remove("is-loading"); drawTable() }
   }
 };
-const reload = () => { state.after = [null]; drawFilterState(); load(0) };
+const drawTable = () => {
+  const table = state.table;
+  for (const row of table.rows) state.rows.set(row.id, row);
+  const cell = (name, labelText, html, extra = "") => `<td class="${name}${extra}" data-label="${labelText}">${html}</td>`;
+  el("ticketList").innerHTML = table.rows.length ? `<div class="table-wrap"><table class="ticket-table"><colgroup><col class="c-id"><col><col class="c-contact"><col class="c-type"><col class="c-priority"><col class="c-status"><col class="c-created"><col class="c-age"></colgroup><thead><tr><th>ID</th><th>Title</th><th>Contact</th><th>Type</th><th>Priority</th><th>Status</th><th>Created</th><th class="c-age">Age (days)</th></tr></thead><tbody>${table.rows.map(row => {
+    const old = row.status !== 3 && ageDays(row.created_at) >= OLD_DAYS;
+    return `<tr data-id="${row.id}" tabindex="0">${cell("c-id", "ID", `<b>${row.id}</b>`)}${cell("title-cell", "Title", esc(row.title))}${cell("c-contact", "Contact", esc(contactLine(row)))}${cell("c-type", "Type", esc(label("type", row.type)))}${cell("c-priority", "Priority", esc(label("priority", row.priority)), row.priority === 3 ? " high" : "")}${cell("c-status", "Status", `<span class="pill s${row.status}">${esc(label("status", row.status))}</span>`)}${cell("c-created", "Created", `<span title="${esc(dateTimeText(row.created_at))}">${esc(dateText(row.created_at))}</span>`)}${cell("c-age", "Age (days)", String(ageDays(row.created_at)), old ? " old age" : "")}</tr>`;
+  }).join("")}</tbody></table></div>` : `<div class="empty">${filterInUse() ? "No results" : "No tickets"}</div>`;
+  el("pageLabel").textContent = `Page ${table.page + 1}`;
+  el("prevBtn").disabled = table.page === 0 || table.loading;
+  el("nextBtn").disabled = !table.afters[table.page + 1] || table.loading;
+};
 
-/* ==== one ticket: its facts, then status and reply (update), or delete ==== */
-const ticketOpen = row => {
-  const statusOptions = Object.entries(labels("status")).length ? Object.entries(labels("status")) : [1, 2, 3, 4, 5].map(n => [String(n), String(n)]);
-  dialog({ title: `Ticket #${row.id}`, sub: `${label("type", row.type)} · ${statusPillText(row.status)}`,
-    body: kv([["Title", esc(row.title)], ["Description", `<span class="pre-text">${dash(row.description)}</span>`], ["From", fromText(row)], ["Created", createdText(row.created_at)], ["Updated", createdText(row.updated_at)]]) +
-      `<div class="field"><label for="ticketStatus">Status</label><select id="ticketStatus">${statusOptions.map(([key, text]) => `<option value="${esc(key)}"${String(row.status) === key ? " selected" : ""}>${esc(text)}</option>`).join("")}</select></div>` +
-      `<div class="field"><label for="ticketReply">Reply</label><textarea id="ticketReply" maxlength="5000" placeholder="What was done, or the answer for the user">${esc(row.reply ?? "")}</textarea></div>`,
-    actions: '<button type="button" class="danger push" id="ticketDelete">Delete</button><button type="button" id="ticketCancel">Cancel</button><button type="button" class="primary" id="ticketSave">Save</button>',
-    on: { ticketCancel: dialogClose, ticketSave: () => ticketSave(row), ticketDelete: () => ticketDelete(row) } });
-  el("atomDialog").classList.add("wide");
-  el("atomBody").querySelector(".kv tr:nth-child(2) td").classList.add("pre");
+/* ==== layout and reload ==== */
+const reload = () => {
+  pageError("");
+  drawFilterState();
+  el("pager").hidden = state.layout !== "table";
+  el("kanbanBtn").setAttribute("aria-pressed", String(state.layout === "kanban"));
+  el("tableBtn").setAttribute("aria-pressed", String(state.layout === "table"));
+  state.rows.clear();
+  if (state.layout === "kanban") { state.tableId++; boardLoad() }
+  else { state.boardId++; state.table = { afters: [null], page: 0, rows: [], loading: false }; tableLoad(0) }
 };
-const statusPillText = value => label("status", value);
-const ticketSave = async row => {
-  const status = Number(el("ticketStatus").value), reply = el("ticketReply").value.trim() || null, changes = {};
-  if (status !== row.status) changes.status = status;
-  if (reply !== (row.reply ?? null)) changes.reply = reply;
-  if (!Object.keys(changes).length) { dialogClose(); return toast("No changes") }
-  el("ticketSave").disabled = true;
+const layoutSet = layout => { if (layout === state.layout) return; state.layout = layout; save({ layout }); reload() };
+
+/* ==== a change made here: shown from what the page has, with only the write call ==== */
+const rowChanged = (row, before) => {
+  state.rows.set(row.id, row);
+  if (state.layout === "table") {
+    const index = state.table.rows.findIndex(r => r.id === row.id);
+    if (index >= 0) { if (matches(row)) state.table.rows[index] = row; else state.table.rows.splice(index, 1) }
+    return drawTable();
+  }
+  for (const column of state.columns.values()) column.items = column.items.filter(r => r.id !== row.id);
+  const target = state.columns.get(String(row.status));
+  if (target && matches(row) && (!target.hasNext || !target.items.length || row.id > target.items[target.items.length - 1].id)) { target.items.push(row); target.items.sort((a, b) => b.id - a.id) }
+  if (before && el("searchText").value.trim()) return reload();    // a search the page can't judge exactly
+  drawBoard();
+};
+const rowRemoved = id => {
+  state.rows.delete(id);
+  if (state.layout === "table") { state.table.rows = state.table.rows.filter(r => r.id !== id); return drawTable() }
+  for (const column of state.columns.values()) column.items = column.items.filter(r => r.id !== id);
+  drawBoard();
+};
+const ticketUpdate = async (row, changes) => {
+  await api("/permission/object-update?table=ticket", { method: "PUT", body: JSON.stringify({ id: row.id, ...changes }) });
+  const fresh = (await api(`/permission/object-read?${new URLSearchParams({ table: "ticket", filter: JSON.stringify([`id = ${row.id}`]), limit: "1" })}`)).obj_list?.[0];
+  return fresh || { ...row, ...changes };
+};
+
+/* ==== drag a card to another column: its status changes (ticket update, 121); refused or failed, it goes back ==== */
+let dragId = null;
+const boardEvents = () => {
+  const list = el("ticketList");
+  list.addEventListener("dragstart", e => { const card = e.target.closest(".card"); if (!card) return; dragId = Number(card.dataset.id); card.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(dragId)) });
+  list.addEventListener("dragend", () => { dragId = null; document.querySelectorAll(".dragging,.drop-target").forEach(node => node.classList.remove("dragging", "drop-target")) });
+  list.addEventListener("dragover", e => { const column = e.target.closest(".column[data-status]"); if (!column || dragId == null) return; e.preventDefault(); document.querySelectorAll(".drop-target").forEach(node => node !== column && node.classList.remove("drop-target")); column.classList.add("drop-target") });
+  list.addEventListener("drop", async e => {
+    const column = e.target.closest(".column[data-status]"), row = state.rows.get(dragId);
+    document.querySelectorAll(".drop-target").forEach(node => node.classList.remove("drop-target"));
+    if (!column || !row) return;
+    e.preventDefault();
+    const status = Number(column.dataset.status);
+    if (status === row.status) return;
+    if (!holds(PERMISSION.update)) return toast(NOT_ALLOWED, true);
+    state.moving.add(row.id);
+    rowChanged({ ...row, status });
+    try { rowChanged(await ticketUpdate(row, { status })); toast(`Ticket #${row.id} moved to ${label("status", status)}`) }
+    catch (failure) { rowChanged(row); toast(failText(failure), true) }
+    finally { state.moving.delete(row.id); drawBoard() }
+  });
+  list.addEventListener("scroll", e => { const cards = e.target.closest?.(".cards[data-status]"); if (!cards || cards.scrollTop + cards.clientHeight < cards.scrollHeight - 80) return; const column = state.columns.get(cards.dataset.status); if (column) columnMore(column) }, true);
+  const openFrom = e => { const node = e.target.closest(".card[data-id],tr[data-id]"); if (node) viewOpen(Number(node.dataset.id)) };
+  list.addEventListener("click", openFrom);
+  list.addEventListener("keydown", e => { if (e.key === "Enter") openFrom(e) });
+};
+
+/* ==== Markdown in comments and the description (no library): the text escaped first, then headings, lists, [ ] boxes, quotes, tables, code, bold, italic, strike, links (http and https) ==== */
+const HOLD = /\u0000(\d+)\u0000/g;
+const safeUrl = raw => { try { const url = new URL(raw); return ["http:", "https:"].includes(url.protocol) ? url.href : "" } catch { return "" } };
+const mdEmphasis = html => html.replace(/\*\*(?=\S)([\s\S]*?\S)\*\*/g, "<strong>$1</strong>").replace(/~~(?=\S)([\s\S]*?\S)~~/g, "<del>$1</del>").replace(/(^|[^\w*])\*(?=[^\s*])([^*]*?[^\s*])\*(?![\w*])/g, "$1<em>$2</em>").replace(/(^|[^\w])_(?=[^\s_])([^_]*?[^\s_])_(?!\w)/g, "$1<em>$2</em>");
+const mdInline = value => {
+  const held = [], hold = html => `\u0000${held.push(html) - 1}\u0000`, restore = html => html.replace(HOLD, (_, i) => restore(held[i]));
+  const link = (text, url) => hold(`<a class="md-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${text}</a>`);
+  const text = String(value).replace(/\u0000/g, "").replace(/`([^`\n]+)`/g, (_, code) => hold(`<code class="md-code">${esc(code)}</code>`))
+    .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/gi, (all, text, raw) => { const url = safeUrl(raw); return url ? link(mdEmphasis(esc(text)), url) : all })
+    .replace(/https?:\/\/[^\s<>\u0000]+/gi, raw => { const trail = raw.match(/[.,;:!?)]+$/)?.[0] || "", core = raw.slice(0, raw.length - trail.length), url = safeUrl(core); return (url ? link(esc(core), url) : hold(esc(core))) + trail });
+  return restore(mdEmphasis(esc(text))).replace(/\n/g, "<br>");
+};
+const MD = { fence: /^\s*```\s*([\w+#.-]*)\s*$/, heading: /^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$/, rule: /^\s{0,3}([-*_])(\s*\1){2,}\s*$/, quote: /^\s{0,3}>\s?/, item: /^(\s*)([-*+]|\d{1,9}[.)])\s+(.*)$/, row: /^\s*\|.*\|\s*$/, sep: /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/ };
+const mdCells = line => line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map(cell => cell.trim());
+const mdStarts = (lines, i) => MD.fence.test(lines[i]) || MD.heading.test(lines[i]) || MD.rule.test(lines[i]) || MD.quote.test(lines[i]) || MD.item.test(lines[i]) || (MD.row.test(lines[i]) && MD.sep.test(lines[i + 1] || ""));
+const mdList = entries => {
+  let i = 0;
+  const build = level => {
+    const first = entries[i], tag = first.ordered ? "ol" : "ul";
+    let html = `<${tag}>`, open = false;
+    while (i < entries.length && entries[i].indent >= level) {
+      const entry = entries[i];
+      if (entry.indent === level && entry.ordered !== first.ordered) break;
+      if (entry.indent > level && open) { html += build(entry.indent); continue }
+      if (open) html += "</li>";
+      const box = entry.text.match(/^\[([ xX])\]\s+([\s\S]*)$/);
+      html += box ? `<li class="md-task"><input type="checkbox" disabled${box[1] === " " ? "" : " checked"}>${mdInline(box[2])}` : `<li>${mdInline(entry.text)}`;
+      open = true; i++;
+    }
+    return html + (open ? "</li>" : "") + `</${tag}>`;
+  };
+  let html = "";
+  while (i < entries.length) html += build(entries[i].indent);
+  return html;
+};
+const mdBlocks = value => {
+  const lines = String(value).replace(/\r\n?/g, "\n").split("\n");
+  let html = "", i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (!line.trim()) { i++; continue }
+    const fence = line.match(MD.fence);
+    if (fence) { const code = []; i++; while (i < lines.length && !/^\s*```\s*$/.test(lines[i])) code.push(lines[i++]); i++; html += `<pre>${esc(code.join("\n"))}</pre>`; continue }
+    const heading = line.match(MD.heading);
+    if (heading) { html += `<h${heading[1].length} class="md-heading">${mdInline(heading[2])}</h${heading[1].length}>`; i++; continue }
+    if (MD.rule.test(line)) { html += "<hr>"; i++; continue }
+    if (MD.quote.test(line)) { const quote = []; while (i < lines.length && MD.quote.test(lines[i])) quote.push(lines[i++].replace(MD.quote, "")); html += `<blockquote>${mdBlocks(quote.join("\n"))}</blockquote>`; continue }
+    if (MD.row.test(line) && MD.sep.test(lines[i + 1] || "")) {
+      const head = mdCells(line), rows = [];
+      i += 2;
+      while (i < lines.length && MD.row.test(lines[i])) rows.push(mdCells(lines[i++]));
+      html += `<div class="md-table-wrap"><table class="md-table"><thead><tr>${head.map(text => `<th>${mdInline(text)}</th>`).join("")}</tr></thead><tbody>${rows.map(row => `<tr>${head.map((_, k) => `<td>${mdInline(row[k] || "")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+      continue;
+    }
+    if (MD.item.test(line)) {
+      const entries = [];
+      while (i < lines.length) {
+        const item = lines[i].match(MD.item);
+        if (item) { entries.push({ indent: item[1].replace(/\t/g, "  ").length, ordered: /\d/.test(item[2]), text: item[3] }); i++ }
+        else if (lines[i].trim() && /^\s/.test(lines[i]) && entries.length) entries[entries.length - 1].text += `\n${lines[i++].trim()}`;
+        else if (!lines[i].trim() && MD.item.test(lines[i + 1] || "")) i++;
+        else break;
+      }
+      html += mdList(entries);
+      continue;
+    }
+    const paragraph = [line];
+    i++;
+    while (i < lines.length && lines[i].trim() && !mdStarts(lines, i)) paragraph.push(lines[i++]);
+    html += `<p>${mdInline(paragraph.join("\n"))}</p>`;
+  }
+  return html;
+};
+const markdown = value => { const text = String(value ?? "").trim(); return text ? mdBlocks(text) : '<p class="muted">No description</p>' };
+
+/* ==== the ticket detail: the facts (status, priority and type saved on change), the description, the comments ==== */
+const view = { row: null, comments: [], after: null, requestId: 0 };
+const select = (column, value) => `<select data-column="${column}" class="${column === "status" ? `s${value}` : ""}" aria-label="${column}">${Object.entries(labels(column)).map(([key, text]) => `<option value="${esc(key)}"${String(value) === key ? " selected" : ""}>${esc(text)}</option>`).join("")}</select>`;
+const drawView = () => {
+  const row = view.row;
+  el("viewId").textContent = `ID ${row.id}`;
+  el("viewTicketTitle").textContent = row.title;
+  el("viewDescription").innerHTML = markdown(row.description);
+  const link = (scheme, value) => value ? `<a href="${scheme}:${esc(value.replace(/\s+/g, ""))}">${esc(value)}</a>` : "-";
+  const facts = [["Status", select("status", row.status)], ["Priority", select("priority", row.priority)], ["Type", select("type", row.type)], ["Name", esc(row.name || "-")], ["Email", link("mailto", row.email)], ["Mobile", link("tel", row.mobile)], ["Source", row.created_by_id ? `Logged in (${esc(userName(row.created_by_id))})` : "Public"], ["Created", `<span title="${esc(dateTimeText(row.created_at))}">${esc(timeAgo(row.created_at))}</span>`], ["Updated", row.updated_at ? `<span title="${esc(dateTimeText(row.updated_at))}">${esc(timeAgo(row.updated_at))}</span>` : "-"], ["Closed", row.closed_at ? esc(dateTimeText(row.closed_at)) : "-"]];
+  el("facts").innerHTML = facts.map(([name, html]) => `<tr><th scope="row">${name}</th><td>${html}</td></tr>`).join("");
+};
+const viewOpen = async id => {
+  const known = state.rows.get(id), requestId = ++view.requestId;
+  view.row = known ? { ...known } : { id, title: "Loading…", status: 1, priority: 2, type: 1 };
+  view.comments = []; view.after = null;
+  drawView();
+  el("commentList").innerHTML = '<div class="comments-empty">Loading…</div>';
+  el("commentInput").value = "";
+  if (!el("viewDialog").open) el("viewDialog").showModal();
   try {
-    await api("/permission/object-update?table=ticket", { method: "PUT", body: JSON.stringify({ id: row.id, ...changes }) });
-    dialogClose();
-    toast(`Ticket #${row.id} saved`);
-    load(state.page);
-  } catch (failure) { dialogError(failure.status === 403 ? "You are not allowed to do this. Ask an admin for access." : failure.message); if (el("ticketSave")) el("ticketSave").disabled = false }
+    const [ticket, comments] = await Promise.all([
+      api(`/permission/object-read?${new URLSearchParams({ table: "ticket", filter: JSON.stringify([`id = ${id}`]), limit: "1" })}`),
+      commentsRead(id).catch(failure => ({ failure })),
+    ]);
+    if (requestId !== view.requestId) return;
+    const row = ticket.obj_list?.[0];
+    if (!row) { el("viewDialog").close(); return toast(`Ticket #${id} not found`, true) }
+    view.row = row;
+    await usersLoad([row.created_by_id, ...(comments.obj_list || []).map(c => c.created_by_id)]);
+    drawView();
+    if (comments.failure) el("commentList").innerHTML = `<div class="comments-empty">${esc(failText(comments.failure))}</div>`;
+    else { view.comments = comments.obj_list || []; view.after = comments.after; drawComments() }
+  } catch (failure) { if (requestId === view.requestId) { el("viewDialog").close(); toast(failText(failure), true) } }
 };
-const ticketDelete = async row => {
-  if (!await Page.confirm(`Delete ticket #${row.id}?`, "This can't be undone.", "Delete", true)) return ticketOpen(row);
-  try { await api("/permission/object-delete?table=ticket", { method: "POST", body: JSON.stringify({ ids: [row.id] }) }); toast(`Ticket #${row.id} deleted`); load(state.page) }
-  catch (failure) { toast(failure.status === 403 ? "You are not allowed to do this. Ask an admin for access." : failure.message, true) }
+const viewChoice = async target => {
+  const column = target.dataset.column, value = Number(target.value), row = view.row;
+  if (value === row[column]) return;
+  if (!holds(PERMISSION.update)) { target.value = row[column]; return toast(NOT_ALLOWED, true) }
+  target.disabled = true;
+  try { view.row = await ticketUpdate(row, { [column]: value }); drawView(); rowChanged(view.row, row); toast("Saved") }
+  catch (failure) { target.value = row[column]; toast(failText(failure), true) }
+  finally { target.disabled = false }
+};
+const viewDelete = async () => {
+  const row = view.row;
+  if (!holds(PERMISSION.delete)) return toast(NOT_ALLOWED, true);
+  if (!await Page.confirm(`Delete ticket #${row.id}?`, "Its comments are deleted too. This can't be undone.", "Delete", true)) return;
+  try { await api("/permission/object-delete?table=ticket", { method: "POST", body: JSON.stringify({ ids: [row.id] }) }); el("viewDialog").close(); rowRemoved(row.id); toast(`Ticket #${row.id} deleted`) }
+  catch (failure) { toast(failText(failure), true) }
+};
+
+/* ==== comments: newest first, 50 a page after the cursor; added with comment create (123); the author edits or deletes their own (/my), others need 125 or 126 ==== */
+const commentsRead = (ticketId, after = null) => api(`/permission/object-read?${new URLSearchParams({ table: "ticket_comment", filter: JSON.stringify([`ticket_id = ${ticketId}`]), order: "id desc", limit: String(COMMENT_PAGE_SIZE), ...(after ? { after } : {}) })}`);
+const commentMarkup = c => {
+  const author = userName(c.created_by_id);
+  return `<div class="comment" data-id="${c.id}"><div class="comment-top"><span class="badge" data-tip="${esc(author)}">${esc(Page.initials(author))}</span><span class="comment-time" title="${esc(dateTimeText(c.created_at))}">${esc(timeAgo(c.created_at))}${c.updated_at ? " · edited" : ""}</span><div class="comment-actions"><button type="button" class="comment-action" data-act="copy" aria-label="Copy comment">${icon('<rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>')}</button><button type="button" class="comment-action" data-act="edit" aria-label="Edit comment">${icon('<path d="m4 20 4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20Z"/><path d="m14 7 3 3"/>')}</button><button type="button" class="comment-action delete" data-act="delete" aria-label="Delete comment">${icon('<path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5"/>')}</button></div></div><div class="md">${mdBlocks(c.description)}</div></div>`;
+};
+const drawComments = () => {
+  el("commentList").innerHTML = view.comments.length ? view.comments.map(commentMarkup).join("") + (view.after ? '<button type="button" class="comments-older" id="commentsOlder">Show older comments</button>' : "") : '<div class="comments-empty">No comments</div>';
+};
+const commentsOlder = async () => {
+  const requestId = view.requestId;
+  try { const page = await commentsRead(view.row.id, view.after); if (requestId !== view.requestId) return; await usersLoad((page.obj_list || []).map(c => c.created_by_id)); view.comments.push(...(page.obj_list || [])); view.after = page.after; drawComments() }
+  catch (failure) { toast(failText(failure), true) }
+};
+const commentAdd = async () => {
+  const text = el("commentInput").value.trim();
+  if (!text) return;
+  if (!holds(PERMISSION.commentCreate)) return toast(NOT_ALLOWED, true);
+  el("commentSend").disabled = true;
+  try {
+    const [id] = await api("/permission/object-create?table=ticket_comment", { method: "POST", body: JSON.stringify({ ticket_id: view.row.id, description: text }) });
+    users.set(Number(me()), Page.user()?.username || userName(me()));
+    view.comments.unshift({ id, ticket_id: view.row.id, description: text, created_by_id: me(), created_at: new Date().toISOString() });
+    el("commentInput").value = "";
+    fitCommentInput();
+    drawComments();
+    el("commentList").scrollTop = 0;
+  } catch (failure) { toast(failText(failure), true) }
+  finally { el("commentSend").disabled = false }
+};
+// the author through /my (their own rows), anyone's with the permission
+const commentRoute = (c, permission, verb) => holds(permission) ? `/permission/object-${verb}` : String(c.created_by_id) === String(me()) ? `/my/object-${verb}` : "";
+const commentAction = async (act, node) => {
+  const c = view.comments.find(item => item.id === Number(node.dataset.id));
+  if (!c) return;
+  if (act === "copy") return navigator.clipboard.writeText(c.description).then(() => toast("Copied"), () => toast("Couldn't copy", true));
+  if (act === "edit") {
+    if (!commentRoute(c, PERMISSION.commentUpdate, "update")) return toast("Only the comment's author can edit it (or a user granted permission 125)", true);
+    node.querySelector(".md").outerHTML = `<form class="comment-edit"><textarea maxlength="5000" aria-label="Edit comment">${esc(c.description)}</textarea><div><button type="button" data-act="cancel">Cancel</button><button type="submit" class="primary">Save</button></div></form>`;
+    const area = node.querySelector("textarea");
+    area.focus();
+    area.setSelectionRange(area.value.length, area.value.length);
+    return;
+  }
+  if (act === "cancel") return drawComments();
+  if (act === "delete") {
+    const route = commentRoute(c, PERMISSION.commentDelete, "delete");
+    if (!route) return toast("Only the comment's author can delete it (or a user granted permission 126)", true);
+    if (!await Page.confirm("Delete comment?", "This can't be undone.", "Delete", true)) return;
+    try {
+      await api(route === "/my/object-delete" ? route : `${route}?table=ticket_comment`, { method: "POST", body: JSON.stringify(route === "/my/object-delete" ? { table: "ticket_comment", ids: [c.id] } : { ids: [c.id] }) });
+      view.comments = view.comments.filter(item => item.id !== c.id);
+      drawComments();
+      toast("Comment deleted");
+    } catch (failure) { toast(failText(failure), true) }
+  }
+};
+const commentSave = async form => {
+  const node = form.closest(".comment"), c = view.comments.find(item => item.id === Number(node.dataset.id)), text = form.querySelector("textarea").value.trim();
+  if (!c || !text) return;
+  if (text === c.description) return drawComments();
+  const route = commentRoute(c, PERMISSION.commentUpdate, "update");
+  try {
+    await api(`${route}?table=ticket_comment`, { method: "PUT", body: JSON.stringify({ id: c.id, description: text }) });
+    Object.assign(c, { description: text, updated_at: new Date().toISOString() });
+    drawComments();
+    toast("Saved");
+  } catch (failure) { toast(failText(failure), true) }
+};
+const fitCommentInput = () => { const area = el("commentInput"); area.style.height = "auto"; area.style.height = `${Math.min(160, area.scrollHeight + 2)}px` };
+
+/* ==== add a ticket for a customer (a call or an email): /my/object-create, so it shows as logged in, with the customer's contact ==== */
+const options = (column, value) => Object.entries(labels(column)).map(([key, text]) => `<option value="${esc(key)}"${String(value) === key ? " selected" : ""}>${esc(text)}</option>`).join("");
+const addOpen = () => {
+  Page.form({ title: "Add ticket", sub: "For a customer who called or wrote in", ok: "Create",
+    body: `<div class="form-grid"><div class="field wide"><label for="addTitle">Title</label><input id="addTitle" maxlength="200" required></div><div class="field wide"><label for="addDescription">Description</label><textarea id="addDescription" maxlength="10000" placeholder="What the customer needs (Markdown)"></textarea></div><div class="field"><label for="addType">Type</label><select id="addType">${options("type", 1)}</select></div><div class="field"><label for="addPriority">Priority</label><select id="addPriority">${options("priority", 2)}</select></div><div class="field wide"><label for="addName">Customer name</label><input id="addName" maxlength="120"></div><div class="field"><label for="addEmail">Email</label><input id="addEmail" type="email" maxlength="254"></div><div class="field"><label for="addMobile">Mobile</label><input id="addMobile" type="tel" maxlength="20"></div></div>`,
+    submit: async () => {
+      const value = id => el(id).value.trim() || null, body = { title: value("addTitle"), description: value("addDescription"), type: Number(el("addType").value), priority: Number(el("addPriority").value), name: value("addName"), email: value("addEmail"), mobile: value("addMobile") };
+      if (!body.title) throw new Error("Enter a title");
+      if (body.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) throw new Error("Email must look like name@example.com");
+      const [id] = await api("/my/object-create?table=ticket", { method: "POST", body: JSON.stringify(body) });
+      toast(`Ticket #${id} created`);
+      reload();
+    } });
+  el("atomDialog").classList.add("wide");
 };
 
 /* ==== export: the filtered list or every ticket, up to /info export_limit rows, as CSV ==== */
 const exportOpen = () => {
   const max = read().info?.export_limit || 100000;
-  Page.form({ title: "Export", sub: `CSV · one row per ticket · up to ${max.toLocaleString()} rows`,
+  Page.form({ title: "Export", sub: `CSV · one row per ticket · up to ${max.toLocaleString()} rows`, ok: "Download CSV",
     body: `<label class="check"><input type="checkbox" id="exportFiltered"${filterInUse() ? " checked" : ""}> Use the filters applied on the main page</label><div class="field"><label for="exportRows">Rows</label><input id="exportRows" type="number" min="1" max="${max}" value="${Math.min(5000, max)}"></div><p class="export-note">Newest first.</p>`,
-    ok: "Download CSV",
     submit: async () => {
       const rows = Math.min(max, Math.max(1, Number(el("exportRows").value) || 1));
-      const query = new URLSearchParams({ table: "ticket", order: "id desc", limit: String(rows), filter: JSON.stringify(el("exportFiltered").checked ? filters() : []) });
+      const query = new URLSearchParams({ table: "ticket", order: "id desc", limit: String(rows), filter: JSON.stringify(el("exportFiltered").checked ? filterList() : []) });
       const response = await request(`/permission/object-read-export?${query}`);
-      if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(response.status === 403 ? "You are not allowed to do this. Ask an admin for access." : body.message || `HTTP ${response.status}`) }
+      if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(response.status === 403 ? NOT_ALLOWED : body.message || `HTTP ${response.status}`) }
       const url = URL.createObjectURL(await response.blob()), link = Object.assign(document.createElement("a"), { href: url, download: "ticket.csv" });
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -867,32 +1342,45 @@ const exportOpen = () => {
     } });
 };
 
-/* ==== wiring ==== */
+/* ==== open: ticket read (120) is the way in; without it the user is logged out with a plain sentence ==== */
+const allowed = () => { if (holds(PERMISSION.read)) return true; Page.logOut("Tickets access is unavailable."); return false };
 let wired = false;
 const pageOpen = () => {
+  if (!allowed()) return;
   el("appView").hidden = false;
   if (!wired) {
     wired = true;
+    boardEvents();
     el("searchForm").addEventListener("submit", e => { e.preventDefault(); reload() });
     el("searchText").addEventListener("input", drawFilterState);
     el("searchField").addEventListener("change", () => { drawFilterState(); if (el("searchText").value.trim()) reload() });
     el("searchClear").addEventListener("click", () => { el("searchText").value = ""; reload(); el("searchText").focus() });
-    el("typeFilter").addEventListener("change", reload);
-    el("statusFilter").addEventListener("change", reload);
-    el("clearBtn").addEventListener("click", () => { el("typeFilter").value = el("statusFilter").value = el("searchText").value = ""; reload() });
-    el("refreshBtn").addEventListener("click", () => load(state.page));
-    el("prevBtn").addEventListener("click", () => { if (state.page > 0) load(state.page - 1) });
-    el("nextBtn").addEventListener("click", () => { if (state.after[state.page + 1]) load(state.page + 1) });
+    for (const id of ["statusFilter", "priorityFilter", "typeFilter", "sourceFilter", "createdFilter"]) el(id).addEventListener("change", reload);
+    el("clearBtn").addEventListener("click", () => { for (const id of ["statusFilter", "priorityFilter", "typeFilter", "sourceFilter", "createdFilter", "searchText"]) el(id).value = ""; el("searchField").value = "title"; reload() });
+    el("refreshBtn").addEventListener("click", reload);
+    el("kanbanBtn").addEventListener("click", () => layoutSet("kanban"));
+    el("tableBtn").addEventListener("click", () => layoutSet("table"));
+    el("prevBtn").addEventListener("click", () => { if (state.table.page > 0) tableLoad(state.table.page - 1) });
+    el("nextBtn").addEventListener("click", () => { if (state.table.afters[state.table.page + 1]) tableLoad(state.table.page + 1) });
+    el("addBtn").addEventListener("click", addOpen);
     el("exportBtn").addEventListener("click", exportOpen);
-    el("homeLink").addEventListener("click", e => { if (e.metaKey || e.ctrlKey) return; e.preventDefault(); el("typeFilter").value = el("statusFilter").value = el("searchText").value = ""; reload() });
-    el("rows").addEventListener("click", e => { const row = rowsById.get(Number(e.target.closest("tr[data-id]")?.dataset.id)); if (row) ticketOpen(row) });
-    el("rows").addEventListener("keydown", e => { if (e.key !== "Enter") return; const row = rowsById.get(Number(e.target.closest("tr[data-id]")?.dataset.id)); if (row) ticketOpen(row) });
+    el("homeLink").addEventListener("click", e => { if (e.metaKey || e.ctrlKey) return; e.preventDefault(); el("clearBtn").click() });
+    el("viewClose").addEventListener("click", () => el("viewDialog").close());
+    el("viewReload").addEventListener("click", () => viewOpen(view.row.id));
+    el("viewDelete").addEventListener("click", viewDelete);
+    el("viewCopy").addEventListener("click", () => navigator.clipboard.writeText(String(view.row.id)).then(() => toast("Copied"), () => toast("Couldn't copy", true)));
+    el("facts").addEventListener("change", e => { if (e.target.matches("select[data-column]")) viewChoice(e.target) });
+    el("commentForm").addEventListener("submit", e => { e.preventDefault(); commentAdd() });
+    el("commentInput").addEventListener("input", fitCommentInput);
+    el("commentInput").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); commentAdd() } });
+    el("commentList").addEventListener("click", e => { if (e.target.closest("#commentsOlder")) return commentsOlder(); const button = e.target.closest("[data-act]"), node = e.target.closest(".comment[data-id]"); if (button && node) commentAction(button.dataset.act, node) });
+    el("commentList").addEventListener("submit", e => { e.preventDefault(); commentSave(e.target) });
     el("atomDialog").addEventListener("close", () => el("atomDialog").classList.remove("wide"));
   }
   drawFilters();
   reload();
 };
-PAGE.onSynced = () => { if (Page.loggedIn()) drawFilters() };    // labels arrive with /info
+PAGE.onSynced = () => { if (Page.loggedIn() && wired && allowed()) { drawFilters(); reload() } };    // labels arrive with /info, so the open view is drawn again; a permission taken away closes the page at the next Sync
 Page.start();
 </script>
 </body>

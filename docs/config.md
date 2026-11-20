@@ -286,7 +286,7 @@ The `/permission/*` routes' settings, together as `config_permission_*` (the rou
 
 | Key | Description |
 |---|---|
-| `config_permission_table` | The tables the `/permission/object-*` routes reach and the permission id each action needs: `{table: {"create"|"read"|"update"|"delete": id}}`; Atom's `{"ticket": {"read": 120, "update": 121, "delete": 122}}`. A missing table or action is refused; every id labelled in `config_column_int_mapping["users"]["permissions"]`, used once and by no route; never `users` |
+| `config_permission_table` | The tables the `/permission/object-*` routes reach and the permission id each action needs: `{table: {"create"|"read"|"update"|"delete": id}}`; Atom's `ticket` (read 120, update 121, delete 122) and `ticket_comment` (create 123, read 124, update 125, delete 126). A missing table or action is refused; every id labelled in `config_column_int_mapping["users"]["permissions"]`, used once and by no route; never `users` |
 | `config_permission_user_roles` | Roles the `/permission` user routes may act on (default `[]`: none): the role `/permission/user-create` may give, and the role of the user `/permission/user-update` may change. Roles from 2 only; startup refuses role 1. Renamed from `config_permission_user_create_roles` in 14.0.0 |
 | `config_permission_user_column_blocked` | `users` columns `/permission/user-update` refuses (`role`, `permissions`, the login ones `username`, `email`, `mobile`, ...); every other column, `password` and `deactivated_at` included, may change. Startup refuses a list without `role` and `permissions` |
 

@@ -94,8 +94,8 @@ class HttpRouteTests(unittest.TestCase):
                 self.assertEqual((user.status_code, user.json()["message"]), (403, expected))
 
     def test_permission_routes_root_holds_them_others_need_a_grant(self):
-        # root gets every /admin and /permission permission id at startup (61, 62, 86) and every config_permission_table id (ticket 120-122); other users are granted explicitly
-        self.assertEqual(fetch(self.url, "SELECT permissions FROM users WHERE id = 1"), [{"permissions": [61, 62, 86, 120, 121, 122]}])
+        # root gets every /admin and /permission permission id at startup (61, 62, 86) and every config_permission_table id (ticket 120-122, ticket_comment 123-126); other users are granted explicitly
+        self.assertEqual(fetch(self.url, "SELECT permissions FROM users WHERE id = 1"), [{"permissions": [61, 62, 86, 120, 121, 122, 123, 124, 125, 126]}])
         self.message(self.client.post("/admin/user-create", json={"role": 1, "username": "admin2", "password": "admin2-pass"}, headers=self.auth(self.admin)))
         admin2 = app_login(self.client, path="/auth/login-username-password", body={"username": "admin2", "password": "admin2-pass"})
         self.assertEqual(self.message(self.client.post("/admin/postgres-query-runner-write", json={"sql": "SELECT 1"}, headers=self.auth(admin2)), 403), "permission denied")
@@ -200,15 +200,23 @@ class HttpRouteTests(unittest.TestCase):
             self.assertEqual(self.message(self.client.post("/permission/object-delete", params={"table": "test"}, json={"ids": [row_id]}, headers=self.auth(bob)), 403), "delete not allowed for table: test")
             self.assertEqual(self.message(update(bob)), [row_id])
             self.assertEqual(fetch(self.url, "SELECT title, created_by_id, updated_by_id FROM test WHERE id = $1", row_id), [{"title": "by bob", "created_by_id": self.alice_id, "updated_by_id": self.bob_id}])
-            # root holds every config_permission_table id from startup: ticket read, update, delete
-            ticket = {"title": "Login fails", "type": 3, "email": "x@y.test"}
+            # root holds every config_permission_table id from startup: the support team's ticket flow
+            ticket = {"title": "Login fails", "type": 3, "name": "Asha", "email": "x@y.test", "mobile": "+91 98765 43210"}
             [ticket_id] = self.message(self.client.post("/public/object-create", params={"table": "ticket"}, json=ticket))
-            self.assertEqual(fetch(self.url, "SELECT created_by_id, status FROM ticket WHERE id = $1", ticket_id), [{"created_by_id": None, "status": 1}])
-            rows = self.message(self.client.get("/permission/object-read", params={"table": "ticket", "filter": json.dumps([f"id = {ticket_id}"])}, headers=self.auth(self.admin)))["obj_list"]
-            self.assertEqual([(row["title"], row["status"]) for row in rows], [("Login fails", 1)])
-            self.assertEqual(self.message(self.client.put("/permission/object-update", params={"table": "ticket"}, json={"id": ticket_id, "status": 5}, headers=self.auth(self.admin))), [ticket_id])
+            closed = lambda: fetch(self.url, "SELECT created_by_id, status, priority, closed_at IS NOT NULL AS closed FROM ticket WHERE id = $1", ticket_id)
+            self.assertEqual(closed(), [{"created_by_id": None, "status": 1, "priority": 2, "closed": False}])
+            board = self.message(self.client.get("/permission/object-read", params={"table": "ticket", "group_column": "status", "group_values": "[1,2,3]", "filter": json.dumps([{"email": "ilike,%x@y%"}])}, headers=self.auth(self.admin)))["groups"]
+            self.assertEqual([row["id"] for row in board["1"]["obj_list"]], [ticket_id])
+            self.assertEqual(self.message(self.client.put("/permission/object-update", params={"table": "ticket"}, json={"id": ticket_id, "status": 3}, headers=self.auth(self.admin))), [ticket_id])
+            self.assertEqual(closed()[0]["closed"], True)    # the trigger stamps closed_at, and clears it when reopened
+            self.message(self.client.put("/permission/object-update", params={"table": "ticket"}, json={"id": ticket_id, "status": 2}, headers=self.auth(self.admin)))
+            self.assertEqual(closed()[0]["closed"], False)
+            [comment_id] = self.message(self.client.post("/permission/object-create", params={"table": "ticket_comment"}, json={"ticket_id": ticket_id, "description": "Called the customer"}, headers=self.auth(self.admin)))
+            self.assertEqual(self.message(self.client.post("/my/object-create", params={"table": "ticket_comment"}, json={"ticket_id": ticket_id, "description": "x"}, headers=self.auth(self.alice)), 400), "creation disabled for table: ticket_comment")    # comments only through the permission
+            self.assertEqual([row["id"] for row in self.message(self.client.get("/permission/object-read", params={"table": "ticket_comment", "filter": json.dumps([f"ticket_id = {ticket_id}"])}, headers=self.auth(self.admin)))["obj_list"]], [comment_id])
             self.assertIn("Login fails", self.client.get("/permission/object-read-export", params={"table": "ticket"}, headers=self.auth(self.admin)).text)
             self.assertEqual(self.message(self.client.post("/permission/object-delete", params={"table": "ticket"}, json={"ids": [ticket_id]}, headers=self.auth(self.admin))), "1 ids deleted")
+            self.assertEqual(fetch(self.url, "SELECT count(*) FROM ticket_comment WHERE ticket_id = $1", ticket_id), [{"count": 0}])    # its comments go with it
             self.assertEqual(self.message(self.client.post("/permission/object-create", params={"table": "ticket"}, json={"title": "x"}, headers=self.auth(self.admin)), 403), "create not allowed for table: ticket")
         finally:
             self.app.state.config_permission_table = {key: value for key, value in self.app.state.config_permission_table.items() if key != "test"}

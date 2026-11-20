@@ -108,7 +108,7 @@ Atom's pages that log in (Analytics, Monitor, API, Message, Tickets) are built t
 | Monitor | `key: "monitor", role: 1, loginRequired: true, idb: false` | none (every tab reads live) |
 | API | `key: "api", role: null, loginRequired: false, idb: true` | `openapi`: `/openapi.json` (logged out, a copy over 3 hours old is downloaded again on open) |
 | Message | `key: "message", role: null, loginRequired: true, idb: false` | none (messages are live) |
-| Tickets | `key: "ticket", role: null, loginRequired: true, idb: false` | none (the list is live; light by default, the apps' navy palette) |
+| Tickets | `key: "ticket", role: null, loginRequired: true, idb: false` | none (the board and the table are live; light by default, the apps' navy palette; ticket read 120 opens it) |
 
 ## Login
 The account block does this; it is the default for a project's pages too.

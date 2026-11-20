@@ -31,7 +31,7 @@ A request passes these gates, in order, before the route runs. Role and permissi
 The `/permission/object-*` routes change or read anyone's rows of a table for selected users. One map in `config.py` says which tables they reach and which id each action needs:
 
 ```python
-config_permission_table = {"ticket": {"read": 120, "update": 121, "delete": 122}}
+config_permission_table = {"ticket": {"read": 120, "update": 121, "delete": 122}, "ticket_comment": {"create": 123, "read": 124, "update": 125, "delete": 126}}
 ```
 
 | Route | Action | Body / query |
@@ -85,13 +85,13 @@ Which tier for which need: own rows only `/my/object-*` (no grant); every logged
 "/permission/user-create": {"id": 61, "auth": ["jwt"], "user_check_permission": {"mode": "token"}, "rate_limit": {...}},
 "/permission/user-update": {"id": 62, "auth": ["jwt"], "user_check_permission": {"mode": "token"}, "rate_limit": {...}},
 
-config_column_int_mapping = {"users": {"role": {1: "Admin"}, "permissions": {61: "Create user", 62: "Update user", 86: "Postgres query runner write", 120: "Ticket read", 121: "Ticket update", 122: "Ticket delete"}}, ...}
+config_column_int_mapping = {"users": {"role": {1: "Admin"}, "permissions": {61: "Create user", 62: "Update user", 86: "Postgres query runner write", 120: "Ticket read", 121: "Ticket update", 122: "Ticket delete", 123: "Ticket comment create", 124: "Ticket comment read", 125: "Ticket comment update", 126: "Ticket comment delete"}}, ...}
 ```
 
 | Id | Checks | Who may call it |
 |---|---|---|
 | 86, raw SQL writes | role 1 + permission | admins granted 86; a role 2 user granted 86 is still refused by the role |
-| 120, 121, 122: `ticket` read, update, delete on `/permission/object-*` | permission only | users granted it, any role (a support team) |
+| 120, 121, 122: `ticket` read, update, delete; 123–126: `ticket_comment` create, read, update, delete (anyone's) on `/permission/object-*` | permission only | users granted it, any role (a support team); 120 also opens the Tickets page |
 | 61, 62: `/permission/user-create`, `/permission/user-update` | permission only | users granted it, any role; only users of roles in `config_permission_user_roles` (default none, never 1) |
 
 Root (id 1) holds exactly these at every startup: every `/admin/*` and `/permission/*` route id with a permission check (86, 61, 62 and a project's) and every `config_permission_table` id (Atom's and a project's). So root can use every admin and permission flow, the Tickets page included, and keeps nothing stale (an id that left goes at the next start). A project's other permission routes (outside `/admin` and `/permission`) are for other users, granted explicitly; root never holds them (a restart removes one granted by hand).

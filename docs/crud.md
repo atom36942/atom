@@ -434,9 +434,19 @@ config_permission_table = {**base_config_permission_table, "task": {"update": 21
 curl -X PUT "$BASE_URL/admin/user-update" -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" -d '{"id": 4, "permissions": [211, 212]}'
 ```
 
-### Tickets: the support table every project has
+### Tickets: a small support desk in every project
 
-Atom's `ticket` table (`type`: 1 Support, 2 Feedback, 3 Bug; `status`: 1 To Do, 2 In Progress, 3 Blocked, 4 Review, 5 Done; `title`, `description`, `email`, `reply`) takes tickets from any page: `POST /my/object-create?table=ticket` (logged in, `created_by_id` stamped) or `POST /public/object-create?table=ticket` (no login, `email` to answer; rate limited). The support team works them on Atom's page `/page/ticket` (any role; read 120, update 121, delete 122: status, reply, delete, CSV export); root holds all three. A project's form only creates them, from its own page.
+Customers send tickets from a project's own form; a small internal team works them on Atom's page `/page/ticket`. No project code beyond the form.
+
+| Part | What it is |
+|---|---|
+| `ticket` | `title`, `description` (Markdown), `type` (1 Support, 2 Feedback, 3 Bug), `priority` (1 Low, 2 Normal, 3 High; default 2), `status` (1 Open, 2 In Progress, 3 Closed; default 1), the customer's `name`, `email` and `mobile` (kept on the ticket, never looked up in `users`), `created_by_id` (set when sent logged in, empty from a public form), `closed_at` (a trigger sets it when the status becomes Closed and clears it when reopened) |
+| `ticket_comment` | The team's notes on a ticket: `ticket_id`, `description` (Markdown), `created_by_id`. Deleting a ticket deletes its comments (a trigger) |
+| Sending | Logged in: `POST /my/object-create?table=ticket` (`created_by_id` stamped). Without a login: `POST /public/object-create?table=ticket` (rate limited, 10 a minute per caller). The form sends `title`, `description`, `type`, and `name`, `email` or `mobile` to answer |
+| Working | `/page/ticket`, any role holding ticket read (120); without it the login says "Tickets access is unavailable.". Root holds every ticket id |
+| Grants | `ticket`: 120 read, 121 update (status, priority, type, drag on the board), 122 delete. `ticket_comment`: 123 create, 124 read, 125 edit and 126 delete anyone's comment (an author edits and deletes their own through `/my`; `/my/object-create` refuses `ticket_comment`, so comments come only from the team). A typical agent: `[120, 121, 123, 124]`; a lead adds 122, 125, 126 |
+
+The page, in the apps' look: a board (Open, In Progress, Closed; drag a card to change its status) or a table; filters for status, priority, type, source (logged in or public), created (today to the last 90 days) and a search by title, name, email, mobile or ID; the ticket detail with its facts (status, priority and type changed in place, the contact as mail and call links) and the comments (Markdown, newest first); Add ticket for a customer who called or wrote; CSV export of the filtered list. It keeps working at millions of tickets: the board reads every column's first page in one statement and each column's next pages as it scrolls, the table pages after a cursor, nothing is counted, every filter and search has an index (`btree(status,id)`, `btree(priority,id)`, `btree(type,id)`, `btree(created_at)`, `gin_trgm` on title, name, email and mobile), and comments page by 50 on `btree(ticket_id,id)`.
 
 ---
 
