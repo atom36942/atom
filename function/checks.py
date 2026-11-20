@@ -135,7 +135,7 @@ def func_check_api_config(*, app: FastAPI) -> None:
         column = key.removeprefix("config_api_global_user_check_") + "_at"
         if value == "token" and column not in (getattr(app.state, "config_column_token_encode", None) or []): raise Exception(f"{key} is token: add {column} to config_column_token_encode")
     api_mode_allowed = ("redis", "inmemory")
-    api_keys_allowed = ("id", "is_active", "is_token", "is_connection_param", "user_check_role", "user_check_permission", "user_check_deactivated", "user_check_deleted", "cache", "rate_limit", "api_cache_sec", "api_ratelimiting_times_sec", "is_log_api", "is_api_key")
+    api_keys_allowed = ("id", "is_active", "auth", "is_connection_param", "user_check_role", "user_check_permission", "user_check_deactivated", "user_check_deleted", "cache", "rate_limit", "api_cache_sec", "api_ratelimiting_times_sec", "is_log_api")
     def flag_check(value, key):
         if not isinstance(value, bool): raise Exception(f"invalid {key}: expected bool")
     def int_check(value, key, min_value=0):
@@ -152,6 +152,7 @@ def func_check_api_config(*, app: FastAPI) -> None:
         if not isinstance(path, str) or not path.startswith("/"): raise Exception(f"invalid config_api path: {path}")
         if path not in route_paths: raise Exception(f"unused configuration in config_api: {path} (route not found)")
         if not isinstance(cfg, dict): raise Exception(f"{path} config must be dict")
+        if "is_token" in cfg or "is_api_key" in cfg: raise Exception(f'{path}: is_token and is_api_key were replaced by auth in Atom 17 ("is_token": True -> "auth": ["jwt"], "is_token": False -> "auth": [], "is_api_key": True -> add "api_key" to auth)')
         for key in cfg.keys():
             if key not in api_keys_allowed: raise Exception(f"{path} invalid config key: {key}")
         if "id" not in cfg: raise Exception(f"{path} missing required key: id")
@@ -167,9 +168,9 @@ def func_check_api_config(*, app: FastAPI) -> None:
             continue
         if "is_connection_param" in cfg: flag_check(cfg["is_connection_param"], f"{path} is_connection_param")
         if "is_log_api" in cfg: flag_check(cfg["is_log_api"], f"{path} is_log_api")
-        if "is_api_key" in cfg: flag_check(cfg["is_api_key"], f"{path} is_api_key")
-        if "is_token" not in cfg: raise Exception(f"{path} missing required key: is_token")
-        flag_check(cfg["is_token"], f"{path} is_token")
+        if "auth" not in cfg: raise Exception(f'{path} missing required key: auth ([] public, ["jwt"], ["api_key"] or ["jwt", "api_key"])')
+        auth = cfg["auth"]
+        if not isinstance(auth, (list, tuple)) or len(set(auth)) != len(auth) or any(a not in ("jwt", "api_key") for a in auth): raise Exception(f'{path} invalid auth: {auth!r}, expected a list of "jwt" and/or "api_key" ([] for public)')
         role_val = cfg.get("user_check_role")
         if role_val:
             if isinstance(role_val, dict):
@@ -187,7 +188,7 @@ def func_check_api_config(*, app: FastAPI) -> None:
             if mode == "inmemory": inmemory_list.append(f"{path} user_check_role")
         if path.startswith("/admin/") and not (role_val and 1 in [int(role) for role in roles]): raise Exception(f"{path}: admin routes need user_check_role with role 1 (other roles and a permission may be added)")
         if path.startswith("/permission/") and "user_check_permission" not in cfg: raise Exception(f"{path}: permission routes need user_check_permission (a role may be added)")
-        if cfg["is_token"] is not True and any(cfg.get(key) for key in ("user_check_role", "user_check_permission", "user_check_deactivated", "user_check_deleted")): raise Exception(f"{path}: a role, permission, deactivated or deleted check needs is_token True")
+        if not auth and any(cfg.get(key) for key in ("user_check_role", "user_check_permission", "user_check_deactivated", "user_check_deleted")): raise Exception(f"{path}: a role, permission, deactivated or deleted check needs a credential (a non-empty auth)")
         if "user_check_permission" in cfg:
             permission_val = cfg["user_check_permission"]
             if not isinstance(permission_val, dict) or set(permission_val) != {"mode"}: raise Exception(f"{path} invalid user_check_permission: expected {{\"mode\": \"token\"}} or realtime")

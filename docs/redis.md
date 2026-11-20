@@ -65,7 +65,7 @@ Only configure clients that the application uses. A missing URL leaves its clien
 ```python
 "/private/example": {
     "id": 101,
-    "is_token": True,
+    "auth": ["jwt"],
     "user_check_role": {"mode": "redis", "roles": [2]},
     "user_check_deactivated": {"mode": "redis"},
     "user_check_deleted": {"mode": "redis"},
@@ -89,7 +89,7 @@ This mode reduces Postgres reads but permits values to remain stale until the TT
 ```python
 "/public/example": {
     "id": 102,
-    "is_token": False,
+    "auth": [],
     "cache": {"mode": "redis", "ttl_sec": 300, "is_per_user": False},
 },
 ```
@@ -113,7 +113,7 @@ Enable distributed rate limiting for a route with:
 ```python
 "/public/example": {
     "id": 103,
-    "is_token": False,
+    "auth": [],
     "rate_limit": {"mode": "redis", "limit": 100, "window_sec": 60},
 },
 ```

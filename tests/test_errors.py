@@ -13,7 +13,7 @@ from function import func_middleware_api_response_error
 from function import func_middleware_check_active
 from function import func_middleware_check_ratelimiter
 from function import func_middleware_check_role
-from function import func_middleware_check_token
+from function import func_middleware_check_auth
 from function import func_middleware_check_user_deactivated
 from function import func_auth_check_signup_role
 from function import func_token_decode
@@ -64,8 +64,8 @@ class ErrorStatusTests(unittest.IsolatedAsyncioTestCase):
         limiter = {"cache_ratelimiter": {}, "client_redis": None, "url_path": "/x", "identifier": "7"}
         for label, coro, expected in [
             ("disabled endpoint", lambda: func_middleware_check_active(is_active=False), 404),
-            ("missing token", lambda: func_middleware_check_token(user_dict={}, url_path="/my/x", is_token=True), 401),
-            ("refresh token on access route", lambda: func_middleware_check_token(user_dict={"_token_type": "refresh"}, url_path="/my/x", is_token=True), 401),
+            ("missing credential", lambda: func_middleware_check_auth(user_dict={}, url_path="/my/x", auth=["jwt"]), 401),
+            ("refresh token on access route", lambda: func_middleware_check_auth(user_dict={"_token_type": "refresh"}, url_path="/my/x", auth=["jwt"]), 401),
             ("wrong role", lambda: func_middleware_check_role(user_dict={"id": 7, "role": 9}, user_check_role={"mode": "token", "roles": [1]}, **role), 403),
             ("role claim not in token", lambda: func_middleware_check_role(user_dict={"id": 7}, user_check_role={"mode": "token", "roles": [1]}, **role), 500),
             ("deactivated user", lambda: func_middleware_check_user_deactivated(user_dict={"id": 7, "deactivated_at": "2026-01-01"}, user_check_deactivated={"mode": "token"}, **user_state), 403),

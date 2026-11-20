@@ -190,7 +190,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_is_otp_require_users_update` | `/admin/user-update` needs `otp` for `email`/`mobile` (default `False`); `/my/user-update` always does |
 | `config_is_read_only` | Boolean system-wide read-only mode toggle |
 | `config_is_tmp_reset` | Wipe `tmp/` at app start (default: `False`); features and scripts delete their own `tmp/<feature>/` files |
-| `config_api_global_user_check_deleted`, `config_api_global_user_check_deactivated` | The deleted and deactivated check on every token route, as a mode: `"token"` (default: no query; reads `deleted_at`/`deactivated_at` from the token, so it blocks tokens issued while the user was already deleted or deactivated), `"realtime"` (one `users` lookup per request, shared with the role check: blocks at once), `"redis"`, `"inmemory"`, or `None` (only routes that set `user_check_deleted`/`user_check_deactivated` in `config_api`). A route's own key wins. Login and `/my/token-refresh` always refuse a deleted or deactivated user, so with `"token"` a user is cut off when their access token expires (`config_access_token_expires_sec`) |
+| `config_api_global_user_check_deleted`, `config_api_global_user_check_deactivated` | The deleted and deactivated check on every route with a credential, as a mode: `"token"` (default: no query; reads `deleted_at`/`deactivated_at` from the token, so it blocks tokens issued while the user was already deleted or deactivated), `"realtime"` (one `users` lookup per request, shared with the role check: blocks at once), `"redis"`, `"inmemory"`, or `None` (only routes that set `user_check_deleted`/`user_check_deactivated` in `config_api`). A route's own key wins. Login and `/my/token-refresh` always refuse a deleted or deactivated user, so with `"token"` a user is cut off when their access token expires (`config_access_token_expires_sec`) |
 | `config_profile_metadata_sql` | Extra lists in `GET /my/profile`, under `metadata`: `{"name": "SELECT ... WHERE user_id = $1"}`, each query run with the user's id (default `{}`) |
 | `config_is_profile_update_last_active_at` | `GET /my/profile` also sets the user's `last_active_at` in the background without delaying the response, always on the master database even when `?connection=` reads the profile from a replica (default: `True`; skipped when `config_is_read_only`); written at most once per 5 minutes per user (within them, the profile row it just read shows it is recent, so no query is sent), and never changes `updated_at` |
 | `config_is_pgweb_enabled` | Enable the PgWeb SQL console at `/pgweb` (default: `False`). Turn on only on a developer machine; even then it accepts only direct localhost requests from its own page |
@@ -230,7 +230,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_access_token_expires_sec` | JWT Access Token lifetime in seconds |
 | `config_refresh_token_expires_sec` | JWT Refresh Token lifetime in seconds |
 | `config_api_key_max` | API keys one user may hold (`20`) ([auth.md](auth.md#7-api-keys-machine-access)) |
-| `config_api_key_cache_sec` | Seconds a resolved API key is reused per worker before it is read again (`60`), in the same cache as tokens (`config_token_cache_max`); a deleted key keeps working on other workers for at most this long. `0` reads the database on every request |
+| `config_api_key_cache_sec` | Seconds a resolved API key is reused per worker before it is read again (`60`), in the same cache as tokens (`config_token_cache_max`); a deleted key keeps working for at most this long. `0` reads the database on every request |
 | `config_cache_row_limit_config` | Rows of the `config` table (key → value) loaded into `cache_config` at startup and by `/admin/sync` (`1000`); `0` = not loaded |
 | `config_cache_row_limit_users_role`, `config_cache_row_limit_users_deactivated`, `config_cache_row_limit_users_deleted` | Users (lowest ids first) whose role, `deactivated_at` and `deleted_at` are loaded at startup and by `/admin/sync` for the `inmemory` user checks (`10000` each, about 1 MB in all); a user not loaded is read from the database. `0` = not loaded (a project that never uses `inmemory` checks can turn them off). Set them in `.env` like any number |
 | `config_token_cache_max` | Verified tokens cached per worker (`10000`, about 1 KB each); `0` turns the cache off. A token is fully verified on first use, then reused until its own `exp`; the key is the whole signed token, so an edited token is verified again. Expired entries are swept every `config_inmemory_cache_cleanup_auto_sec`; when full, the oldest entry is dropped |
@@ -303,7 +303,7 @@ The `/permission/*` routes' settings, together as `config_permission_*` (the rou
 | `config_column_audit_blocked` | Audit columns no request may set on any table, admin's included (default `created_at`, `created_by_id`, `updated_at`, `updated_by_id`, `deleted_at`, `deleted_by_id`): Atom sets them; admin create, update and CSV import refuse them |
 | `config_column_users_blocked` | `users` columns neither `/my/user-update` nor `/admin/user-update` may change (`created_*`, `updated_*`, `deleted_*`, `is_protected`, `last_active_at`); a project adds its own (e.g. a column only a script sets) |
 | `config_column_users_my_blocked` | `users` columns only `/admin/user-update` may change; `/my/user-update` refuses them (`role`, `permissions`, `deactivated_at`, ...) |
-| `config_column_read_blocked` | Sensitive columns blocked and stripped from read responses and relations (`password`) |
+| `config_column_read_blocked` | Sensitive columns blocked and stripped from read responses and relations (`password`, `key_hash`) |
 | `config_column_private_read_blocked` | Per table, the columns `/private/*` reads may not select, filter, sort or group by, on top of `config_column_read_blocked` (Atom: `script_run`'s `started_by`, `host`, `step`, `message`, `peak_memory_mb`, so any user may read the run list but not the server details); extend it in `config_extend.py` (`{**base, "invoice": ["cost"]}`) |
 | `config_column_users_private_read` | The only `users` columns `/private/user-read` returns, filters and sorts on (`id`, `username`, `name`, `role`, `permissions`, `created_at`, `deactivated_at`); readable by every logged-in user, checked at startup |
 
@@ -338,7 +338,7 @@ Keys are route paths as declared. A route with path parameters (`/page/{name}`) 
 |---|---|---|
 | `id` | `int` | Unique numeric identifier for the endpoint |
 | `is_active` | `bool` | Toggles endpoint availability (`False` disables the endpoint via middleware) |
-| `is_token` | `bool` | `True` requires a valid JWT access token; `False` allows public unauthenticated access |
+| `auth` | `list` | Required. The credentials the route accepts: `[]` public, `["jwt"]` a JWT access token, `["api_key"]` an API key, `["jwt", "api_key"]` either; both are sent as `Authorization: Bearer` ([auth.md](auth.md#7-api-keys-machine-access)) |
 | `is_connection_param` | `bool` | `True` lets `?connection=<name>` pick the database for this route (default master; unknown name is 404). Without it the route always uses master and `?connection=` is 400 |
 | `is_log_api` | `bool` | `False` keeps this route's requests out of `log_api` (default `True`). Atom sets it for `/pgweb` (every click would add a row) and the health checks (probed every few seconds). |
 | `user_check_role` | `{"mode": "...", "roles": [...]}` | Restricts access to users with listed role numbers |
@@ -346,7 +346,7 @@ Keys are route paths as declared. A route with path parameters (`/page/{name}`) 
 | `user_check_deactivated` | `{"mode": "..."}` | Blocks request if user has `deactivated_at` timestamp set |
 | `user_check_deleted` | `{"mode": "..."}` | Blocks request if user has `deleted_at` timestamp set |
 
-Every token route (`is_token` or `user_check_role`) gets `user_check_deleted` and `user_check_deactivated` from `config_api_global_user_check_deleted` and `config_api_global_user_check_deactivated` unless it sets its own (its own value wins, `None` included).
+Every route with a credential (a non-empty `auth`) gets `user_check_deleted` and `user_check_deactivated` from `config_api_global_user_check_deleted` and `config_api_global_user_check_deactivated` unless it sets its own (its own value wins, `None` included).
 | `rate_limit` | `{"mode": "...", "limit": N, "window_sec": S}` | Limits requests to `limit` per `window_sec` seconds |
 | `cache` | `{"mode": "...", "ttl_sec": S, "is_per_user": bool}` | Caches responses for `ttl_sec` seconds (`is_per_user: True` isolates entries per user) |
 

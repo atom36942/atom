@@ -79,7 +79,7 @@ class HttpIntegrationTests(unittest.TestCase):
         self.assertEqual(response.headers["x-frame-options"], "DENY")
 
     def test_missing_or_invalid_token_is_401(self):
-        for headers, message in [({}, "authorization token missing"), (self.auth("not-a-jwt"), "authentication token malformed")]:
+        for headers, message in [({}, "authorization missing"), (self.auth("not-a-jwt"), "authentication token malformed")]:
             with self.subTest(message=message):
                 response = self.client.get("/my/profile", headers=headers)
                 self.assertEqual((response.status_code, response.json()), (401, {"status": 0, "message": message}))
@@ -197,7 +197,7 @@ class HttpIntegrationTests(unittest.TestCase):
             yield "id\n1\n"
             raise RuntimeError("export failed midway")
         self.app.add_api_route("/test-stream-error", lambda: StreamingResponse(rows(), media_type="text/csv"))
-        self.app.state.config_api["/test-stream-error"] = {"id": 9001, "is_token": False}    # only config_api routes are logged
+        self.app.state.config_api["/test-stream-error"] = {"id": 9001, "auth": []}    # only config_api routes are logged
         response = self.client.get("/test-stream-error")
         self.assertEqual(response.status_code, 200)    # the started CSV response stands; no JSON error is sent after it
         self.assertNotIn("export failed", response.text)
@@ -287,9 +287,9 @@ class HttpIntegrationTests(unittest.TestCase):
         self.app.add_api_route("/test-detail-json", echo, methods=["POST"])
         self.app.add_api_route("/test-detail-csv", lambda: PlainTextResponse("id\n1\n", media_type="text/csv"))
         self.app.add_api_route("/test-detail-xml", lambda: PlainTextResponse("<Ack><Token>t</Token><Id>7</Id></Ack>", media_type="application/xml"))
-        self.app.state.config_api["/test-detail-json"] = {"id": 9002, "is_token": False}
-        self.app.state.config_api["/test-detail-csv"] = {"id": 9003, "is_token": False}
-        self.app.state.config_api["/test-detail-xml"] = {"id": 9004, "is_token": False}
+        self.app.state.config_api["/test-detail-json"] = {"id": 9002, "auth": []}
+        self.app.state.config_api["/test-detail-csv"] = {"id": 9003, "auth": []}
+        self.app.state.config_api["/test-detail-xml"] = {"id": 9004, "auth": []}
         self.app.state.config_is_log_api_detail, self.app.state.config_is_log_api_detail_mask = True, True
         try:
             self.client.post("/test-detail-json", params={"note": "a=1", "token": "q"}, json={"password": "secret-1"}, headers={"X-Api-Key": "abc", "x-request-id": "detail-json-0001"})

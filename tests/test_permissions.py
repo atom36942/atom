@@ -65,11 +65,11 @@ class PermissionTests(unittest.IsolatedAsyncioTestCase):
         for path, endpoint in found.items():
             self.assertIn("func_check_table_write_blocked", inspect.getsource(endpoint), path)
 
-    def test_global_user_checks_fill_every_token_route_unless_it_sets_its_own(self):
-        config_api = {"/public": {"id": 1, "is_token": False}, "/my/x": {"id": 2, "is_token": True}, "/admin/x": {"id": 3, "is_token": False, "user_check_role": {"mode": "token", "roles": [1]}},
-                      "/my/own": {"id": 4, "is_token": True, "user_check_deleted": {"mode": "realtime"}}, "/my/off": {"id": 5, "is_token": True, "user_check_deactivated": None}}
+    def test_global_user_checks_fill_every_route_with_a_credential_unless_it_sets_its_own(self):
+        config_api = {"/public": {"id": 1, "auth": []}, "/my/x": {"id": 2, "auth": ["jwt"]}, "/admin/x": {"id": 3, "auth": ["jwt"], "user_check_role": {"mode": "token", "roles": [1]}},
+                      "/my/own": {"id": 4, "auth": ["jwt"], "user_check_deleted": {"mode": "realtime"}}, "/my/off": {"id": 5, "auth": ["jwt"], "user_check_deactivated": None}}
         filled = func_middleware_api_user_check_fill(config_api=config_api, config_api_global_user_check_deleted="token", config_api_global_user_check_deactivated="token")
-        self.assertEqual(filled["/public"], {"id": 1, "is_token": False})
+        self.assertEqual(filled["/public"], {"id": 1, "auth": []})
         for path in ("/my/x", "/admin/x"):
             self.assertEqual((filled[path]["user_check_deleted"], filled[path]["user_check_deactivated"]), ({"mode": "token"}, {"mode": "token"}), path)
         self.assertEqual(filled["/my/own"]["user_check_deleted"], {"mode": "realtime"})
@@ -86,7 +86,7 @@ class PermissionTests(unittest.IsolatedAsyncioTestCase):
     def test_atom_tables_nobody_edits_are_in_the_defaults(self):
         import config
         self.assertTrue({"log_api", "log_users_password", "log_users_delete", "script_run", "otp"} <= set(config.config_table_write_blocked))
-        self.assertEqual(config.config_postgres["control"]["table_row_update_disable"], ["log_api", "log_users_password"])
+        self.assertEqual(config.config_postgres["control"]["table_row_update_disable"], ["log_api", "log_users_password", "api_key"])
 
     def test_generic_object_apis_refuse_the_users_table(self):
         func_check_table_not_users(table="orders")
@@ -141,8 +141,8 @@ class PermissionTests(unittest.IsolatedAsyncioTestCase):
                 await func_middleware_check_permission(user_dict=user, user_check_permission=check, api_id=205)
             self.assertEqual(caught.exception.status_code, status)
 
-    def test_permission_route_counts_as_a_token_route(self):
-        filled = func_middleware_api_user_check_fill(config_api={"/x": {"id": 205, "user_check_permission": {"mode": "token"}}}, config_api_global_user_check_deleted="token", config_api_global_user_check_deactivated="token")
+    def test_api_key_route_gets_the_global_checks_too(self):
+        filled = func_middleware_api_user_check_fill(config_api={"/x": {"id": 205, "auth": ["api_key"]}}, config_api_global_user_check_deleted="token", config_api_global_user_check_deactivated="token")
         self.assertEqual(filled["/x"]["user_check_deleted"], {"mode": "token"})
 
     async def test_email_update_verifies_the_otp_sent_to_the_new_email(self):
@@ -192,7 +192,7 @@ class PermissionTests(unittest.IsolatedAsyncioTestCase):
         args = dict(user_check_role={"mode": "token", "roles": [5]}, client_postgres=None,
                     client_redis=None, cache_users_role={}, config_redis_cache_ttl_sec=60)
         await func_middleware_check_role(user_dict={"id": 7, "role": 5}, **args)
-        for user, message in [({}, "token missing"), ({"id": 7}, "role missing"), ({"id": 7, "role": 9}, "access denied")]:
+        for user, message in [({}, "authorization missing"), ({"id": 7}, "role missing"), ({"id": 7, "role": 9}, "access denied")]:
             with self.subTest(user=user), self.assertRaisesRegex(Exception, message):
                 await func_middleware_check_role(user_dict=user, **args)
 

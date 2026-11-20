@@ -208,13 +208,13 @@ Add the exact route path and enable the checks you need:
 ```python
 config_api["/my/report"] = {
     "id": 210,
-    "is_token": True,
+    "auth": ["jwt"],
     "user_check_role": {"mode": "token", "roles": [2]},
     "user_check_deactivated": {"mode": "realtime"},
 }
 ```
 
-For an intentionally public route, still register it with `"is_token": False`. Make sure the path exactly matches the registered route, every entry has a unique positive `id`, and protected routes set `"is_token": True`. Then restart the app so startup validation can check the policy. See [config.md](config.md#config_api) and [about.md](about.md).
+For an intentionally public route, still register it with `"auth": []`. Make sure the path exactly matches the registered route, every entry has a unique positive `id`, and protected routes list their credentials (`"auth": ["jwt"]`, `["api_key"]` or both). Then restart the app so startup validation can check the policy. See [config.md](config.md#config_api) and [about.md](about.md).
 
 </details>
 
@@ -227,7 +227,7 @@ Set `"is_active": False` in the route's `config_api` policy (e.g., in `config_ex
 config_api["/admin/postgres-query-runner-write"] = {
     "id": 86,
     "is_active": False,  # <-- Disables this route in production
-    "is_token": True,
+    "auth": ["jwt"],
     "user_check_role": {"mode": "realtime", "roles": [1]},
 }
 ```
@@ -328,7 +328,7 @@ Add `cache` to the route's `config_api` policy. The format is `{"mode": "inmemor
 ```python
 config_api["/public/catalog"] = {
     "id": 211,
-    "is_token": False,
+    "auth": [],
     "cache": {"mode": "inmemory", "ttl_sec": 60, "is_per_user": False},
 }
 ```
@@ -347,7 +347,7 @@ Add `rate_limit` to the route's `config_api` entry. Its format is `{"mode": "inm
 ```python
 config_api["/public/otp-send-email"] = {
     "id": 212,
-    "is_token": False,
+    "auth": [],
     "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60},
 }
 ```
@@ -444,7 +444,7 @@ Commit or back up your work first, then review the Git diff after syncing and ru
 
 Set `deactivated_at` on the user's row instead of deleting it. This preserves the account, ownership relationships, and audit history while marking the user as inactive.
 
-Login and `/my/token-refresh` refuse the user at once. Every token route checks it with `config_api_global_user_check_deactivated` (default `"token"`: the user's current token keeps working until it expires); set it to `"realtime"`, or set `user_check_deactivated` on a sensitive route, to block at once.
+Login and `/my/token-refresh` refuse the user at once. Every route with a credential checks it with `config_api_global_user_check_deactivated` (default `"token"`: the user's current token keeps working until it expires); set it to `"realtime"`, or set `user_check_deactivated` on a sensitive route, to block at once.
 
 To restore access, clear `deactivated_at` and refresh the relevant caches with `GET /admin/sync` if necessary.
 
@@ -648,7 +648,7 @@ Keep project-specific changes outside framework-managed files:
 - Add endpoints in a new `router_extend/<name>.py` containing an `APIRouter`.
 - Add standalone consumers and jobs under `script_extend/`.
 
-Register every custom route in `config_api`; use `"is_token": False` for an intentionally public route, then add role checks, caching, or rate limiting as needed. `sync.py` overwrites core files and the shipped documentation, but preserves `*_extend/` folders, `config_extend.py`, and `.env`.
+Register every custom route in `config_api`; use `"auth": []` for an intentionally public route, then add role checks, caching, or rate limiting as needed. `sync.py` overwrites core files and the shipped documentation, but preserves `*_extend/` folders, `config_extend.py`, and `.env`.
 
 If you are fixing Atom itself for everyone, edit the core source and submit a pull request instead. See [extend.md](extend.md).
 

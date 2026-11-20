@@ -18,7 +18,7 @@ class HomePageTests(unittest.TestCase):
     def test_the_route_the_page_calls_exists_and_is_public(self):
         self.assertIn('fetch("/static-pages")', PAGE)
         self.assertIn('@router.get("/static-pages")', (ROOT / "router" / "index.py").read_text())
-        self.assertRegex((ROOT / "config.py").read_text(), r'"/static-pages": \{"id": \d+, "is_token": False')
+        self.assertRegex((ROOT / "config.py").read_text(), r'"/static-pages": \{"id": \d+, "auth": \[\]')
 
     def test_every_element_the_script_looks_up_exists(self):
         used = set(re.findall(r'getElementById\("([\w-]+)"\)', PAGE))

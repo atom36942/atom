@@ -64,7 +64,7 @@ SHUTDOWN → stop background tasks → final buffer flush → close every client
 ```
 
 ### Startup Sequence:
-1. **Validation (`func_check`)**: Validates that `config_api` is well-formed: every entry uses allowed keys (`id`, `is_token`, `is_api_key`, `is_connection_param`, `user_check_*`, `cache`, `rate_limit`), flags are booleans, check modes are valid (`redis` / `realtime` / `inmemory` / `token`). Misconfiguration causes fast-fail.
+1. **Validation (`func_check`)**: Validates that `config_api` is well-formed: every entry uses allowed keys (`id`, `auth`, `is_connection_param`, `user_check_*`, `cache`, `rate_limit`), flags are booleans, check modes are valid (`redis` / `realtime` / `inmemory` / `token`). Misconfiguration causes fast-fail.
 2. **Filesystem Prep**: Ensures `tmp/` and `secret/` exist in the project folder (where `main.py` is; `venv/bin/python main.py` switches there first, so starting it from another folder changes nothing); wipes `tmp/` first only when `config_is_tmp_reset` is true (default false).
 3. **Client Initialization**: Initializes clients conditionally based on `.env` settings:
    - `client_password_hasher`: Argon2 password hasher.
@@ -99,9 +99,9 @@ Request
   ├── 1. Initialize request timer & state (request.state.user = {})
   ├── 2. Look up route policy in config_api (or default public)
   ├── 3. Active Check (reject if is_active=False)
-  ├── 4. Decode JWT Token (func_token_decode -> request.state.user), else an API key (func_api_key_decode: Authorization: ApiKey, owner looked up and cached)
+  ├── 4. Read the credential (Authorization: Bearer): a JWT (func_token_decode) or an atk_ API key (func_api_key_decode: owner looked up and cached) -> request.state.user
   ├── 5. Auth & User-State Checks:
-  │      ├── Token check (is_token=True; an API key only where is_api_key=True, within its scopes)
+  │      ├── Credential check (func_middleware_check_auth: the credential must be in the route's auth list; an API key within its scopes)
   │      ├── Role check (user_check_role)
   │      ├── Permission check (user_check_permission: route id in users.permissions)
   │      ├── Deactivated check (user_check_deactivated)
@@ -147,7 +147,7 @@ Every Atom route belongs to one group, by its first path segment. The groups app
 | 6 | `/permission/*` | Users granted the route, any role: change or delete anyone's rows (59, 60), create and update users of allowed roles (61, 62) | Yes | A permission on every route (startup refuses one without it); a role may be added; tables in `config_permission_table_write_allowed`, none by default |
 | 7 | `/admin/*` | The backend admin: every table, users, SQL, imports, storage, monitor | Yes | Role 1 on every route (startup refuses one without it); other roles and a permission may be added (Atom's sample: 6, SQL writes) |
 
-A route with a role, permission, deactivated or deleted check must set `is_token: True` (startup refuses it otherwise). On every token route Atom also refuses deactivated and deleted users (the global checks). A project adds its own group (`/<app>/*`, e.g. `/order/*`) in `config_extend.py` with its role, and permission where only some users may act. Before writing one, check whether one of Atom's routes already does it ([crud.md](crud.md#which-route-for-which-screen)).
+A route with a role, permission, deactivated or deleted check needs a non-empty `auth` (startup refuses it otherwise). On every route with a credential Atom also refuses deactivated and deleted users (the global checks). A project adds its own group (`/<app>/*`, e.g. `/order/*`) in `config_extend.py` with its role, and permission where only some users may act. Before writing one, check whether one of Atom's routes already does it ([crud.md](crud.md#which-route-for-which-screen)).
 
 ### Anatomy of an Endpoint:
 ```python
@@ -209,7 +209,7 @@ By default, any unlisted route is public. To require authentication, rate limiti
 ```python
 config_api["/my/report"] = {
     "id": 210,
-    "is_token": True,
+    "auth": ["jwt"],
     "is_connection_param": True,
     "rate_limit": {"mode": "inmemory", "limit": 100, "window_sec": 60},
     "cache": {"mode": "inmemory", "ttl_sec": 30, "is_per_user": True}

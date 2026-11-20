@@ -196,7 +196,7 @@ class ApiIdCheckTests(unittest.TestCase):
         def project(): pass
         project.__module__ = "router_extend.feature"
         app.get("/x")(project)
-        app.state.config_api = {"/x": {"id": api_id, "is_token": False}}
+        app.state.config_api = {"/x": {"id": api_id, "auth": []}}
         app.state.config_uvicorn_workers = 1
         return app
 
@@ -210,7 +210,7 @@ class AdminRoleCheckTests(unittest.TestCase):
     def app(self, cfg):
         app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)
         app.get("/admin/x")(lambda: None)
-        app.state.config_api = {"/admin/x": {"id": 205, "is_token": True, **cfg}}
+        app.state.config_api = {"/admin/x": {"id": 205, "auth": ["jwt"], **cfg}}
         app.state.config_column_int_mapping = {"users": {"permissions": {205: "X"}}}
         app.state.config_column_token_encode = ["id", "role", "permissions"]
         app.state.config_uvicorn_workers = 1
@@ -234,21 +234,21 @@ class GroupGateCheckTests(unittest.TestCase):
         return app
 
     def test_permission_routes_need_a_permission_and_may_add_a_role(self):
-        for cfg in ({"is_token": True, "user_check_permission": {"mode": "token"}}, {"is_token": True, "user_check_permission": {"mode": "token"}, "user_check_role": {"mode": "token", "roles": [1, 2]}}):
+        for cfg in ({"auth": ["jwt"], "user_check_permission": {"mode": "token"}}, {"auth": ["jwt"], "user_check_permission": {"mode": "token"}, "user_check_role": {"mode": "token", "roles": [1, 2]}}):
             with self.subTest(cfg=cfg): func_check_api_config(app=self.app("/permission/x", cfg))
-        for cfg in ({"is_token": True}, {"is_token": True, "user_check_role": {"mode": "token", "roles": [2]}}):
+        for cfg in ({"auth": ["jwt"]}, {"auth": ["jwt"], "user_check_role": {"mode": "token", "roles": [2]}}):
             with self.subTest(cfg=cfg), self.assertRaisesRegex(Exception, "permission routes need user_check_permission"): func_check_api_config(app=self.app("/permission/x", cfg))
 
-    def test_a_role_permission_or_user_check_needs_is_token_true(self):
+    def test_a_role_permission_or_user_check_needs_a_credential(self):
         for cfg in ({"user_check_role": {"mode": "token", "roles": [2]}}, {"user_check_permission": {"mode": "token"}}, {"user_check_deactivated": {"mode": "token"}}, {"user_check_deleted": {"mode": "token"}}):
-            with self.subTest(cfg=cfg), self.assertRaisesRegex(Exception, "needs is_token True"): func_check_api_config(app=self.app("/x/y", {"is_token": False, **cfg}))
+            with self.subTest(cfg=cfg), self.assertRaisesRegex(Exception, "needs a credential"): func_check_api_config(app=self.app("/x/y", {"auth": [], **cfg}))
 
 
 class PermissionConfigCheckTests(unittest.TestCase):
     def app(self, cfg, labels=None, token_encode=("id", "role", "permissions")):
         app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)
         app.get("/x")(lambda: None)
-        app.state.config_api = {"/x": {"id": 205, "is_token": True, **cfg}}
+        app.state.config_api = {"/x": {"id": 205, "auth": ["jwt"], **cfg}}
         app.state.config_column_int_mapping = {"users": {"permissions": labels if labels is not None else {205: "Task delete"}}}
         app.state.config_column_token_encode = list(token_encode)
         app.state.config_uvicorn_workers = 1
@@ -275,32 +275,42 @@ class WebsocketConfigCheckTests(unittest.TestCase):
         app.get("/x")(lambda: None)
         async def socket(websocket): pass
         app.websocket("/ws")(socket)
-        app.state.config_api = {"/x": http_cfg or {"id": 1, "is_token": False}, "/ws": socket_cfg}
+        app.state.config_api = {"/x": http_cfg or {"id": 1, "auth": []}, "/ws": socket_cfg}
         app.state.config_uvicorn_workers = 1
         return app
 
     def test_websocket_entry_takes_only_id_and_is_active(self):
         func_check_api_config(app=self.app({"id": 2}))
         func_check_api_config(app=self.app({"id": 2, "is_active": False}))
-        for key, value in (("is_token", False), ("user_check_role", {"mode": "token", "roles": [1]}), ("rate_limit", {"mode": "inmemory", "limit": 5, "window_sec": 60})):
+        for key, value in (("auth", []), ("user_check_role", {"mode": "token", "roles": [1]}), ("rate_limit", {"mode": "inmemory", "limit": 5, "window_sec": 60})):
             with self.subTest(key=key), self.assertRaisesRegex(Exception, f"websocket routes accept only id and is_active \\({key} is HTTP-only"):
                 func_check_api_config(app=self.app({"id": 2, key: value}))
 
     def test_is_log_api_must_be_a_boolean(self):
-        func_check_api_config(app=self.app({"id": 2}, http_cfg={"id": 1, "is_token": False, "is_log_api": False}))
+        func_check_api_config(app=self.app({"id": 2}, http_cfg={"id": 1, "auth": [], "is_log_api": False}))
         with self.assertRaisesRegex(Exception, "invalid /x is_log_api: expected bool"):
-            func_check_api_config(app=self.app({"id": 2}, http_cfg={"id": 1, "is_token": False, "is_log_api": "no"}))
+            func_check_api_config(app=self.app({"id": 2}, http_cfg={"id": 1, "auth": [], "is_log_api": "no"}))
 
-    def test_http_entry_still_needs_is_token(self):
-        with self.assertRaisesRegex(Exception, "/x missing required key: is_token"):
+    def test_http_entry_needs_a_valid_auth_list(self):
+        with self.assertRaisesRegex(Exception, "/x missing required key: auth"):
             func_check_api_config(app=self.app({"id": 2}, http_cfg={"id": 1}))
+        for auth in (True, ["bearer"], ["jwt", "jwt"], "jwt"):
+            with self.subTest(auth=auth), self.assertRaisesRegex(Exception, "/x invalid auth"):
+                func_check_api_config(app=self.app({"id": 2}, http_cfg={"id": 1, "auth": auth}))
+        for auth in ([], ["jwt"], ["api_key"], ["jwt", "api_key"]):
+            with self.subTest(auth=auth): func_check_api_config(app=self.app({"id": 2}, http_cfg={"id": 1, "auth": auth}))
+
+    def test_old_is_token_and_is_api_key_say_how_to_upgrade(self):
+        for cfg in ({"id": 1, "is_token": True}, {"id": 1, "auth": ["jwt"], "is_api_key": True}):
+            with self.subTest(cfg=cfg), self.assertRaisesRegex(Exception, "replaced by auth in Atom 17"):
+                func_check_api_config(app=self.app({"id": 2}, http_cfg=cfg))
 
 
 class WorkerConfigCheckTests(unittest.TestCase):
     def app(self, workers, cfg):
         app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)
         app.get("/x")(lambda: None)
-        app.state.config_api = {"/x": {"id": 1, "is_token": any(key.startswith("user_check_") for key in cfg), **cfg}}
+        app.state.config_api = {"/x": {"id": 1, "auth": ["jwt"] if any(key.startswith("user_check_") for key in cfg) else [], **cfg}}
         app.state.config_uvicorn_workers = workers
         app.state.config_redis_url_dict = {"api_response": "redis://localhost", "ratelimiter": "redis://localhost", "user_state": "redis://localhost"}
         return app

@@ -25,7 +25,7 @@ from function import func_token_encode
 from function import func_token_decode
 from function import func_api_key_decode
 from function import func_api_key_hash
-from function import func_middleware_check_token
+from function import func_middleware_check_auth
 from tests.support import database
 from router.auth import router
 
@@ -209,10 +209,10 @@ class AuthTests(unittest.IsolatedAsyncioTestCase):
         for token_type, path in [("access", "/my/profile"), ("refresh", "/my/token-refresh")]:
             user = await self.decode(tokens[token_type + "_token"])
             self.assertEqual(user, {"id": 7, "role": 5, "_token_type": token_type})
-            await func_middleware_check_token(user_dict=user, url_path=path, is_token=True)
+            await func_middleware_check_auth(user_dict=user, url_path=path, auth=["jwt"])
             wrong_path = "/my/profile" if token_type == "refresh" else "/my/token-refresh"
             with self.assertRaisesRegex(Exception, "token required"):
-                await func_middleware_check_token(user_dict=user, url_path=wrong_path, is_token=True)
+                await func_middleware_check_auth(user_dict=user, url_path=wrong_path, auth=["jwt"])
 
     async def test_expired_and_wrongly_signed_tokens_are_rejected(self):
         expired = await self.tokens(config_access_token_expires_sec=-60)
@@ -222,29 +222,37 @@ class AuthTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(jwt.InvalidSignatureError):
             await self.decode(tokens["access_token"], config_token_secret_key="a-different-test-secret-at-least-32-bytes")
 
-    async def test_api_key_needs_is_api_key_route_and_matching_scope(self):
+    async def test_each_credential_works_only_where_auth_lists_it(self):
         key_user = {"id": 7, "role": 5, "_token_type": "api_key", "_api_key_id": 1, "_api_key_scopes": []}
-        await func_middleware_check_token(user_dict=key_user, url_path="/my/profile", is_token=True, is_api_key=True)
-        for path in ("/my/profile", "/my/token-refresh", "/public/example"):
-            with self.subTest(path=path), self.assertRaisesRegex(Exception, "api key not allowed"):
-                await func_middleware_check_token(user_dict=key_user, url_path=path, is_token=path != "/public/example")
+        jwt_user = {"id": 7, "role": 5, "_token_type": "access"}
+        for auth, user, error in ((["jwt"], jwt_user, None), (["api_key"], key_user, None), (["jwt", "api_key"], jwt_user, None), (["jwt", "api_key"], key_user, None), ([], key_user, None), ([], jwt_user, None),
+                                  (["jwt"], key_user, "api_key not allowed"), (["api_key"], jwt_user, "jwt not allowed")):
+            with self.subTest(auth=auth, credential=user["_token_type"]):
+                if error is None: await func_middleware_check_auth(user_dict=user, url_path="/my/profile", auth=auth)
+                else:
+                    with self.assertRaisesRegex(Exception, error): await func_middleware_check_auth(user_dict=user, url_path="/my/profile", auth=auth)
+        with self.assertRaisesRegex(Exception, "api_key not allowed"):
+            await func_middleware_check_auth(user_dict=key_user, url_path="/my/token-refresh", auth=["jwt"])
         scoped = {**key_user, "_api_key_scopes": ["/my/object-read"]}
-        await func_middleware_check_token(user_dict=scoped, url_path="/my/object-read", is_token=True, is_api_key=True)
+        await func_middleware_check_auth(user_dict=scoped, url_path="/my/object-read", auth=["jwt", "api_key"])
         with self.assertRaisesRegex(Exception, "scopes do not include"):
-            await func_middleware_check_token(user_dict=scoped, url_path="/my/profile", is_token=True, is_api_key=True)
+            await func_middleware_check_auth(user_dict=scoped, url_path="/my/profile", auth=["jwt", "api_key"])
+
+    async def test_bearer_api_key_is_not_read_as_a_jwt(self):
+        self.assertEqual(await func_token_decode(headers={"Authorization": "Bearer atk_abc"}, config_token_secret_key=self.secret), {})
 
     async def test_api_key_decode_ignores_other_headers_and_stores_only_a_hash(self):
-        self.assertEqual(await func_api_key_decode(app_state=None, headers={"Authorization": "Bearer x"}, client_postgres=None, cache_token=None, config_token_cache_max=0, config_api_key_cache_sec=60, config_column_token_encode=["id"]), {})
-        self.assertEqual(await func_api_key_decode(app_state=None, headers={}, client_postgres=None, cache_token=None, config_token_cache_max=0, config_api_key_cache_sec=60, config_column_token_encode=["id"]), {})
+        self.assertEqual(await func_api_key_decode(headers={"Authorization": "Bearer x"}, client_postgres=None, cache_token=None, config_token_cache_max=0, config_api_key_cache_sec=60, config_column_token_encode=["id"]), {})
+        self.assertEqual(await func_api_key_decode(headers={}, client_postgres=None, cache_token=None, config_token_cache_max=0, config_api_key_cache_sec=60, config_column_token_encode=["id"]), {})
         self.assertEqual(len(func_api_key_hash(key="atk_x")), 64)
         self.assertNotIn("atk_x", func_api_key_hash(key="atk_x"))
 
     async def test_missing_auth_is_public_only(self):
         self.assertEqual(await func_token_decode(headers={}, config_token_secret_key=self.secret), {})
-        await func_middleware_check_token(user_dict={}, url_path="/public/example")
-        for policy in ({"is_token": True}, {"user_check_role": [5]}, {"user_check_deleted": ["token"]}):
-            with self.subTest(policy=policy), self.assertRaisesRegex(Exception, "authorization token missing"):
-                await func_middleware_check_token(user_dict={}, url_path="/my/profile", **policy)
+        await func_middleware_check_auth(user_dict={}, url_path="/public/example", auth=[])
+        for auth in (["jwt"], ["api_key"], ["jwt", "api_key"]):
+            with self.subTest(auth=auth), self.assertRaisesRegex(Exception, "authorization missing"):
+                await func_middleware_check_auth(user_dict={}, url_path="/my/profile", auth=auth)
 
     async def test_missing_secret_stops_auth_routes_before_side_effects(self):
         for route in router.routes:

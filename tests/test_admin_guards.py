@@ -3,7 +3,7 @@ import unittest
 import config
 from function.query_runners import func_postgres_write_sql_check
 
-ADMIN_WRITES = {"api-key-delete", "blob-container-ops", "blob-delete-url", "blob-container-sas", "clickhouse-query-runner-write", "mssql-query-runner-write", "postgres-query-runner-write", "mongodb-import", "object-create", "object-delete", "object-update", "postgres-import", "postgres-slow-queries-reset", "user-create", "user-delete", "user-update"}
+ADMIN_WRITES = {"blob-container-ops", "blob-delete-url", "blob-container-sas", "clickhouse-query-runner-write", "mssql-query-runner-write", "postgres-query-runner-write", "mongodb-import", "object-create", "object-delete", "object-update", "postgres-import", "postgres-slow-queries-reset", "user-create", "user-delete", "user-update"}
 
 
 class AdminGuardTests(unittest.TestCase):

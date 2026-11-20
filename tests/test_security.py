@@ -320,7 +320,7 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
                            ({"id": 7, "role": 1}, []), ({}, [])]:
             conn.fetch.return_value = rows
             request = SimpleNamespace(app=SimpleNamespace(state=state), state=SimpleNamespace(user=user))
-            with self.subTest(user=user, rows=rows), self.assertRaisesRegex(Exception, "access denied|authorization token missing|user not found"):
+            with self.subTest(user=user, rows=rows), self.assertRaisesRegex(Exception, "access denied|authorization missing|user not found"):
                 await func_api_admin_blob_preview_urls(request=request)
         state.func_blob_preview_urls_get.assert_not_awaited()
         state.func_request_param_read.assert_not_awaited()
@@ -370,7 +370,7 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
 
 class ApiConfigLookupTests(unittest.TestCase):
     def test_path_parameter_routes_get_their_entry_and_other_paths_none(self):
-        config_api = {"/x/list": {"id": 201, "is_token": False}, "/x/{id}": {"id": 202, "is_token": True, "user_check_role": {"mode": "token", "roles": [1, 2]}}}
+        config_api = {"/x/list": {"id": 201, "auth": []}, "/x/{id}": {"id": 202, "auth": ["jwt"], "user_check_role": {"mode": "token", "roles": [1, 2]}}}
         templates = func_middleware_api_template_read(config_api=config_api)
         read = lambda path: func_middleware_api_config(config_api=config_api, path=path, cache_config_api_template=templates)
         self.assertEqual(read("/x/7")["id"], 202)    # the token and role checks apply to every id

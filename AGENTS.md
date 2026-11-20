@@ -39,7 +39,7 @@ One feature, one name in every folder (`<f>`); a big one splits into `<f>_<part>
 ## Backend ([backend.md](docs/backend.md))
 Enforced:
 - Atom owns every unsuffixed path (`function/`, `router/`, `docs/`, `script/`, `static/`, `files/`, `config.py`, `main.py`, `sync.py`, `AGENTS.md`, ...); sync overwrites them. A project's code lives only in `*_extend` paths, `config_extend.py` and `.env`.
-- Every route has a `config_api` entry: a unique `id` (a project's from 200), `is_token`; `/admin/*` needs role 1, `/permission/*` a permission, and every permission id a label in `config_column_int_mapping`.
+- Every route has a `config_api` entry: a unique `id` (a project's from 200) and `auth` (`[]`, `["jwt"]`, `["api_key"]` or both); `/admin/*` needs role 1, `/permission/*` a permission, and every permission id a label in `config_column_int_mapping`.
 - `func_*` names are unique across `function/` and `function_extend/`; `config_extend.py` has sections `# base`, `# atom`, `# extend` and only extends Atom's dicts (dropping an Atom route, table or code fails).
 - Settings are typed: `config_is_<what>` is true or false, `config_schedule_script_<script>` a schedule; anything else stops startup.
 - `script.check` fails on: a secret in code or docs (only in `.env`); Postgres through anything but asyncpg (`psycopg`, `sqlalchemy`); `.env` missing from `.gitignore`; a pool or SDK client opened in `function_extend/` or `router_extend/` (use Atom's; a script is its own process and may open its own); a role or permission check in `router_extend/` (`config_api` does it).
@@ -49,7 +49,7 @@ Rules:
 - Rows only through `func_check_table_permission` and `func_postgres_create/read/update/delete`; hand-written SQL only for what they can't express, values bound as `$1`, Postgres only through asyncpg.
 - Reuse Atom's `func_*` helpers (search `function/` first); never edit `main.py` (startup hook: `func_extend`).
 - Users go through Atom's routes (`/admin/user-*`, `/my/user-*`, `/permission/user-*`): never a project user API ([auth.md](docs/auth.md)).
-- Scripts and other systems call the API with an API key (`Authorization: ApiKey`, a service user's key on routes with `is_api_key`), never a person's password or a shared login ([auth.md](docs/auth.md#7-api-keys-machine-access)).
+- Scripts and other systems call the API with an API key (`Authorization: Bearer atk_...`, a service account's key, on routes whose `auth` has `"api_key"`), never a person's password or a shared login ([auth.md](docs/auth.md#7-api-keys-machine-access)).
 - Lists page after a cursor, never a total count; every CSV export goes through `func_<db>_export` ([crud.md](docs/crud.md)).
 - Temporary files in `tmp/<feature>/`; data users change at runtime in the database; never placeholder or demo data.
 - Security: no route returns more than its screen needs; values bound and escaped; nothing secret in a URL ([backend.md](docs/backend.md#security-rules-check-them-in-every-review)).

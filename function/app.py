@@ -139,8 +139,10 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: State) -> dict:
             op = {"tags": [tag], "parameters": [], "responses": {"200": {"description": "Successful Response"}}}
             api_cfg = config_api.get(path, {})
             connection_param = {"name": "connection", "in": "query", "required": False, "description": "connection name from config_postgres_url_<name>; default master", "schema": {"type": "string", "default": "master"}}
-            is_token_required = api_cfg.get("is_token", False) is True
-            op["x-auth-required"] = is_token_required
+            auth = list(api_cfg.get("auth") or [])
+            is_auth_required = bool(auth)
+            op["x-auth-required"] = is_auth_required
+            op["x-auth"] = auth
             op["x-roles-allowed"] = api_cfg.get("user_check_role", None)
             op["x-permission"] = api_cfg.get("id") if api_cfg.get("user_check_permission") else None
             op["x-check-deactivated"] = "user_check_deactivated" in api_cfg
@@ -149,7 +151,7 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: State) -> dict:
             op["x-active"] = api_cfg.get("is_active", True) is not False
             op["x-cache"] = {key: api_cfg["cache"].get(key) for key in ("ttl_sec", "mode", "is_per_user")} if isinstance(api_cfg.get("cache"), dict) else None
             op["x-rate-limit"] = {key: api_cfg["rate_limit"].get(key) for key in ("limit", "window_sec", "mode")} if isinstance(api_cfg.get("rate_limit"), dict) else None
-            if is_token_required:
+            if is_auth_required:
                 op["security"] = [{"BearerAuth": []}]
                 op["parameters"].append({"name": "Authorization", "in": "header", "required": True, "schema": {"type": "string", "default": "Bearer {token}"}})
             if api_cfg.get("is_connection_param"): op["parameters"].append(connection_param)

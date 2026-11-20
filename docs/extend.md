@@ -137,8 +137,8 @@ config_column_int_mapping = {
 # 2. Add a route policy and turn off a core route (its whole policy, with is_active added).
 config_api = {
     **base_config_api,
-    "/custom/hello": {"id": 200, "is_token": False},
-    "/my/object-read": {"id": 26, "is_token": True, "is_connection_param": True, "is_active": False},
+    "/custom/hello": {"id": 200, "auth": []},
+    "/my/object-read": {"id": 26, "auth": ["jwt"], "is_connection_param": True, "is_active": False},
 }
 
 # 3. Add a table, and a column to Atom's users table (a new list: Atom's columns plus yours).
@@ -180,7 +180,7 @@ The final settings, whichever file set them, also go through Atom's general star
 
 ### Override one of Atom's keys
 
-Dictionary unpacking (`**base`) copies Atom's entries into the new dictionary; a later duplicate key replaces Atom's value. Write that key's whole value, as in the `/my/object-read` entry above: start from the value in `config.py`, keep what you need and change the rest. For a route, include its `id` and `is_token`. This changes policy, not the route handler.
+Dictionary unpacking (`**base`) copies Atom's entries into the new dictionary; a later duplicate key replaces Atom's value. Write that key's whole value, as in the `/my/object-read` entry above: start from the value in `config.py`, keep what you need and change the rest. For a route, include its `id` and `auth`. This changes policy, not the route handler.
 
 ### Replace or modify a core table's columns
 
@@ -211,11 +211,11 @@ from config import config_api as base_config_api
 config_custom_greeting = "Hello"
 config_api = {
     **base_config_api,
-    "/custom/hello": {"id": 200, "is_token": False},
+    "/custom/hello": {"id": 200, "auth": []},
 }
 ```
 
-Choose an unused API ID. The `config_api` entry defines the endpoint's auth, roles, rate limits, and caching; it does not create the endpoint. This example is public. Set `is_token` to `True` for a route that requires a token, and configure role checks as needed. A route without a policy entry defaults to no token requirement.
+Choose an unused API ID. The `config_api` entry defines the endpoint's auth, roles, rate limits, and caching; it does not create the endpoint. This example is public. Set `auth` to `["jwt"]` for a route that needs a login (`["api_key"]` or `["jwt", "api_key"]` for API keys), and configure role checks as needed.
 
 Only `config_*` names from this file are loaded. They override defaults from `config.py` and are available through `request.app.state`. Use `.env` for secrets and connection strings; see the [configuration guide](config.md).
 
