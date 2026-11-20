@@ -23,6 +23,8 @@ from function import func_auth_google_user
 from function import func_otp_verify
 from function import func_token_encode
 from function import func_token_decode
+from function import func_api_key_decode
+from function import func_api_key_hash
 from function import func_middleware_check_token
 from tests.support import database
 from router.auth import router
@@ -219,6 +221,23 @@ class AuthTests(unittest.IsolatedAsyncioTestCase):
         tokens = await self.tokens()
         with self.assertRaises(jwt.InvalidSignatureError):
             await self.decode(tokens["access_token"], config_token_secret_key="a-different-test-secret-at-least-32-bytes")
+
+    async def test_api_key_needs_is_api_key_route_and_matching_scope(self):
+        key_user = {"id": 7, "role": 5, "_token_type": "api_key", "_api_key_id": 1, "_api_key_scopes": []}
+        await func_middleware_check_token(user_dict=key_user, url_path="/my/profile", is_token=True, is_api_key=True)
+        for path in ("/my/profile", "/my/token-refresh", "/public/example"):
+            with self.subTest(path=path), self.assertRaisesRegex(Exception, "api key not allowed"):
+                await func_middleware_check_token(user_dict=key_user, url_path=path, is_token=path != "/public/example")
+        scoped = {**key_user, "_api_key_scopes": ["/my/object-read"]}
+        await func_middleware_check_token(user_dict=scoped, url_path="/my/object-read", is_token=True, is_api_key=True)
+        with self.assertRaisesRegex(Exception, "scopes do not include"):
+            await func_middleware_check_token(user_dict=scoped, url_path="/my/profile", is_token=True, is_api_key=True)
+
+    async def test_api_key_decode_ignores_other_headers_and_stores_only_a_hash(self):
+        self.assertEqual(await func_api_key_decode(app_state=None, headers={"Authorization": "Bearer x"}, client_postgres=None, cache_token=None, config_token_cache_max=0, config_api_key_cache_sec=60, config_column_token_encode=["id"]), {})
+        self.assertEqual(await func_api_key_decode(app_state=None, headers={}, client_postgres=None, cache_token=None, config_token_cache_max=0, config_api_key_cache_sec=60, config_column_token_encode=["id"]), {})
+        self.assertEqual(len(func_api_key_hash(key="atk_x")), 64)
+        self.assertNotIn("atk_x", func_api_key_hash(key="atk_x"))
 
     async def test_missing_auth_is_public_only(self):
         self.assertEqual(await func_token_decode(headers={}, config_token_secret_key=self.secret), {})

@@ -229,6 +229,8 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_retention_day_users_delete` | Days before soft-deleted users' data is purged by `script/worker_users_delete.py` (`30`) |
 | `config_access_token_expires_sec` | JWT Access Token lifetime in seconds |
 | `config_refresh_token_expires_sec` | JWT Refresh Token lifetime in seconds |
+| `config_api_key_max` | API keys one user may hold (`20`) ([auth.md](auth.md#7-api-keys-machine-access)) |
+| `config_api_key_cache_sec` | Seconds a resolved API key is reused per worker before it is read again (`60`), in the same cache as tokens (`config_token_cache_max`); a deleted key keeps working on other workers for at most this long. `0` reads the database on every request |
 | `config_cache_row_limit_config` | Rows of the `config` table (key → value) loaded into `cache_config` at startup and by `/admin/sync` (`1000`); `0` = not loaded |
 | `config_cache_row_limit_users_role`, `config_cache_row_limit_users_deactivated`, `config_cache_row_limit_users_deleted` | Users (lowest ids first) whose role, `deactivated_at` and `deleted_at` are loaded at startup and by `/admin/sync` for the `inmemory` user checks (`10000` each, about 1 MB in all); a user not loaded is read from the database. `0` = not loaded (a project that never uses `inmemory` checks can turn them off). Set them in `.env` like any number |
 | `config_token_cache_max` | Verified tokens cached per worker (`10000`, about 1 KB each); `0` turns the cache off. A token is fully verified on first use, then reused until its own `exp`; the key is the whole signed token, so an edited token is verified again. Expired entries are swept every `config_inmemory_cache_cleanup_auto_sec`; when full, the oldest entry is dropped |

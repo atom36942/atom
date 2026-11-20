@@ -55,12 +55,17 @@ async def func_middleware_check_active(*, is_active: bool = True) -> None:
     if not is_active: raise func_api_error(message="API endpoint is disabled", status_code=404)
     return
 
-async def func_middleware_check_token(*, user_dict: dict, url_path: str, is_token: bool = False, user_check_role: list = None, user_check_deactivated: list = None, user_check_deleted: list = None, user_check_permission: dict = None) -> None:
-    """Check whether current API requires token-authenticated user."""
+async def func_middleware_check_token(*, user_dict: dict, url_path: str, is_token: bool = False, user_check_role: list = None, user_check_deactivated: list = None, user_check_deleted: list = None, user_check_permission: dict = None, is_api_key: bool = False) -> None:
+    """Check whether current API requires token-authenticated user. An API key works only on a route with is_api_key, and, when the key has scopes, only on a path among them."""
+    token_type = user_dict.get("_token_type") if isinstance(user_dict, dict) else None
+    if token_type == "api_key":  # noqa: S105 - token kind, not a secret
+        if not is_api_key: raise func_api_error(message="api key not allowed on this route", status_code=401)
+        scopes = user_dict.get("_api_key_scopes")
+        if scopes and url_path not in scopes: raise func_api_error(message="api key scopes do not include this route", status_code=403)
+        return
     is_token_required = is_token or bool(user_check_role) or bool(user_check_deactivated) or bool(user_check_deleted) or bool(user_check_permission)
     if is_token_required:
         if not user_dict: raise func_api_error(message="authorization token missing", status_code=401)
-        token_type = user_dict.get("_token_type") if isinstance(user_dict, dict) else None
         if url_path == "/my/token-refresh":
             if token_type != "refresh": raise func_api_error(message="refresh token required", status_code=401)  # noqa: S105 - token kind, not a secret
         elif token_type != "access":  # noqa: S105 - token kind, not a secret

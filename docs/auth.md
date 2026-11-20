@@ -2,7 +2,7 @@
 
 Atom features a comprehensive, schema-driven authentication and user management system built on **stateless JWT tokens**, **Argon2 password hashing**, **flexible multi-column identities**, and **built-in superadmin protections**.
 
-All auth endpoints are **public** (`is_token=False`) — they mint tokens rather than requiring one.
+All auth endpoints are **public** (`is_token=False`) — they mint tokens rather than requiring one. Scripts and other systems use API keys instead ([section 7](#7-api-keys-machine-access)).
 
 ---
 
@@ -222,7 +222,35 @@ async def func_api_my_profile(*, request: Request):
 
 ---
 
-## 7. Root Superadmin User Architecture
+## 7. API Keys (machine access)
+
+For scripts, cron jobs and other systems: a long-lived key instead of a password login. A key is an opaque string (`atk_` + 32 random bytes), not a JWT: it carries no data, so it can be deleted at once and follows its owner's current role.
+
+| Step | How |
+| :--- | :--- |
+| Create | `POST /my/api-key-create {"name": "Power BI", "scopes": ["/my/object-read"], "expire_days": 365}` → `{"id", "key", "key_prefix", ...}`. The key is shown only here; `api_key` keeps its sha256. `scopes` and `expire_days` are optional; at most `config_api_key_max` keys per user (`20`) |
+| Call | `Authorization: ApiKey atk_...` |
+| Allow a route | `"is_api_key": True` on its `config_api` entry (a project sets it in `config_extend.py`). No route allows keys by default |
+| List | `GET /my/api-key-read`: name, prefix, scopes, expiry, `last_used_at`; never the key or its hash |
+| Delete | `POST /my/api-key-delete {"id": 3}` (own keys); `POST /admin/api-key-delete {"id": 3}` (any key) |
+
+How a request is checked (middleware, right after the JWT step):
+```
+ApiKey atk_... → sha256 → api_key JOIN users (cached per worker for config_api_key_cache_sec, 60 s)
+→ unknown or expired key, deleted or deactivated owner: 401
+→ request.state.user = the owner's config_column_token_encode columns + _token_type "api_key", _api_key_id, _api_key_scopes
+→ route without is_api_key: 401 · key with scopes not listing this path: 403
+→ role, permission, rate-limit and the other checks run as for a JWT
+```
+
+- **One owner:** a key acts as the user who created it (`created_by_id`), with that user's role, permissions and row ownership. For a system, create a service user (`/admin/user-create`, e.g. `powerbi@company.com`) and its key, so the integration outlives any person and its rows show which system wrote them.
+- **Never through generic routes:** `api_key` is in `config_table_write_blocked`, `config_table_my_create_blocked` and `config_table_my_read_blocked`; admins can read it with `/admin/object-read`.
+- **Deleting:** takes effect at once on the worker that served the delete, and within `config_api_key_cache_sec` on the others. Deleting or deactivating the owner stops all their keys the same way.
+- **Machine or person:** a route that must tell them apart reads `request.state.user["_token_type"] == "api_key"`. `/my/token-refresh` and the message socket never accept a key.
+
+---
+
+## 8. Root Superadmin User Architecture
 
 Atom features an automatic superadministrator (**root user**) with `role: 1` that is seeded on startup and defended by database triggers:
 

@@ -135,7 +135,7 @@ def func_check_api_config(*, app: FastAPI) -> None:
         column = key.removeprefix("config_api_global_user_check_") + "_at"
         if value == "token" and column not in (getattr(app.state, "config_column_token_encode", None) or []): raise Exception(f"{key} is token: add {column} to config_column_token_encode")
     api_mode_allowed = ("redis", "inmemory")
-    api_keys_allowed = ("id", "is_active", "is_token", "is_connection_param", "user_check_role", "user_check_permission", "user_check_deactivated", "user_check_deleted", "cache", "rate_limit", "api_cache_sec", "api_ratelimiting_times_sec", "is_log_api")
+    api_keys_allowed = ("id", "is_active", "is_token", "is_connection_param", "user_check_role", "user_check_permission", "user_check_deactivated", "user_check_deleted", "cache", "rate_limit", "api_cache_sec", "api_ratelimiting_times_sec", "is_log_api", "is_api_key")
     def flag_check(value, key):
         if not isinstance(value, bool): raise Exception(f"invalid {key}: expected bool")
     def int_check(value, key, min_value=0):
@@ -167,6 +167,7 @@ def func_check_api_config(*, app: FastAPI) -> None:
             continue
         if "is_connection_param" in cfg: flag_check(cfg["is_connection_param"], f"{path} is_connection_param")
         if "is_log_api" in cfg: flag_check(cfg["is_log_api"], f"{path} is_log_api")
+        if "is_api_key" in cfg: flag_check(cfg["is_api_key"], f"{path} is_api_key")
         if "is_token" not in cfg: raise Exception(f"{path} missing required key: is_token")
         flag_check(cfg["is_token"], f"{path} is_token")
         role_val = cfg.get("user_check_role")

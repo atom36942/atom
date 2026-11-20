@@ -77,6 +77,7 @@ config_redis_cache_ttl_sec = 3600
 config_inmemory_cache_cleanup_auto_sec = 300
 config_api_cache_inmemory_max_kb = 102400
 config_token_cache_max = 10000
+config_api_key_cache_sec = 60
 config_cache_row_limit_config = 1000
 config_cache_row_limit_users_role = 10000
 config_cache_row_limit_users_deactivated = 10000
@@ -89,6 +90,7 @@ config_login_password = None
 config_token_secret_key = None
 config_access_token_expires_sec = 604800
 config_refresh_token_expires_sec = 2592000
+config_api_key_max = 20
 config_signup_allowed_roles = []
 config_login_allowed_roles = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 config_is_user_delete = False
@@ -169,9 +171,9 @@ config_ai_services = ["gemini", "openai", "claude"]
 
 # table
 config_table_exclude_from_users_delete = ["spatial_ref_sys", "users", "log_users_delete"]
-config_table_write_blocked = ["log_api", "log_users_password", "log_users_delete", "script_run", "queue_job", "otp", "spatial_ref_sys"]
-config_table_my_create_blocked = ["users", "log_api", "log_users_password", "otp", "script_run", "queue_job", "spatial_ref_sys"]
-config_table_my_read_blocked = ["users", "config", "log_users_password", "otp", "script_run", "queue_job", "spatial_ref_sys"]
+config_table_write_blocked = ["api_key", "log_api", "log_users_password", "log_users_delete", "script_run", "queue_job", "otp", "spatial_ref_sys"]
+config_table_my_create_blocked = ["users", "api_key", "log_api", "log_users_password", "otp", "script_run", "queue_job", "spatial_ref_sys"]
+config_table_my_read_blocked = ["users", "api_key", "config", "log_users_password", "otp", "script_run", "queue_job", "spatial_ref_sys"]
 config_table_my_delete_all_allowed = ["test", "message", "notification"]
 config_table_public_create_allowed = ["test"]
 config_table_public_read_allowed = ["test"]
@@ -379,6 +381,17 @@ config_postgres = {
 {"name":"request_body","datatype":"text"},
 {"name":"response_body","datatype":"text"}
 ],
+"api_key":[
+{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
+{"name":"created_at","datatype":"timestamptz","default":"now()"},
+{"name":"created_by_id","datatype":"bigint","is_mandatory": True,"index":"btree(created_by_id)"},
+{"name":"name","datatype":"text","is_mandatory": True},
+{"name":"key_hash","datatype":"text","is_mandatory": True,"unique":"key_hash"},
+{"name":"key_prefix","datatype":"text","is_mandatory": True},
+{"name":"scopes","datatype":"text[]"},
+{"name":"expires_at","datatype":"timestamptz"},
+{"name":"last_used_at","datatype":"timestamptz"}
+],
 "log_users_password":[
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
@@ -480,6 +493,9 @@ config_api = {
 "/my/blob-preview-urls": {"id": 35, "is_token": True},
 "/my/blob-delete-all": {"id": 36, "is_token": True},
 "/my/blob-delete-url": {"id": 37, "is_token": True},
+"/my/api-key-create": {"id": 97, "is_token": True, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
+"/my/api-key-read": {"id": 98, "is_token": True},
+"/my/api-key-delete": {"id": 99, "is_token": True, "rate_limit": {"mode": "inmemory", "limit": 30, "window_sec": 60}},
 # public
 "/public/object-create": {"id": 38, "is_token": False},
 "/public/object-read-export": {"id": 39, "is_token": False, "is_connection_param": True},
@@ -518,6 +534,7 @@ config_api = {
 "/admin/user-create": {"id": 69, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
 "/admin/user-update": {"id": 70, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
 "/admin/user-delete": {"id": 71, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}, "user_check_deactivated": {"mode": "realtime"}},
+"/admin/api-key-delete": {"id": 100, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
 "/admin/object-delete": {"id": 72, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "user_check_deleted": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
 "/admin/table-column-groupby": {"id": 73, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}, "is_connection_param": True},
 "/admin/table-column-distinct": {"id": 74, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}, "is_connection_param": True},

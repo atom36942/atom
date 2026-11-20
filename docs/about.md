@@ -64,7 +64,7 @@ SHUTDOWN → stop background tasks → final buffer flush → close every client
 ```
 
 ### Startup Sequence:
-1. **Validation (`func_check`)**: Validates that `config_api` is well-formed: every entry uses allowed keys (`id`, `is_token`, `is_connection_param`, `user_check_*`, `cache`, `rate_limit`), flags are booleans, check modes are valid (`redis` / `realtime` / `inmemory` / `token`). Misconfiguration causes fast-fail.
+1. **Validation (`func_check`)**: Validates that `config_api` is well-formed: every entry uses allowed keys (`id`, `is_token`, `is_api_key`, `is_connection_param`, `user_check_*`, `cache`, `rate_limit`), flags are booleans, check modes are valid (`redis` / `realtime` / `inmemory` / `token`). Misconfiguration causes fast-fail.
 2. **Filesystem Prep**: Ensures `tmp/` and `secret/` exist in the project folder (where `main.py` is; `venv/bin/python main.py` switches there first, so starting it from another folder changes nothing); wipes `tmp/` first only when `config_is_tmp_reset` is true (default false).
 3. **Client Initialization**: Initializes clients conditionally based on `.env` settings:
    - `client_password_hasher`: Argon2 password hasher.
@@ -99,9 +99,9 @@ Request
   ├── 1. Initialize request timer & state (request.state.user = {})
   ├── 2. Look up route policy in config_api (or default public)
   ├── 3. Active Check (reject if is_active=False)
-  ├── 4. Decode JWT Token (func_token_decode -> request.state.user)
+  ├── 4. Decode JWT Token (func_token_decode -> request.state.user), else an API key (func_api_key_decode: Authorization: ApiKey, owner looked up and cached)
   ├── 5. Auth & User-State Checks:
-  │      ├── Token check (is_token=True)
+  │      ├── Token check (is_token=True; an API key only where is_api_key=True, within its scopes)
   │      ├── Role check (user_check_role)
   │      ├── Permission check (user_check_permission: route id in users.permissions)
   │      ├── Deactivated check (user_check_deactivated)

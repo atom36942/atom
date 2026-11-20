@@ -49,6 +49,7 @@ Rules:
 - Rows only through `func_check_table_permission` and `func_postgres_create/read/update/delete`; hand-written SQL only for what they can't express, values bound as `$1`, Postgres only through asyncpg.
 - Reuse Atom's `func_*` helpers (search `function/` first); never edit `main.py` (startup hook: `func_extend`).
 - Users go through Atom's routes (`/admin/user-*`, `/my/user-*`, `/permission/user-*`): never a project user API ([auth.md](docs/auth.md)).
+- Scripts and other systems call the API with an API key (`Authorization: ApiKey`, a service user's key on routes with `is_api_key`), never a person's password or a shared login ([auth.md](docs/auth.md#7-api-keys-machine-access)).
 - Lists page after a cursor, never a total count; every CSV export goes through `func_<db>_export` ([crud.md](docs/crud.md)).
 - Temporary files in `tmp/<feature>/`; data users change at runtime in the database; never placeholder or demo data.
 - Security: no route returns more than its screen needs; values bound and escaped; nothing secret in a URL ([backend.md](docs/backend.md#security-rules-check-them-in-every-review)).

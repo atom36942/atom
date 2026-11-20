@@ -216,3 +216,26 @@ async def func_api_my_blob_delete_all(*, request: Request):
     user_id = request.state.user["id"]
     res = await app_state.func_blob_delete_all(app_state=app_state, user_id=user_id, limit=500)
     return {"status": 1, "message": res}
+
+@router.post("/my/api-key-create")
+async def func_api_my_api_key_create(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "name", "type": "str", "required": True}, {"name": "scopes", "type": "list:str"}, {"name": "expire_days", "type": "int", "minimum": 1, "maximum": 3650}], strict=True, strict_types=True, reject_unknown=True)
+    unknown = [s for s in ob["scopes"] or [] if not (app_state.config_api.get(s) or {}).get("is_api_key")]
+    if unknown: raise app_state.func_api_error(message=f"scopes must be config_api paths with is_api_key: {', '.join(unknown)}", status_code=400)
+    res = await app_state.func_api_key_create(client_postgres=app_state.client_postgres_dict.get("master"), user_id=request.state.user["id"], name=ob["name"].strip()[:100], scopes=ob["scopes"], expire_days=ob["expire_days"], config_api_key_max=app_state.config_api_key_max)
+    return {"status": 1, "message": res}
+
+@router.get("/my/api-key-read")
+async def func_api_my_api_key_read(*, request: Request):
+    app_state = request.app.state
+    if not request.state.client_postgres: raise app_state.func_api_error(message="postgres client not initialized", status_code=500)
+    records = await request.state.client_postgres.fetch("SELECT id, created_at, name, key_prefix, scopes, expires_at, last_used_at FROM api_key WHERE created_by_id=$1 ORDER BY id DESC LIMIT 1000", request.state.user["id"])
+    return {"status": 1, "message": [dict(r) for r in records]}
+
+@router.post("/my/api-key-delete")
+async def func_api_my_api_key_delete(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "id", "type": "int", "required": True}])
+    await app_state.func_api_key_delete(client_postgres=app_state.client_postgres_dict.get("master"), key_id=ob["id"], user_id=request.state.user["id"], cache_token=app_state.cache_token)
+    return {"status": 1, "message": "api key deleted"}

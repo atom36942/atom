@@ -150,6 +150,13 @@ async def func_api_admin_user_delete(*, request: Request):
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "id", "type": "int", "required": True}])
     return {"status": 1, "message": await app_state.func_user_delete(client_postgres=request.state.client_postgres, user_id=oq["id"], config_is_user_delete=app_state.config_is_user_delete)}
 
+@router.post("/admin/api-key-delete")
+async def func_api_admin_api_key_delete(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "id", "type": "int", "required": True}])
+    await app_state.func_api_key_delete(client_postgres=app_state.client_postgres_dict.get("master"), key_id=ob["id"], user_id=None, cache_token=app_state.cache_token)
+    return {"status": 1, "message": "api key deleted"}
+
 @router.post("/admin/object-delete")
 async def func_api_admin_object_delete(*, request: Request):
     app_state = request.app.state

@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [16.9.0] - 2026-11-20
+
+- **API keys:** scripts and other systems call the API with `Authorization: ApiKey atk_...` instead of a password login. A key is an opaque random string (not a JWT) owned by the user who created it, stored only as its sha256 in the new table `api_key`, and resolved in the middleware to the owner's `request.state.user` (cached per worker for `config_api_key_cache_sec`, 60 s), so role, permission and ownership checks work unchanged. A route accepts keys only with `"is_api_key": True` in its `config_api` entry (none by default); a key may be limited to `scopes` (paths) and `expire_days`. New routes `/my/api-key-create`, `/my/api-key-read`, `/my/api-key-delete`, `/admin/api-key-delete`; new settings `config_api_key_max` (20 keys per user) and `config_api_key_cache_sec`. An unknown or expired key, or a deleted or deactivated owner, is 401 ([docs/auth.md](docs/auth.md#7-api-keys-machine-access)).
+
 ## [16.8.2] - 2026-11-19
 
 - **Shorter placeholders:** the API page's cURL box ("Paste cURL…"), the message box ("Type a message…") and pgweb's saved-connection search ("Search…").
