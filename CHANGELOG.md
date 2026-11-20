@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [18.3.0] - 2026-11-20
+
+- **Login details in two groups, with the ID:** the account menu's Login details now shows **Sign in** (Username with copy, Password with its pencil) and **Account** (ID, the `users` id User management shows, with a copy button and the toast "ID copied"; Role; Permissions), each a small caption (`.kv-group`) over its own row list, on every Atom page with a login. A suggestion for a project's pages too ([docs/frontend.md](docs/frontend.md#header-and-account)).
+
 ## [18.2.0] - 2026-11-20
 
 - **Honeypot on public create:** `/public/object-create` refuses a row whose hidden `website` field has a value (only bots fill it) and drops the field when empty (`config_public_create_honeypot`, `None` turns it off). A project's public form adds the hidden field ([docs/crud.md](docs/crud.md#tickets-a-small-support-desk-in-every-project)).
