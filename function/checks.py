@@ -88,6 +88,18 @@ def func_check_runtime_config(*, app_state: State) -> None:
     if "config_permission_user_create_roles" in values: raise ValueError("config_permission_user_create_roles was renamed in Atom 14.0.0 to config_permission_user_roles (used by /permission/user-create and /permission/user-update)")
     for old, new in (("config_table_permission_write_allowed", "config_permission_table_write_allowed"), ("config_column_users_permission_blocked", "config_permission_user_column_blocked")):
         if old in values: raise ValueError(f"{old} was renamed in Atom 15.0.0 to {new} (the /permission settings are together as config_permission_*)")
+    if "config_permission_table_write_allowed" in values: raise ValueError("config_permission_table_write_allowed was replaced in Atom 18.0.0 by config_permission_table: {table: {action: permission id}} with actions create, read, update, delete (e.g. {\"task\": {\"update\": 201, \"delete\": 202}}), each id labelled in config_column_int_mapping[\"users\"][\"permissions\"]")
+    permission_table = values.get("config_permission_table")
+    if "config_permission_table" in values:
+        if not isinstance(permission_table, dict): raise ValueError("config_permission_table must be a dict of table: {action: permission id}")
+        permission_ids = []
+        for table, actions in permission_table.items():
+            if not isinstance(table, str) or table == "users": raise ValueError(f"config_permission_table: {table!r} is not allowed (users go through the /permission/user-* routes)")
+            if not isinstance(actions, dict) or not actions or any(action not in ("create", "read", "update", "delete") for action in actions): raise ValueError(f"config_permission_table[{table!r}] must be a non-empty dict of create, read, update or delete: permission id")
+            for action, permission_id in actions.items():
+                if isinstance(permission_id, bool) or not isinstance(permission_id, int) or permission_id < 1: raise ValueError(f"config_permission_table[{table!r}][{action!r}] must be a permission id from 1")
+                if permission_id in permission_ids: raise ValueError(f"config_permission_table: permission id {permission_id} is used twice (one id per table and action)")
+                permission_ids.append(permission_id)
     permission_blocked = values.get("config_permission_user_column_blocked")
     if "config_permission_user_column_blocked" in values and (not isinstance(permission_blocked, list) or not {"role", "permissions"} <= set(permission_blocked)): raise ValueError("config_permission_user_column_blocked must be a list that keeps role and permissions (only an admin changes them)")
     user_roles = values.get("config_permission_user_roles")
@@ -191,10 +203,11 @@ def func_check_api_config(*, app: FastAPI) -> None:
         if not auth and any(cfg.get(key) for key in ("user_check_role", "user_check_permission", "user_check_deactivated", "user_check_deleted")): raise Exception(f"{path}: a role, permission, deactivated or deleted check needs a credential (a non-empty auth)")
         if "user_check_permission" in cfg:
             permission_val = cfg["user_check_permission"]
-            if not isinstance(permission_val, dict) or set(permission_val) != {"mode"}: raise Exception(f"{path} invalid user_check_permission: expected {{\"mode\": \"token\"}} or realtime")
+            if not isinstance(permission_val, dict) or set(permission_val) - {"action"} != {"mode"}: raise Exception(f"{path} invalid user_check_permission: expected {{\"mode\": \"token\"}} or realtime, plus action on the /permission/object-* routes")
+            if "action" in permission_val and (not path.startswith("/permission/object-") or permission_val["action"] not in ("create", "read", "update", "delete")): raise Exception(f"{path} user_check_permission action: only the /permission/object-* routes take one, create, read, update or delete (its id comes from config_permission_table)")
             if permission_val["mode"] not in ("token", "realtime"): raise Exception(f"{path} invalid user_check_permission mode: {permission_val['mode']}, allowed: token, realtime")
             if permission_val["mode"] == "token" and "permissions" not in (getattr(app.state, "config_column_token_encode", None) or []): raise Exception(f"{path} user_check_permission: add permissions to config_column_token_encode")
-            if api_id not in ((getattr(app.state, "config_column_int_mapping", None) or {}).get("users", {}).get("permissions") or {}): raise Exception(f"{path} user_check_permission: label id {api_id} in config_column_int_mapping[\"users\"][\"permissions\"]")
+            if "action" not in permission_val and api_id not in ((getattr(app.state, "config_column_int_mapping", None) or {}).get("users", {}).get("permissions") or {}): raise Exception(f"{path} user_check_permission: label id {api_id} in config_column_int_mapping[\"users\"][\"permissions\"]")
         for key in ("user_check_deactivated", "user_check_deleted"):
             u_val = cfg.get(key)
             if u_val:
@@ -238,6 +251,11 @@ def func_check_api_config(*, app: FastAPI) -> None:
             if window > 31536000: raise Exception(f"{path} rate_limit window exceeds 1 year")
             if mode == "redis": requires_redis_ratelimiter = True
             if mode == "inmemory": inmemory_list.append(f"{path} rate_limit")
+    permission_labels = (getattr(app.state, "config_column_int_mapping", None) or {}).get("users", {}).get("permissions") or {}
+    for table, actions in (getattr(app.state, "config_permission_table", None) or {}).items():
+        for action, permission_id in actions.items():
+            if permission_id in api_ids: raise Exception(f"config_permission_table[{table!r}][{action!r}]: id {permission_id} is a config_api route id (a permission id is one or the other)")
+            if permission_id not in permission_labels: raise Exception(f"config_permission_table[{table!r}][{action!r}]: label id {permission_id} in config_column_int_mapping[\"users\"][\"permissions\"]")
     for path in route_paths:
         if path not in config_api:
             raise Exception(f"CRITICAL: Route '{path}' is missing from config_api. All routes must be explicitly configured.")

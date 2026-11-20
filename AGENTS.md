@@ -57,7 +57,7 @@ Rules:
 Defaults:
 - Scale to 100× today's data: one SQL statement per screen read, an index for every filter and sort, aggregates in SQL, streamed exports, batched resumable scripts ([backend.md](docs/backend.md#scale-and-speed-defaults-a-project-keeps-working-at-100-todays-data)).
 - Thin route in `router_extend/<f>.py` → logic in `function_extend/<f>.py` (`func_<f>_*`); files named after the feature in every folder ([extend.md](docs/extend.md)).
-- Paths `/<feature>/<thing>-<verb>`; use Atom's generic routes (`/private/object-read`, `/my/object-*`) before writing one.
+- Paths `/<feature>/<thing>-<verb>`; use Atom's generic routes (`/private/object-read`, `/my/object-*`, and `/permission/object-*` with a `config_permission_table` entry for selected users' create, read, update, delete on any table) before writing one ([auth.md](docs/auth.md#recipe-a-teams-create-read-update-and-delete-on-any-table)).
 - Roles: 1 is Atom's admin; a project's users start at 2, each new kind takes the next number.
 - Scripts: `# type`, `# command`, `# info`, then `# import`, `# config`, `# setting`, `# logic`, `# main` ([backend.md](docs/backend.md#scripts)).
 - Postgres is the base: background work that must not be lost goes on Atom's Postgres queue (`?queue=postgres`, `script.consumer_postgres`); Redis, RabbitMQ, Kafka or Celery only when Postgres can't keep up ([queue.md](docs/queue.md)).

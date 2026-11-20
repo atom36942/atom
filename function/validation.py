@@ -27,7 +27,7 @@ def func_check_table_permission(*, app_state: State, table: str, relation: list 
     """Validate if table and relation access is allowed for given scope ('public', 'private', 'my') and action ('read', 'create', 'delete_all')."""
     verb_map = {"create": "creation", "read": "read", "delete_all": "delete all"}
     verb = verb_map.get(action, action.replace("_", " "))
-    prefix = "config_permission_table" if scope == "permission" else f"config_table_{scope}"    # the /permission settings live together under config_permission_
+    prefix = f"config_table_{scope}"
     blocked_attr = f"{prefix}_{action}_blocked"
     blocked_tables = getattr(app_state, blocked_attr, None)
     if blocked_tables is not None:

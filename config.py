@@ -175,13 +175,13 @@ config_table_write_blocked = ["log_api", "log_users_password", "log_users_delete
 config_table_my_create_blocked = ["users", "api_key", "log_api", "log_users_password", "otp", "script_run", "queue_job", "spatial_ref_sys"]
 config_table_my_read_blocked = ["users", "config", "log_users_password", "otp", "script_run", "queue_job", "spatial_ref_sys"]
 config_table_my_delete_all_allowed = ["test", "message", "notification"]
-config_table_public_create_allowed = ["test"]
+config_table_public_create_allowed = ["test", "ticket"]
 config_table_public_read_allowed = ["test"]
 config_mongodb_my_create_allowed = {"test": ["post"]}
 config_table_private_read_allowed = ["test"]
 
 # permission
-config_permission_table_write_allowed = []
+config_permission_table = {"ticket": {"read": 120, "update": 121, "delete": 122}}
 config_permission_user_roles = []
 config_permission_user_column_blocked = ["role", "permissions", "username", "email", "mobile", "verified_at", "verified_by_id", "deactivated_by_id", "parent_id", "source", "id_ext", "google_login_id", "google_login_metadata"]
 
@@ -217,7 +217,7 @@ config_options = {
 config_column_int_mapping = {
 "users": {
 "role": {1: "Admin"},
-"permissions": {59: "Update any row", 60: "Delete any row", 61: "Create user", 62: "Update user", 86: "Postgres query runner write"},
+"permissions": {61: "Create user", 62: "Update user", 86: "Postgres query runner write", 120: "Ticket read", 121: "Ticket update", 122: "Ticket delete"},
 },
 "blob": {
 "type": {1: "File", 2: "Presigned Url"},
@@ -227,6 +227,10 @@ config_column_int_mapping = {
 },
 "queue_job": {
 "status": {1: "Waiting", 2: "Failed"},
+},
+"ticket": {
+"type": {1: "Support", 2: "Feedback", 3: "Bug"},
+"status": {1: "To Do", 2: "In Progress", 3: "Blocked", 4: "Review", 5: "Done"},
 },
 "log_users_delete": {
 "type": {1: "User Soft Deleted", 2: "User Restored", 3: "User Hard Deleted"},
@@ -363,6 +367,19 @@ config_postgres = {
 {"name":"reference_id","datatype":"bigint"},
 {"name":"read_at","datatype":"timestamptz"}
 ],
+"ticket":[
+{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
+{"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id,id)"},
+{"name":"updated_at","datatype":"timestamptz"},
+{"name":"updated_by_id","datatype":"bigint"},
+{"name":"type","datatype":"smallint","is_mandatory": True,"default":1,"in":(1,2,3),"index":"btree(type,status)"},
+{"name":"status","datatype":"smallint","is_mandatory": True,"default":1,"in":(1,2,3,4,5),"index":"btree(status,id)"},
+{"name":"title","datatype":"text","is_mandatory": True,"index":"gin_trgm(title)"},
+{"name":"description","datatype":"text"},
+{"name":"email","datatype":"text","index":"btree(email)"},
+{"name":"reply","datatype":"text"}
+],
 "log_api":[
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
@@ -494,7 +511,7 @@ config_api = {
 "/my/blob-delete-url": {"id": 37, "auth": ["jwt"]},
 "/my/api-key-create": {"id": 97, "auth": ["jwt"], "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
 # public
-"/public/object-create": {"id": 38, "auth": []},
+"/public/object-create": {"id": 38, "auth": [], "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
 "/public/object-read-export": {"id": 39, "auth": [], "is_connection_param": True},
 "/public/object-read": {"id": 40, "auth": [], "cache": {"mode": "inmemory", "ttl_sec": 100, "is_per_user": False}, "is_connection_param": True},
 "/public/converter-number": {"id": 41, "auth": []},
@@ -517,8 +534,11 @@ config_api = {
 "/private/table-column-groupby": {"id": 57, "auth": ["jwt"], "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}, "is_connection_param": True},
 "/private/table-column-distinct": {"id": 58, "auth": ["jwt"], "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}, "is_connection_param": True},
 # permission
-"/permission/object-update": {"id": 59, "auth": ["jwt"], "user_check_permission": {"mode": "token"}},
-"/permission/object-delete": {"id": 60, "auth": ["jwt"], "user_check_permission": {"mode": "token"}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
+"/permission/object-create": {"id": 98, "auth": ["jwt"], "user_check_permission": {"mode": "token", "action": "create"}},
+"/permission/object-read": {"id": 99, "auth": ["jwt"], "user_check_permission": {"mode": "token", "action": "read"}},
+"/permission/object-read-export": {"id": 100, "auth": ["jwt"], "user_check_permission": {"mode": "token", "action": "read"}},
+"/permission/object-update": {"id": 59, "auth": ["jwt"], "user_check_permission": {"mode": "token", "action": "update"}},
+"/permission/object-delete": {"id": 60, "auth": ["jwt"], "user_check_permission": {"mode": "token", "action": "delete"}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
 "/permission/user-create": {"id": 61, "auth": ["jwt"], "user_check_permission": {"mode": "token"}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
 "/permission/user-update": {"id": 62, "auth": ["jwt"], "user_check_permission": {"mode": "token"}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
 # admin

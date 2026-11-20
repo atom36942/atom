@@ -6,12 +6,37 @@ from fastapi import Request
 router = APIRouter()
 
 # api
+# the middleware checks every /permission/object-* call: the user holds config_permission_table[table][action] for the route's action
+@router.post("/permission/object-create")
+async def func_api_permission_object_create(*, request: Request):
+    app_state = request.app.state
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}])
+    app_state.func_check_table_write_blocked(app_state=app_state, table=oq["table"])
+    obj_list = await app_state.func_extract_request_object_list(request=request)
+    app_state.func_check_batch_limit(app_state=app_state, items=obj_list)
+    app_state.func_validate_restricted_columns(app_state=app_state, obj_list=obj_list)
+    app_state.func_check_table_column_exists(app_state=app_state, table=oq["table"], column="created_by_id", purpose="ownership tracking")
+    obj_list = app_state.func_attach_user_audit_fields(request=request, obj_list=obj_list, field="created_by_id")
+    return {"status": 1, "message": await app_state.func_postgres_create(client_postgres=request.state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, buffer_postgres=app_state.buffer_postgres_create, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="reject", config_column_regex=app_state.config_column_regex, buffer_limit=app_state.func_buffer_limit(app_state=app_state, table=oq["table"]), mode="now", table=oq["table"], obj_list=obj_list)}
+
+@router.get("/permission/object-read")
+async def func_api_permission_object_read(*, request: Request):
+    app_state = request.app.state
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "limit", "type": "int", "default": app_state.config_sql_read_limit_default}, {"name": "after", "type": "str"}, {"name": "page", "type": "int", "minimum": 1}, {"name": "order", "type": "str", "default": "id desc"}, {"name": "column", "type": "str", "default": "*"}, {"name": "filter", "type": "list", "default": []}], reject_unknown=True)
+    res = await app_state.func_postgres_read(config_page_offset_max=app_state.config_page_offset_max, client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=oq["filter"], limit=oq["limit"], order=oq["order"], column=oq["column"], relation=[], config_column_read_blocked=app_state.config_column_read_blocked, after=oq.get("after"), page=oq.get("page"))
+    return {"status": 1, "message": res}
+
+@router.get("/permission/object-read-export")
+async def func_api_permission_object_read_export(*, request: Request):
+    app_state = request.app.state
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "order", "type": "str", "default": "id desc"}, {"name": "column", "type": "str", "default": "*"}, {"name": "filter", "type": "list", "default": []}, {"name": "limit", "type": "int"}], strict=True, strict_types=True, reject_unknown=True)
+    generator = await app_state.func_postgres_read_export(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_export_limit=app_state.config_export_limit, table=oq["table"], filter=oq["filter"], order=oq["order"], column=oq["column"], config_column_read_blocked=app_state.config_column_read_blocked, limit=oq.get("limit"))
+    return app_state.func_csv_response(content=generator, filename=f'{oq["table"]}.csv')
+
 @router.put("/permission/object-update")
 async def func_api_permission_object_update(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}])
-    app_state.func_check_table_permission(app_state=app_state, table=oq["table"], scope="permission", action="write")
-    app_state.func_check_table_not_users(table=oq["table"])
     app_state.func_check_table_write_blocked(app_state=app_state, table=oq["table"])
     obj_list = await app_state.func_extract_request_object_list(request=request)
     app_state.func_check_batch_limit(app_state=app_state, items=obj_list)
@@ -23,13 +48,11 @@ async def func_api_permission_object_update(*, request: Request):
 @router.post("/permission/object-delete")
 async def func_api_permission_object_delete(*, request: Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "ids", "type": "list:int", "required": True}])
-    table, ids = ob["table"], ob["ids"]
-    app_state.func_check_table_permission(app_state=app_state, table=table, scope="permission", action="write")
-    app_state.func_check_table_not_users(table=table)
-    app_state.func_check_table_write_blocked(app_state=app_state, table=table)
-    app_state.func_check_batch_limit(app_state=app_state, items=ids)
-    deleted_count = await app_state.func_postgres_delete(client_postgres=request.state.client_postgres, client_postgres_conn=None, cache_postgres_schema=request.state.cache_postgres_schema, table=table, ids=ids, created_by_id=None)
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}])
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "ids", "type": "list:int", "required": True}])
+    app_state.func_check_table_write_blocked(app_state=app_state, table=oq["table"])
+    app_state.func_check_batch_limit(app_state=app_state, items=ob["ids"])
+    deleted_count = await app_state.func_postgres_delete(client_postgres=request.state.client_postgres, client_postgres_conn=None, cache_postgres_schema=request.state.cache_postgres_schema, table=oq["table"], ids=ob["ids"], created_by_id=None)
     return {"status": 1, "message": f"{deleted_count} ids deleted"}
 
 @router.post("/permission/user-create")

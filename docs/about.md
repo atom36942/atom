@@ -38,7 +38,7 @@ atom/
 ├── function/       # every func_*, one module per area (clients, auth, postgres_*, queues, storage, ...)
 ├── config.py       # every default config_*: settings, config_api, config_postgres (tables)
 ├── router/         # API routes by access scope: auth, my, public, private, admin, index
-├── static/         # Atom's pages (API console, Monitor, pgweb) and their assets
+├── static/         # Atom's pages (API console, Monitor, Tickets, pgweb) and their assets
 ├── script/         # scripts that work in every project: check, consumers, postgres_schema_plan, load_test, ...
 ├── files/          # read-only data (countries, currencies)
 ├── docs/           # these docs; AGENTS.md is the rules entry
@@ -144,7 +144,7 @@ Every Atom route belongs to one group, by its first path segment. The groups app
 | 3 | `/my/*` | The user's own things: profile, own rows, messages, files, own account | Yes | Rows are limited to the user's own (ownership) |
 | 4 | `/public/*` | Anyone, no login: public tables, OTP, small tools | No | Tables in `config_table_public_*`; rate limit on OTP and password-hash |
 | 5 | `/private/*` | Any logged-in user, any role: shared lists, counts, users, email, uploads | Yes | None beyond the token (tables in `config_table_private_read_allowed`) |
-| 6 | `/permission/*` | Users granted the route, any role: change or delete anyone's rows (59, 60), create and update users of allowed roles (61, 62) | Yes | A permission on every route (startup refuses one without it); a role may be added; tables in `config_permission_table_write_allowed`, none by default |
+| 6 | `/permission/*` | Users granted a permission, any role: create, read, update or delete anyone's rows of a table (one id per table and action in `config_permission_table`), create and update users of allowed roles (61, 62) | Yes | A permission on every route (startup refuses one without it); a role may be added; only the tables and actions in `config_permission_table` |
 | 7 | `/admin/*` | The backend admin: every table, users, SQL, imports, storage, monitor | Yes | Role 1 on every route (startup refuses one without it); other roles and a permission may be added (Atom's sample: 6, SQL writes) |
 
 A route with a role, permission, deactivated or deleted check needs a non-empty `auth` (startup refuses it otherwise). On every route with a credential Atom also refuses deactivated and deleted users (the global checks). A project adds its own group (`/<app>/*`, e.g. `/order/*`) in `config_extend.py` with its role, and permission where only some users may act. Before writing one, check whether one of Atom's routes already does it ([crud.md](crud.md#which-route-for-which-screen)).

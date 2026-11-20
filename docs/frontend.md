@@ -86,7 +86,7 @@ Defaults, not rules: suggestions a page may follow or not (the details below); t
 ## Page standard
 Reference code: `static/analytics.html` (the full example: one-role login, Sync with the IndexedDB cache, lists with Previous/Next, the export limit) and `static/monitor.html` (the smallest: the same flow without a cache). Every project has both through sync; a new page copies their five blocks unchanged, sets `PAGE` and `<html data-storage-key data-default-theme>`, and builds its own screens with `Page.*`. Its look is its own through the CSS variables (an app page is usually light: `data-default-theme="light"` and its own palette); the structure stays the same.
 
-Atom's pages that log in (Analytics, Monitor, API, Message) are built the same way, so a new page or project copies the structure instead of deciding it again. Each page carries five blocks, copied unchanged from page to page (a test, `tests/test_page_auth.py`, fails when a copy differs); only what is around them is the page's own.
+Atom's pages that log in (Analytics, Monitor, API, Message, Tickets) are built the same way, so a new page or project copies the structure instead of deciding it again. Each page carries five blocks, copied unchanged from page to page (a test, `tests/test_page_auth.py`, fails when a copy differs); only what is around them is the page's own.
 
 | Block | Where in the page | What it holds |
 | :--- | :--- | :--- |
@@ -108,6 +108,7 @@ Atom's pages that log in (Analytics, Monitor, API, Message) are built the same w
 | Monitor | `key: "monitor", role: 1, loginRequired: true, idb: false` | none (every tab reads live) |
 | API | `key: "api", role: null, loginRequired: false, idb: true` | `openapi`: `/openapi.json` (logged out, a copy over 3 hours old is downloaded again on open) |
 | Message | `key: "message", role: null, loginRequired: true, idb: false` | none (messages are live) |
+| Tickets | `key: "ticket", role: null, loginRequired: true, idb: false` | none (the list is live; light by default, the apps' navy palette) |
 
 ## Login
 The account block does this; it is the default for a project's pages too.

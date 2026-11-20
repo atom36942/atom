@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-PAGES = {name: (ROOT / "static" / f"{name}.html").read_text() for name in ("analytics", "monitor", "api", "message")}
+PAGES = {name: (ROOT / "static" / f"{name}.html").read_text() for name in ("analytics", "monitor", "api", "message", "ticket")}
 BLOCKS = {
     "theme": r"<!-- ==== atom page: theme ==== -->.*?<!-- ==== end atom page: theme ==== -->",
     "look": r"/\* ==== atom page: look ==== \*/.*?/\* ==== end atom page: look ==== \*/",
@@ -19,6 +19,7 @@ SETTINGS = {
     "monitor": 'key: "monitor", title: "Monitor", role: 1, loginRequired: true, idb: false',
     "api": 'key: "api", title: "API", role: null, loginRequired: false, idb: true',
     "message": 'key: "message", title: "Message", role: null, loginRequired: true, idb: false',
+    "ticket": 'key: "ticket", title: "Tickets", role: null, loginRequired: true, idb: false',
 }
 
 
@@ -133,7 +134,7 @@ class PageThemeTests(unittest.TestCase):
         for page, text in PAGES.items():
             with self.subTest(page=page):
                 self.assertLess(text.index("<!-- ==== atom page: theme ==== -->"), text.index("<style>"))    # before the styles: no flash of the other theme
-                self.assertIn(f'<html lang="en" data-storage-key="{page}">', text)    # the theme is kept in the page's own key: the same as PAGE.key
+                self.assertRegex(text, rf'<html lang="en" data-storage-key="{page}"( data-default-theme="light")?>')    # the theme is kept in the page's own key: the same as PAGE.key; Tickets, a team's page like the apps', starts light
                 self.assertIn(f'const PAGE = {{ key: "{page}"', text)
                 self.assertNotRegex(text, r"rgba\(255, ?255, ?255,(?!\.8\)|\.14\))")    # overlays use --hl; only the close button on the filled header stays white
         self.assertIn('id="settingsBtn" role="menuitem"', block("analytics", "account header")[0])

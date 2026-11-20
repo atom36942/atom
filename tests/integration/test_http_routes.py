@@ -94,8 +94,8 @@ class HttpRouteTests(unittest.TestCase):
                 self.assertEqual((user.status_code, user.json()["message"]), (403, expected))
 
     def test_permission_routes_root_holds_them_others_need_a_grant(self):
-        # root gets Atom's /admin permission route at startup (86); the /permission writes (59, 60) are granted explicitly, root included
-        self.assertEqual(fetch(self.url, "SELECT permissions FROM users WHERE id = 1"), [{"permissions": [86]}])
+        # root gets every /admin and /permission permission id at startup (61, 62, 86) and every config_permission_table id (ticket 120-122); other users are granted explicitly
+        self.assertEqual(fetch(self.url, "SELECT permissions FROM users WHERE id = 1"), [{"permissions": [61, 62, 86, 120, 121, 122]}])
         self.message(self.client.post("/admin/user-create", json={"role": 1, "username": "admin2", "password": "admin2-pass"}, headers=self.auth(self.admin)))
         admin2 = app_login(self.client, path="/auth/login-username-password", body={"username": "admin2", "password": "admin2-pass"})
         self.assertEqual(self.message(self.client.post("/admin/postgres-query-runner-write", json={"sql": "SELECT 1"}, headers=self.auth(admin2)), 403), "permission denied")
@@ -185,25 +185,33 @@ class HttpRouteTests(unittest.TestCase):
             self.message(self.client.put("/admin/user-update", json={"id": self.alice_id, "password": "alice-pass"}, headers=self.auth(self.admin)))
             self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": None}, headers=self.auth(self.admin)))
 
-    def test_permission_write_needs_the_permission_and_an_allowed_table(self):
+    def test_permission_object_routes_check_the_table_and_action_id(self):
         [row_id] = self.message(self.client.post("/my/object-create", params={"table": "test"}, json={"title": "alice's"}, headers=self.auth(self.alice)))
         update = lambda token, table="test": self.client.put("/permission/object-update", params={"table": table}, json={"id": row_id, "title": "by bob"}, headers=self.auth(token))
-        self.assertEqual(self.message(update(self.bob), 403), "permission denied")
-        self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": [59, 60]}, headers=self.auth(self.admin)))
-        bob = app_login(self.client, path="/auth/login-username-password", body={"username": "bob", "password": "bob-pass"})
+        read = lambda token, table="test": self.client.get("/permission/object-read", params={"table": table}, headers=self.auth(token))
+        self.assertEqual(self.message(update(self.bob), 403), "update not allowed for table: test")    # not in config_permission_table
+        self.app.state.config_permission_table = {**self.app.state.config_permission_table, "test": {"read": 120, "update": 121}}    # ids reused from ticket only for this test
         try:
-            self.assertEqual(self.message(update(bob), 400), "write disabled for table: test")    # Atom's default: no table
-            self.app.state.config_permission_table_write_allowed = ["test"]
-            self.assertEqual(self.message(update(bob, "users"), 400), "write disabled for table: users")
-            self.app.state.config_permission_table_write_allowed = ["*"]    # every table: users is still refused
-            self.assertEqual(self.message(update(bob, "users"), 400), "write disabled for table: users")
-            self.assertEqual(self.message(self.client.post("/permission/object-delete", json={"table": "users", "ids": [self.alice_id]}, headers=self.auth(bob)), 400), "write disabled for table: users")
-            self.app.state.config_permission_table_write_allowed = ["test"]
+            self.assertEqual(self.message(update(self.bob), 403), "permission denied")
+            self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": [121]}, headers=self.auth(self.admin)))
+            bob = app_login(self.client, path="/auth/login-username-password", body={"username": "bob", "password": "bob-pass"})
+            self.assertEqual(self.message(read(bob), 403), "permission denied")    # update only: no read
+            self.assertEqual(self.message(update(bob, "users"), 403), "update not allowed for table: users")
+            self.assertEqual(self.message(self.client.post("/permission/object-delete", params={"table": "test"}, json={"ids": [row_id]}, headers=self.auth(bob)), 403), "delete not allowed for table: test")
             self.assertEqual(self.message(update(bob)), [row_id])
             self.assertEqual(fetch(self.url, "SELECT title, created_by_id, updated_by_id FROM test WHERE id = $1", row_id), [{"title": "by bob", "created_by_id": self.alice_id, "updated_by_id": self.bob_id}])
-            self.assertEqual(self.message(self.client.post("/permission/object-delete", json={"table": "test", "ids": [row_id]}, headers=self.auth(bob))), "1 ids deleted")
+            # root holds every config_permission_table id from startup: ticket read, update, delete
+            ticket = {"title": "Login fails", "type": 3, "email": "x@y.test"}
+            [ticket_id] = self.message(self.client.post("/public/object-create", params={"table": "ticket"}, json=ticket))
+            self.assertEqual(fetch(self.url, "SELECT created_by_id, status FROM ticket WHERE id = $1", ticket_id), [{"created_by_id": None, "status": 1}])
+            rows = self.message(self.client.get("/permission/object-read", params={"table": "ticket", "filter": json.dumps([f"id = {ticket_id}"])}, headers=self.auth(self.admin)))["obj_list"]
+            self.assertEqual([(row["title"], row["status"]) for row in rows], [("Login fails", 1)])
+            self.assertEqual(self.message(self.client.put("/permission/object-update", params={"table": "ticket"}, json={"id": ticket_id, "status": 5}, headers=self.auth(self.admin))), [ticket_id])
+            self.assertIn("Login fails", self.client.get("/permission/object-read-export", params={"table": "ticket"}, headers=self.auth(self.admin)).text)
+            self.assertEqual(self.message(self.client.post("/permission/object-delete", params={"table": "ticket"}, json={"ids": [ticket_id]}, headers=self.auth(self.admin))), "1 ids deleted")
+            self.assertEqual(self.message(self.client.post("/permission/object-create", params={"table": "ticket"}, json={"title": "x"}, headers=self.auth(self.admin)), 403), "create not allowed for table: ticket")
         finally:
-            self.app.state.config_permission_table_write_allowed = []
+            self.app.state.config_permission_table = {key: value for key, value in self.app.state.config_permission_table.items() if key != "test"}
             self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": None}, headers=self.auth(self.admin)))
 
     # 2. CRUD lifecycle and ownership

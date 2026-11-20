@@ -13,7 +13,7 @@ Endpoints are split into **access tiers** (`/my/*`, `/public/*`, `/private/*`, `
 | **User** | `/my/object-*` | Authenticated users | Create stamps the creator; read, update, and delete default to creator ownership and accept an operation-approved `ownership_column`. |
 | **Public** | `/public/object-*` | Anonymous / Unauthenticated | Restricted by `config_table_public_read_allowed`. |
 | **Private** | `/private/object-*` | Any logged-in user | Reads tables in `config_table_private_read_allowed`. |
-| **Permission** | `/permission/object-*` | Users granted the route (any role) | Update and delete any row (not only the caller's), only tables in `config_permission_table_write_allowed` (default none), only for users holding 59 or 60. |
+| **Permission** | `/permission/object-*` | Users granted the table's action (any role) | Create, read, update and delete any row (not only the caller's), only the tables and actions in `config_permission_table`, each needing its own permission id. |
 | **Admin** | `/admin/object-*` | Superadmins (`role: 1`) | Unrestricted table access across database. |
 
 ---
@@ -386,9 +386,9 @@ Use these before writing a project route; most screens need nothing else.
 | CSV download of a list | `object-read-export` | the same as the list |
 | Users of the app (user management) | `/private/user-read` | `filter`, `limit`, `after`; columns from `config_column_users_private_read` |
 | Create, change, delete your own rows | `/my/object-create`, `/my/object-update`, `/my/object-delete` | `table`; update and delete only the caller's rows |
-| Selected users change or delete anyone's rows (a shared task list) | `/permission/object-update`, `/permission/object-delete` | `table` in `config_permission_table_write_allowed`; the user holds permission 59 or 60 |
+| Selected users read, change or delete anyone's rows (a support team, a shared task list) | `/permission/object-create`, `-read`, `-read-export`, `-update`, `-delete` | `table`; the user holds `config_permission_table[table][action]` |
 
-Pick the tier by who calls: `/my` (own rows), `/private` (any logged-in user, tables in `config_table_private_read_allowed`), `/permission` (users granted the route), `/public` (no login), `/admin` (role 1). Hide columns with `config_column_read_blocked`. Write a project route only for joins, several different lists in one statement, computed filters or business checks.
+Pick the tier by who calls: `/my` (own rows), `/private` (any logged-in user, tables in `config_table_private_read_allowed`), `/permission` (users granted the table's action), `/public` (no login), `/admin` (role 1). Hide columns with `config_column_read_blocked`. Write a project route only for joins, several different lists in one statement, computed filters or business checks.
 
 ---
 
@@ -421,18 +421,22 @@ curl -X PUT "http://localhost:8000/my/object-update?table=task&ownership_column=
 The effective condition is `id = 135 AND assigned_to_id = current_user.id`. If ownership does not match, the returned updated-ID list does not contain that ID. Supplying an ownership column that is not allowed for updates, or that does not exist on the table, is rejected. For `table=users`, `ownership_column` is not supported; self-update account-ID checks apply instead.
 
 
-### Anyone's rows, for selected users (`PUT /permission/object-update`, `POST /permission/object-delete`)
+### Anyone's rows, for selected users (`/permission/object-*`)
 
-Off by default, two locks: the table must be in `config_permission_table_write_allowed` (Atom's default `[]`), and the user must hold the route's permission (59 update, 60 delete) in `users.permissions`; nobody holds them until granted, root included. Same request as `/my/object-update` (`?table=`, body the object or list) and `/my/object-delete` (`{table, ids}`), without the owner filter. The same guards stay: `users` and `config_table_write_blocked` are refused, protected columns cannot change, `updated_by_id` is the caller, the batch limit applies.
+Off until a table is in `config_permission_table`, and then only for users holding the id of that table and action in `users.permissions`; nobody but root holds them until granted. Same requests as the `/my` routes (`?table=` on every one, delete's body `{"ids": [...]}`), without the owner filter. The same guards stay: `users` and `config_table_write_blocked` are refused, protected columns cannot change, `created_by_id`/`updated_by_id` is the caller, the batch limit applies. Reads take `filter`, `order`, `column`, `limit` and `after`/`page`, without relations. Detail in [auth.md](auth.md#object-permissions-one-id-per-table-and-action).
 
 ```python
-# config_extend.py: selected users may change anyone's task or comment
-config_permission_table_write_allowed = ["task", "task_comment"]
+# config_extend.py: selected users may change or delete anyone's task or comment
+config_permission_table = {**base_config_permission_table, "task": {"update": 211, "delete": 212}, "task_comment": {"update": 213, "delete": 214}}
 ```
-```sql
--- grant two users both routes
-UPDATE users SET permissions = array(SELECT DISTINCT unnest(coalesce(permissions, '{}') || '{59,60}'::smallint[])) WHERE id IN (4, 5);
+```bash
+# grant a user task update and delete (an admin, PUT /admin/user-update)
+curl -X PUT "$BASE_URL/admin/user-update" -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" -d '{"id": 4, "permissions": [211, 212]}'
 ```
+
+### Tickets: the support table every project has
+
+Atom's `ticket` table (`type`: 1 Support, 2 Feedback, 3 Bug; `status`: 1 To Do, 2 In Progress, 3 Blocked, 4 Review, 5 Done; `title`, `description`, `email`, `reply`) takes tickets from any page: `POST /my/object-create?table=ticket` (logged in, `created_by_id` stamped) or `POST /public/object-create?table=ticket` (no login, `email` to answer; rate limited). The support team works them on Atom's page `/page/ticket` (any role; read 120, update 121, delete 122: status, reply, delete, CSV export); root holds all three. A project's form only creates them, from its own page.
 
 ---
 

@@ -141,6 +141,16 @@ class PermissionTests(unittest.IsolatedAsyncioTestCase):
                 await func_middleware_check_permission(user_dict=user, user_check_permission=check, api_id=205)
             self.assertEqual(caught.exception.status_code, status)
 
+    async def test_action_route_checks_the_table_and_action_id_from_config_permission_table(self):
+        check, table = {"mode": "token", "action": "update"}, {"ticket": {"read": 120, "update": 121}}
+        await func_middleware_check_permission(user_dict={"id": 7, "permissions": [121]}, user_check_permission=check, api_id=59, table="ticket", config_permission_table=table)
+        for user, name, status, message in [({"id": 7, "permissions": [120, 59]}, "ticket", 403, "permission denied"),    # read only, and the route's own id grants nothing
+                                            ({"id": 7, "permissions": [121]}, "task", 403, "update not allowed for table: task"),
+                                            ({"id": 7, "permissions": [121]}, None, 403, "update not allowed for table: None")]:
+            with self.subTest(user=user, table=name), self.assertRaises(Exception) as caught:
+                await func_middleware_check_permission(user_dict=user, user_check_permission=check, api_id=59, table=name, config_permission_table=table)
+            self.assertEqual((caught.exception.status_code, caught.exception.detail if hasattr(caught.exception, "detail") else str(caught.exception)), (status, message))
+
     def test_api_key_route_gets_the_global_checks_too(self):
         filled = func_middleware_api_user_check_fill(config_api={"/x": {"id": 205, "auth": ["api_key"]}}, config_api_global_user_check_deleted="token", config_api_global_user_check_deactivated="token")
         self.assertEqual(filled["/x"]["user_check_deleted"], {"mode": "token"})

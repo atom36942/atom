@@ -4,7 +4,7 @@ An optional feature: a page where some of an app's own users create and manage t
 
 ## Backend: settings and grants only
 - The roles it manages: `config_permission_user_roles` in `config_extend.py` (the app's users, e.g. `[2]`; never 1). The same list limits both user routes.
-- Who may manage: grant permission 61 (`/permission/user-create`) and 62 (`/permission/user-update`: profile, password, deactivate; no delete) with `/admin/user-update` (`permissions`); nobody holds them by default, root included. A granted user's page sees the ids in `/my/profile` `permissions` after a token renewal.
+- Who may manage: grant permission 61 (`/permission/user-create`) and 62 (`/permission/user-update`: profile, password, deactivate; no delete) with `/admin/user-update` (`permissions`); nobody but root holds them by default. A granted user's page sees the ids in `/my/profile` `permissions` after a token renewal.
 - What the list shows: `/private/user-read` returns the `config_column_users_private_read` columns; add `last_active_at` and the profile columns Edit profile needs in `config_extend.py`.
 - What managers may not change: `config_permission_user_column_blocked` (Atom keeps `role`, `permissions` and the login columns in it).
 - Set `config_api_global_user_check_deactivated = "realtime"` so a deactivated user is signed out at their next request, not at their next token renewal.

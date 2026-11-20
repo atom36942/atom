@@ -66,12 +66,12 @@ class SchemaInitTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("(score, id)", definitions["idx_sorted_item_score_id_btree"])
 
     async def test_root_holds_exactly_the_admin_permission_routes(self):
-        app_state = SimpleNamespace(**{name: getattr(function, name) for name in function.__all__}, config_api={"/admin/a": {"id": 6, "user_check_permission": {"mode": "token"}}, "/admin/b": {"id": 132, "user_check_permission": {"mode": "token"}}, "/admin/c": {"id": 7}, "/admin/project": {"id": 301, "user_check_permission": {"mode": "token"}}, "/permission/w": {"id": 136, "user_check_permission": {"mode": "token"}}, "/x/project": {"id": 300, "user_check_permission": {"mode": "token"}}})
+        app_state = SimpleNamespace(**{name: getattr(function, name) for name in function.__all__}, config_api={"/admin/a": {"id": 6, "user_check_permission": {"mode": "token"}}, "/admin/b": {"id": 132, "user_check_permission": {"mode": "token"}}, "/admin/c": {"id": 7}, "/admin/project": {"id": 301, "user_check_permission": {"mode": "token"}}, "/permission/w": {"id": 136, "user_check_permission": {"mode": "token"}}, "/permission/object-update": {"id": 59, "user_check_permission": {"mode": "token", "action": "update"}}, "/x/project": {"id": 300, "user_check_permission": {"mode": "token"}}}, config_permission_table={"ticket": {"read": 120, "update": 121}, "task": {"delete": 212}})
         await self.init(app_state)
-        self.assertEqual(await self.pool.fetchval("SELECT permissions FROM users WHERE id = 1"), [6, 132, 301], "every /admin permission route, a project's too; /permission 136 and other routes are granted explicitly")
-        await self.pool.execute("UPDATE users SET permissions = '{6,136,300}' WHERE id = 1")    # a stale id and a /permission route granted by hand
+        self.assertEqual(await self.pool.fetchval("SELECT permissions FROM users WHERE id = 1"), [6, 120, 121, 132, 136, 212, 301], "every /admin and /permission permission id and every config_permission_table id; an action route's own id (59) and other routes (300) are not root's")
+        await self.pool.execute("UPDATE users SET permissions = '{6,59,300}' WHERE id = 1")    # stale ids granted by hand
         await self.init(app_state)
-        self.assertEqual(await self.pool.fetchval("SELECT permissions FROM users WHERE id = 1"), [6, 132, 301], "reset to exactly the /admin permission routes")
+        self.assertEqual(await self.pool.fetchval("SELECT permissions FROM users WHERE id = 1"), [6, 120, 121, 132, 136, 212, 301], "reset to exactly that list")
         # with config_is_postgres_schema_init off, the root update is routine, so an unchanged database passes the check
         await function.func_postgres_schema_check(app_state=app_state, client_postgres=self.pool, config_postgres=config_postgres())
 
