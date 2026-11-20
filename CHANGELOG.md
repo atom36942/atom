@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [18.1.1] - 2026-11-20
+
+- **Tickets board on one row:** every status column stays side by side at any width (at least 200px each); a narrow screen scrolls the board sideways instead of stacking the columns.
+
 ## [18.1.0] - 2026-11-20
 
 - **Tickets, a small support desk:** customers send tickets from a project's form (`/my/object-create` logged in, `/public/object-create` without a login), with their `name`, `email` and `mobile` kept on the ticket; `ticket` gets `priority` (Low, Normal, High), `closed_at` (set by a trigger when the status becomes Closed) and three statuses, Open, In Progress, Closed (from 18.0.0's five; no project had tickets yet). The 18.0.0 column `reply` is no longer used (Atom keeps columns it doesn't manage; it stays empty) ([docs/crud.md](docs/crud.md#tickets-a-small-support-desk-in-every-project)).

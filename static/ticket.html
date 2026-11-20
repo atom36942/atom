@@ -216,7 +216,7 @@ main{padding:24px 24px 48px}
 @media (max-width:1060px){.filters{grid-template-columns:1fr 1fr}.search-box{grid-column:1/-1}}
 @media (max-width:520px){.filters{grid-template-columns:1fr}.search-box{grid-column:auto}}
 /* the board: one column per status, its first page read for every column in one call, the next pages as a column scrolls */
-.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.board{display:grid;grid-template-columns:repeat(var(--columns,3),minmax(200px,1fr));gap:10px;overflow-x:auto;overscroll-behavior-x:contain}    /* one row at every width: a narrow screen scrolls the board sideways, never the page */
 .column{min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;transition:border-color .12s,box-shadow .12s}
 .column.hidden-column{visibility:hidden}
 .column.drop-target{border-color:var(--brand-ink);box-shadow:var(--ring)}
@@ -266,7 +266,7 @@ main{padding:24px 24px 48px}
 .pager-label{font-size:12px;font-weight:600;color:var(--muted)}
 @media (max-width:720px){
   main,.topbar{padding-left:16px;padding-right:16px}
-  .board{grid-template-columns:1fr}.column.hidden-column{display:none}.cards{height:420px;min-height:180px}
+  .cards{height:calc(100vh - 220px);min-height:300px}
   .hbtn span{display:none}
   .table-wrap{border:0;background:transparent}
   .ticket-table,.ticket-table tbody{display:block}.ticket-table thead{display:none}
@@ -999,7 +999,7 @@ const cardMarkup = row => {
 const drawBoard = () => {
   const scroll = new Map([...document.querySelectorAll(".cards[data-status]")].map(node => [node.dataset.status, node.scrollTop]));
   for (const column of state.columns.values()) for (const row of column.items) state.rows.set(row.id, row);
-  el("ticketList").innerHTML = `<div class="board">${statuses().map(([status]) => {
+  el("ticketList").innerHTML = `<div class="board" style="--columns:${statuses().length}">${statuses().map(([status]) => {
     const column = state.columns.get(status);
     if (!column) return '<section class="column hidden-column" aria-hidden="true"></section>';
     const note = column.error ? `<div class="column-state error">${esc(column.error)}</div>` : column.loading ? '<div class="column-state">Loading…</div>' : !column.items.length ? '<div class="column-state">No tickets</div>' : column.hasNext ? '<div class="column-state">Scroll for more</div>' : "";
