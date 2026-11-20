@@ -13,6 +13,7 @@ from function import func_user_update
 from function import func_user_delete
 from function import func_validate_restricted_columns
 from function import func_check_batch_limit
+from function import func_check_honeypot
 from function import func_attach_user_audit_fields
 from function import func_middleware_check_role
 from function import func_middleware_check_permission
@@ -224,6 +225,13 @@ class PermissionTests(unittest.IsolatedAsyncioTestCase):
         result = func_attach_user_audit_fields(request=request, obj_list=objects)
         self.assertEqual(result[0]["created_by_id"], 7)
         self.assertEqual(objects[0]["created_by_id"], 999)
+
+    def test_honeypot_refuses_a_filled_field_and_drops_an_empty_one(self):
+        state = SimpleNamespace(config_public_create_honeypot="website")
+        self.assertEqual(func_check_honeypot(app_state=state, obj_list=[{"title": "a", "website": ""}, {"title": "b"}]), [{"title": "a"}, {"title": "b"}])
+        with self.assertRaisesRegex(Exception, "refused"):
+            func_check_honeypot(app_state=state, obj_list=[{"title": "a"}, {"title": "spam", "website": "http://x"}])
+        self.assertEqual(func_check_honeypot(app_state=SimpleNamespace(config_public_create_honeypot=None), obj_list=[{"website": "x"}]), [{"website": "x"}])
 
     def test_batch_limit_boundary(self):
         state = SimpleNamespace(config_batch_item_limit=2)

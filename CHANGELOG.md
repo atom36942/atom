@@ -4,6 +4,12 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [18.2.0] - 2026-11-20
+
+- **Honeypot on public create:** `/public/object-create` refuses a row whose hidden `website` field has a value (only bots fill it) and drops the field when empty (`config_public_create_honeypot`, `None` turns it off). A project's public form adds the hidden field ([docs/crud.md](docs/crud.md#tickets-a-small-support-desk-in-every-project)).
+- **Ticket statuses as in Pulse:** To Do, In Progress, Blocked, Review, Done (from Open, In Progress, Closed). `closed_at` is now set when a ticket becomes Done (5). A project with tickets moves its Closed ones (3) to Done before or right after syncing: `UPDATE ticket SET status = 5 WHERE status = 3` (inside a transaction with `ALTER TABLE ticket DISABLE TRIGGER ticket_closed_at` and `ENABLE` after, to keep their `closed_at`).
+- **Add ticket is the customer's ticket:** the Tickets page's Add ticket now sends `/public/object-create` without the agent's token, so `created_by_id` stays empty and the ticket shows as Public, like one from the customer's form (before, it carried the agent's id and read as "Logged in (agent)"). The form, laid out like Pulse's Add task (a card for the title and description, a card for type, priority and the customer's contact), says so in its header, needs an email or mobile to reply to, and opens the new ticket.
+
 ## [18.1.1] - 2026-11-20
 
 - **Tickets board on one row:** every status column stays side by side at any width (at least 200px each); a narrow screen scrolls the board sideways instead of stacking the columns.

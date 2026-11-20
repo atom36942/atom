@@ -202,13 +202,14 @@ class HttpRouteTests(unittest.TestCase):
             self.assertEqual(fetch(self.url, "SELECT title, created_by_id, updated_by_id FROM test WHERE id = $1", row_id), [{"title": "by bob", "created_by_id": self.alice_id, "updated_by_id": self.bob_id}])
             # root holds every config_permission_table id from startup: the support team's ticket flow
             ticket = {"title": "Login fails", "type": 3, "name": "Asha", "email": "x@y.test", "mobile": "+91 98765 43210"}
-            [ticket_id] = self.message(self.client.post("/public/object-create", params={"table": "ticket"}, json=ticket))
+            self.assertEqual(self.message(self.client.post("/public/object-create", params={"table": "ticket"}, json={**ticket, "website": "http://spam.test"}), 400), "refused")    # the hidden honeypot field, filled only by bots
+            [ticket_id] = self.message(self.client.post("/public/object-create", params={"table": "ticket"}, json={**ticket, "website": ""}))
             closed = lambda: fetch(self.url, "SELECT created_by_id, status, priority, closed_at IS NOT NULL AS closed FROM ticket WHERE id = $1", ticket_id)
             self.assertEqual(closed(), [{"created_by_id": None, "status": 1, "priority": 2, "closed": False}])
             board = self.message(self.client.get("/permission/object-read", params={"table": "ticket", "group_column": "status", "group_values": "[1,2,3]", "filter": json.dumps([{"email": "ilike,%x@y%"}])}, headers=self.auth(self.admin)))["groups"]
             self.assertEqual([row["id"] for row in board["1"]["obj_list"]], [ticket_id])
-            self.assertEqual(self.message(self.client.put("/permission/object-update", params={"table": "ticket"}, json={"id": ticket_id, "status": 3}, headers=self.auth(self.admin))), [ticket_id])
-            self.assertEqual(closed()[0]["closed"], True)    # the trigger stamps closed_at, and clears it when reopened
+            self.assertEqual(self.message(self.client.put("/permission/object-update", params={"table": "ticket"}, json={"id": ticket_id, "status": 5}, headers=self.auth(self.admin))), [ticket_id])
+            self.assertEqual(closed()[0]["closed"], True)    # the trigger stamps closed_at on Done, and clears it when reopened
             self.message(self.client.put("/permission/object-update", params={"table": "ticket"}, json={"id": ticket_id, "status": 2}, headers=self.auth(self.admin)))
             self.assertEqual(closed()[0]["closed"], False)
             [comment_id] = self.message(self.client.post("/permission/object-create", params={"table": "ticket_comment"}, json={"ticket_id": ticket_id, "description": "Called the customer"}, headers=self.auth(self.admin)))

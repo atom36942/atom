@@ -169,8 +169,8 @@ dialog.dlg .choices button[aria-checked="true"]{background:var(--card);border-co
 .choices svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 /* ==== end atom page: look ==== */
 /* ==== page look: a team app's navy palette and sizes on top of Atom's tokens, light by default, dark from Settings ==== */
-:root{--bg:#0e1216;--card:#161b21;--panel:#1d232a;--field:#161b21;--text:#e4e9ee;--muted:#9aa6b2;--faint:#6e7a86;--line:#283039;--line-strong:#38424d;--brand:#24508f;--brand-hover:#2c5aa0;--brand-soft:#d6e0f2;--brand-ink:#9db9ea;--brand-tint:#1d2e47;--brand-fill:#1b293d;--brand-line:#2f4a73;--accent:#9db9ea;--primary:#5ec48d;--success:#5ec48d;--success-soft:#14301f;--warn:#e3a640;--warn-soft:#33270f;--danger:#f07470;--danger-soft:#3a1a1b;--info:#6ea9ea;--info-soft:#152639;--ring:0 0 0 3px rgba(157,185,234,.3);--shadow:0 1px 2px rgba(0,0,0,.4);--topbar-h:64px;--btn-h:36px;--cell-pad:10px 12px;--control-h:36px;--card-pad:10px 12px}
-:root[data-theme="light"]{--bg:#f7f8fa;--card:#fff;--panel:#f2f4f7;--field:#fff;--text:#1f2933;--muted:#5f6b7a;--faint:#8a94a3;--line:#e3e7ed;--line-strong:#cfd5de;--brand:#1a396f;--brand-hover:#142c57;--brand-soft:#dce6f5;--brand-ink:#1a396f;--brand-tint:#dce6f5;--brand-fill:#edf2fa;--brand-line:#b7c8e3;--accent:#1a396f;--primary:#2e7d4f;--success:#2e7d4f;--success-soft:#e8f4ec;--warn:#9a6200;--warn-soft:#fdf3e1;--danger:#c62828;--danger-soft:#fdecec;--info:#2f6bad;--info-soft:#eaf1f9;--ring:0 0 0 3px rgba(26,57,111,.22);--shadow:0 1px 2px rgba(16,24,40,.06)}
+:root{--bg:#0e1216;--card:#161b21;--panel:#1d232a;--field:#161b21;--text:#e4e9ee;--muted:#9aa6b2;--faint:#6e7a86;--line:#283039;--line-strong:#38424d;--brand:#24508f;--brand-hover:#2c5aa0;--brand-soft:#d6e0f2;--brand-ink:#9db9ea;--brand-tint:#1d2e47;--brand-fill:#1b293d;--brand-line:#2f4a73;--accent:#9db9ea;--primary:#5ec48d;--success:#5ec48d;--success-soft:#14301f;--warn:#e3a640;--warn-soft:#33270f;--danger:#f07470;--danger-soft:#3a1a1b;--info:#6ea9ea;--info-soft:#152639;--blocked:#a596ee;--blocked-soft:#262043;--ring:0 0 0 3px rgba(157,185,234,.3);--shadow:0 1px 2px rgba(0,0,0,.4);--topbar-h:64px;--btn-h:36px;--cell-pad:10px 12px;--control-h:36px;--card-pad:10px 12px}
+:root[data-theme="light"]{--bg:#f7f8fa;--card:#fff;--panel:#f2f4f7;--field:#fff;--text:#1f2933;--muted:#5f6b7a;--faint:#8a94a3;--line:#e3e7ed;--line-strong:#cfd5de;--brand:#1a396f;--brand-hover:#142c57;--brand-soft:#dce6f5;--brand-ink:#1a396f;--brand-tint:#dce6f5;--brand-fill:#edf2fa;--brand-line:#b7c8e3;--accent:#1a396f;--primary:#2e7d4f;--success:#2e7d4f;--success-soft:#e8f4ec;--warn:#9a6200;--warn-soft:#fdf3e1;--danger:#c62828;--danger-soft:#fdecec;--info:#2f6bad;--info-soft:#eaf1f9;--blocked:#5b47b0;--blocked-soft:#efecfb;--ring:0 0 0 3px rgba(26,57,111,.22);--shadow:0 1px 2px rgba(16,24,40,.06)}
 :root[data-density="compact"]{--topbar-h:52px;--btn-h:30px;--cell-pad:6px 10px;--control-h:30px;--card-pad:6px 10px}
 body{font-size:13px}
 :where(input:focus,select:focus,textarea:focus){border-color:var(--brand-ink);box-shadow:var(--ring)}
@@ -223,7 +223,9 @@ main{padding:24px 24px 48px}
 .column-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 11px;border-bottom:1px solid var(--line);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
 .column[data-status="1"] .column-head{background:var(--panel);color:var(--muted);border-top:3px solid var(--faint)}
 .column[data-status="2"] .column-head{background:var(--info-soft);color:var(--info);border-top:3px solid var(--info)}
-.column[data-status="3"] .column-head{background:var(--success-soft);color:var(--success);border-top:3px solid var(--success)}
+.column[data-status="3"] .column-head{background:var(--blocked-soft);color:var(--blocked);border-top:3px solid var(--blocked)}
+.column[data-status="4"] .column-head{background:var(--warn-soft);color:var(--warn);border-top:3px solid var(--warn)}
+.column[data-status="5"] .column-head{background:var(--success-soft);color:var(--success);border-top:3px solid var(--success)}
 .count{min-width:22px;height:22px;display:inline-grid;place-items:center;padding:0 8px;border-radius:999px;background:var(--card);font-size:11px;font-weight:600}
 .cards{display:grid;align-content:start;gap:7px;height:min(600px,calc(100vh - 250px));min-height:220px;padding:8px;overflow-y:auto;overscroll-behavior:contain}
 .card{min-width:0;border:1px solid var(--line);border-radius:12px;background:var(--card);padding:var(--card-pad);text-align:left;cursor:grab;transition:border-color .15s,box-shadow .15s,transform .15s}
@@ -258,7 +260,7 @@ main{padding:24px 24px 48px}
 .c-id{width:70px}.c-contact{width:22%}.c-type{width:90px}.c-priority{width:80px}.c-status{width:110px}.c-created{width:110px}.c-age{width:70px;text-align:center}
 .ticket-table td.c-age{text-align:center}
 .pill{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:11px;font-weight:600;background:var(--panel);color:var(--muted)}
-.pill.s2{background:var(--info-soft);color:var(--info)}.pill.s3{background:var(--success-soft);color:var(--success)}
+.pill.s2{background:var(--info-soft);color:var(--info)}.pill.s3{background:var(--blocked-soft);color:var(--blocked)}.pill.s4{background:var(--warn-soft);color:var(--warn)}.pill.s5{background:var(--success-soft);color:var(--success)}
 .list.is-loading{opacity:.55}
 .empty{background:var(--card);border:1px dashed var(--line-strong);border-radius:12px;text-align:center;padding:54px 20px;color:var(--muted)}
 .pager{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:14px}
@@ -297,7 +299,7 @@ dialog.view::backdrop{background:rgba(16,24,40,.45)}
 .facts td{padding:5px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
 .facts tr:last-child th,.facts tr:last-child td{border-bottom:0}
 .facts select{width:100%;height:30px}
-.facts select.s2{background-color:var(--info-soft);color:var(--info);font-weight:600}.facts select.s3{background-color:var(--success-soft);color:var(--success);font-weight:600}
+.facts select.s2{background-color:var(--info-soft);color:var(--info);font-weight:600}.facts select.s3{background-color:var(--blocked-soft);color:var(--blocked);font-weight:600}.facts select.s4{background-color:var(--warn-soft);color:var(--warn);font-weight:600}.facts select.s5{background-color:var(--success-soft);color:var(--success);font-weight:600}
 .facts a{color:var(--brand-ink)}
 .description-card{display:flex;flex-direction:column;min-height:0;padding:10px 12px}
 .description-card h4{margin:0 0 6px;font-size:13px;font-weight:600;overflow-wrap:anywhere}
@@ -344,6 +346,11 @@ dialog.dlg .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 dialog.dlg .form-grid .wide{grid-column:1/-1}
 dialog.dlg textarea{width:100%;min-height:90px;font-family:var(--font);font-size:var(--fs);background:var(--field);border:1px solid var(--line);border-radius:var(--radius)}
 dialog.dlg.wide{width:min(620px,calc(100vw - 32px))}
+.add-card{display:grid;gap:12px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.add-card+.add-card{margin-top:-4px}
+.label-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.label-row .field-help.limit{color:var(--danger);font-weight:700}
+.req{color:var(--danger)}
 .check{display:flex;align-items:center;gap:8px}
 dialog.dlg .check input{width:16px;height:16px}
 .export-note{margin:0;color:var(--muted);font-size:12px}
@@ -458,10 +465,10 @@ dialog.dlg .check input{width:16px;height:16px}
 <!-- ==== end atom page: dialogs ==== -->
 <script>
 /* ==== page settings and the account block ==== */
-// Tickets: the support team's desk for what customers send (table ticket, from a project's form: /my/object-create logged in, /public/object-create without a login).
+// Tickets: the support team's desk for what customers send (table ticket, from a project's form: /my/object-create logged in, /public/object-create without a login; Add ticket here sends it as public).
 // Any role may log in; the page needs ticket read (120) to open, and reads and changes everything through /permission/object-*: ticket 120 read, 121 update, 122 delete;
 // ticket_comment 123 create, 124 read, 125 update and 126 delete anyone's (a comment's author changes their own through /my). Root holds them all.
-const PAGE = { key: "ticket", title: "Tickets", role: null, loginRequired: true, idb: false, intro: { heading: "Answer what your customers send", text: "Support requests, feedback and bugs from your apps, on one board for the support team.", features: [['<rect x="4" y="4" width="4" height="14" rx="1"/><rect x="10" y="4" width="4" height="9" rx="1"/><rect x="16" y="4" width="4" height="11" rx="1"/>', "Board", "Open, In Progress, Closed: drag to move."], ['<path d="M4 6h16M7 12h10M10 18h4"/>', "Filters", "Status, priority, type, source, date, search."], ['<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>', "Comments", "The team's notes on every ticket."], ['<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>', "Export", "The list as CSV, filtered or all."]] }, onIn: () => pageOpen(), onOut: () => { el("appView").hidden = true; if (el("viewDialog").open) el("viewDialog").close() } };
+const PAGE = { key: "ticket", title: "Tickets", role: null, loginRequired: true, idb: false, intro: { heading: "Answer what your customers send", text: "Support requests, feedback and bugs from your apps, on one board for the support team.", features: [['<rect x="4" y="4" width="4" height="14" rx="1"/><rect x="10" y="4" width="4" height="9" rx="1"/><rect x="16" y="4" width="4" height="11" rx="1"/>', "Board", "To Do to Done, as in Pulse: drag to move."], ['<path d="M4 6h16M7 12h10M10 18h4"/>', "Filters", "Status, priority, type, source, date, search."], ['<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>', "Comments", "The team's notes on every ticket."], ['<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>', "Export", "The list as CSV, filtered or all."]] }, onIn: () => pageOpen(), onOut: () => { el("appView").hidden = true; if (el("viewDialog").open) el("viewDialog").close() } };
 /* ==== atom page: account ==== */
 // Identical in every Atom page that logs in (docs/frontend.md, Page standard); the page sets PAGE just above this block and calls Page.start() last. A test checks the copies match.
 // localStorage[PAGE.key] = {v, token, user, info, synced_at, ...the page's choices}; IndexedDB database PAGE.key, store "cache", records {name, user_id, saved_at, data} (pages with PAGE.idb).
@@ -885,7 +892,7 @@ const PAGE_SIZE = 25, COMMENT_PAGE_SIZE = 50, OLD_DAYS = 7;
 const PERMISSION = { read: 120, update: 121, delete: 122, commentCreate: 123, commentRead: 124, commentUpdate: 125, commentDelete: 126 };
 const COLUMNS = "id,title,type,priority,status,name,email,mobile,created_by_id,created_at,closed_at";
 const SEARCH_LABEL = { title: "title", name: "name", email: "email", mobile: "mobile", id: "ID" };
-const DEFAULTS = { status: { 1: "Open", 2: "In Progress", 3: "Closed" }, priority: { 1: "Low", 2: "Normal", 3: "High" }, type: { 1: "Support", 2: "Feedback", 3: "Bug" } };
+const DEFAULTS = { status: { 1: "To Do", 2: "In Progress", 3: "Blocked", 4: "Review", 5: "Done" }, priority: { 1: "Low", 2: "Normal", 3: "High" }, type: { 1: "Support", 2: "Feedback", 3: "Bug" } };
 const NOT_ALLOWED = "You are not allowed to do this. Ask an admin for access.";
 // labels from /info (config_column_int_mapping.ticket), saved by Sync; Atom's defaults before the first sync
 const labels = column => { const map = read().info?.config_column_int_mapping?.ticket?.[column]; return map && Object.keys(map).length ? map : DEFAULTS[column] };
@@ -993,7 +1000,7 @@ const columnMore = async column => {
   if (id === state.boardId) { column.loading = false; drawBoard() }
 };
 const cardMarkup = row => {
-  const who = contactName(row), old = row.status !== 3 && ageDays(row.created_at) >= OLD_DAYS;
+  const who = contactName(row), old = row.status !== 5 && ageDays(row.created_at) >= OLD_DAYS;
   return `<article class="card${state.moving.has(row.id) ? " updating" : ""}" data-id="${row.id}" draggable="${state.moving.has(row.id) ? "false" : "true"}" tabindex="0" role="button" aria-label="Open ticket ${row.id}: ${esc(row.title)}"><div class="card-title">${esc(row.title)}</div><div class="card-meta"><span class="badge" data-tip="${esc(contactLine(row))}">${esc(Page.initials(who))}</span><span class="meta${row.priority === 3 ? " high" : ""}">${esc(label("priority", row.priority))}</span><span class="meta type">${esc(label("type", row.type))}</span><span class="age${old ? " old" : ""}" title="Created ${esc(dateTimeText(row.created_at))}${old ? `, open over ${OLD_DAYS} days` : ""}">${esc(ago(row.created_at))}</span></div></article>`;
 };
 const drawBoard = () => {
@@ -1037,7 +1044,7 @@ const drawTable = () => {
   for (const row of table.rows) state.rows.set(row.id, row);
   const cell = (name, labelText, html, extra = "") => `<td class="${name}${extra}" data-label="${labelText}">${html}</td>`;
   el("ticketList").innerHTML = table.rows.length ? `<div class="table-wrap"><table class="ticket-table"><colgroup><col class="c-id"><col><col class="c-contact"><col class="c-type"><col class="c-priority"><col class="c-status"><col class="c-created"><col class="c-age"></colgroup><thead><tr><th>ID</th><th>Title</th><th>Contact</th><th>Type</th><th>Priority</th><th>Status</th><th>Created</th><th class="c-age">Age (days)</th></tr></thead><tbody>${table.rows.map(row => {
-    const old = row.status !== 3 && ageDays(row.created_at) >= OLD_DAYS;
+    const old = row.status !== 5 && ageDays(row.created_at) >= OLD_DAYS;
     return `<tr data-id="${row.id}" tabindex="0">${cell("c-id", "ID", `<b>${row.id}</b>`)}${cell("title-cell", "Title", esc(row.title))}${cell("c-contact", "Contact", esc(contactLine(row)))}${cell("c-type", "Type", esc(label("type", row.type)))}${cell("c-priority", "Priority", esc(label("priority", row.priority)), row.priority === 3 ? " high" : "")}${cell("c-status", "Status", `<span class="pill s${row.status}">${esc(label("status", row.status))}</span>`)}${cell("c-created", "Created", `<span title="${esc(dateTimeText(row.created_at))}">${esc(dateText(row.created_at))}</span>`)}${cell("c-age", "Age (days)", String(ageDays(row.created_at)), old ? " old age" : "")}</tr>`;
   }).join("")}</tbody></table></div>` : `<div class="empty">${filterInUse() ? "No results" : "No tickets"}</div>`;
   el("pageLabel").textContent = `Page ${table.page + 1}`;
@@ -1195,7 +1202,7 @@ const drawView = () => {
   el("viewTicketTitle").textContent = row.title;
   el("viewDescription").innerHTML = markdown(row.description);
   const link = (scheme, value) => value ? `<a href="${scheme}:${esc(value.replace(/\s+/g, ""))}">${esc(value)}</a>` : "-";
-  const facts = [["Status", select("status", row.status)], ["Priority", select("priority", row.priority)], ["Type", select("type", row.type)], ["Name", esc(row.name || "-")], ["Email", link("mailto", row.email)], ["Mobile", link("tel", row.mobile)], ["Source", row.created_by_id ? `Logged in (${esc(userName(row.created_by_id))})` : "Public"], ["Created", `<span title="${esc(dateTimeText(row.created_at))}">${esc(timeAgo(row.created_at))}</span>`], ["Updated", row.updated_at ? `<span title="${esc(dateTimeText(row.updated_at))}">${esc(timeAgo(row.updated_at))}</span>` : "-"], ["Closed", row.closed_at ? esc(dateTimeText(row.closed_at)) : "-"]];
+  const facts = [["Status", select("status", row.status)], ["Priority", select("priority", row.priority)], ["Type", select("type", row.type)], ["Name", esc(row.name || "-")], ["Email", link("mailto", row.email)], ["Mobile", link("tel", row.mobile)], ["Source", row.created_by_id ? `Logged in (${esc(userName(row.created_by_id))})` : "Public"], ["Created", `<span title="${esc(dateTimeText(row.created_at))}">${esc(timeAgo(row.created_at))}</span>`], ["Updated", row.updated_at ? `<span title="${esc(dateTimeText(row.updated_at))}">${esc(timeAgo(row.updated_at))}</span>` : "-"], ["Done", row.closed_at ? esc(dateTimeText(row.closed_at)) : "-"]];
   el("facts").innerHTML = facts.map(([name, html]) => `<tr><th scope="row">${name}</th><td>${html}</td></tr>`).join("");
 };
 const viewOpen = async id => {
@@ -1309,20 +1316,31 @@ const commentSave = async form => {
 };
 const fitCommentInput = () => { const area = el("commentInput"); area.style.height = "auto"; area.style.height = `${Math.min(160, area.scrollHeight + 2)}px` };
 
-/* ==== add a ticket for a customer (a call or an email): /my/object-create, so it shows as logged in, with the customer's contact ==== */
+/* ==== add a ticket for a customer (a call or an email): /public/object-create without the agent's token, so it is the customer's ticket (no created_by_id), like the public form ==== */
 const options = (column, value) => Object.entries(labels(column)).map(([key, text]) => `<option value="${esc(key)}"${String(value) === key ? " selected" : ""}>${esc(text)}</option>`).join("");
 const addOpen = () => {
-  Page.form({ title: "Add ticket", sub: "For a customer who called or wrote in", ok: "Create",
-    body: `<div class="form-grid"><div class="field wide"><label for="addTitle">Title</label><input id="addTitle" maxlength="200" required></div><div class="field wide"><label for="addDescription">Description</label><textarea id="addDescription" maxlength="10000" placeholder="What the customer needs (Markdown)"></textarea></div><div class="field"><label for="addType">Type</label><select id="addType">${options("type", 1)}</select></div><div class="field"><label for="addPriority">Priority</label><select id="addPriority">${options("priority", 2)}</select></div><div class="field wide"><label for="addName">Customer name</label><input id="addName" maxlength="120"></div><div class="field"><label for="addEmail">Email</label><input id="addEmail" type="email" maxlength="254"></div><div class="field"><label for="addMobile">Mobile</label><input id="addMobile" type="tel" maxlength="20"></div></div>`,
+  // Pulse's Add task: a card for the title and description, a card for the rest
+  Page.form({ title: "Add ticket", sub: "Saved as the customer's public ticket, not as yours", ok: "Create ticket",
+    body: `<div class="add-card"><div class="field"><label class="label-row" for="addTitle"><span>Title <span class="req">*</span></span><small class="field-help" id="addTitleCount">0 / 200</small></label><input id="addTitle" maxlength="200" required placeholder="A short summary of the request"></div><div class="field"><label class="label-row" for="addDescription"><span>Description</span><small class="field-help" id="addDescriptionCount">0 / 10,000</small></label><textarea id="addDescription" maxlength="10000" placeholder="What the customer needs, in their words (Markdown)"></textarea></div></div>
+<div class="add-card form-grid"><div class="field"><label for="addType">Type</label><select id="addType">${options("type", 1)}</select></div><div class="field"><label for="addPriority">Priority</label><select id="addPriority">${options("priority", 2)}</select></div><div class="field wide"><label for="addName">Customer name</label><input id="addName" maxlength="120" placeholder="Full name" autocomplete="off"></div><div class="field"><label for="addEmail">Email <span class="req">*</span></label><input id="addEmail" type="email" maxlength="254" placeholder="name@example.com" autocomplete="off"></div><div class="field"><label for="addMobile">Mobile <span class="req">*</span></label><input id="addMobile" type="tel" maxlength="20" placeholder="Phone number" autocomplete="off"></div><p class="field-help wide">* Title, and an email or mobile so the team can reply.</p></div>`,
     submit: async () => {
-      const value = id => el(id).value.trim() || null, body = { title: value("addTitle"), description: value("addDescription"), type: Number(el("addType").value), priority: Number(el("addPriority").value), name: value("addName"), email: value("addEmail"), mobile: value("addMobile") };
-      if (!body.title) throw new Error("Enter a title");
-      if (body.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) throw new Error("Email must look like name@example.com");
-      const [id] = await api("/my/object-create?table=ticket", { method: "POST", body: JSON.stringify(body) });
+      const value = id => el(id).value.trim() || null;
+      const body = { title: value("addTitle"), description: value("addDescription"), type: Number(el("addType").value), priority: Number(el("addPriority").value), name: value("addName"), email: value("addEmail"), mobile: value("addMobile") };
+      if (!body.title) { el("addTitle").focus(); throw new Error("Enter a title") }
+      if (!body.email && !body.mobile) { el("addEmail").focus(); throw new Error("Enter the customer's email or mobile, so the team can reply") }
+      if (body.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) { el("addEmail").focus(); throw new Error("Email must look like name@example.com") }
+      if (body.mobile && !/^\+?[\d\s()-]{6,20}$/.test(body.mobile)) { el("addMobile").focus(); throw new Error("Mobile may hold only digits, spaces, + ( ) -") }
+      // plain fetch, not Page.api: Page.api sends the agent's token, which would stamp the agent as created_by_id
+      const response = await fetch("/public/object-create?table=ticket", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const answer = await response.json().catch(() => ({}));
+      if (!response.ok || answer.status !== 1) throw new Error(response.status === 429 ? "Too many new tickets in a minute. Wait a moment and try again." : typeof answer.message === "string" ? answer.message : `HTTP ${response.status}`);
+      const [id] = answer.message;
       toast(`Ticket #${id} created`);
       reload();
+      viewOpen(id);
     } });
   el("atomDialog").classList.add("wide");
+  for (const [id, max] of [["addTitle", 200], ["addDescription", 10000]]) el(id).addEventListener("input", () => { const n = el(id).value.length; el(`${id}Count`).textContent = `${n.toLocaleString()} / ${max.toLocaleString()}`; el(`${id}Count`).classList.toggle("limit", n >= max) });
 };
 
 /* ==== export: the filtered list or every ticket, up to /info export_limit rows, as CSV ==== */

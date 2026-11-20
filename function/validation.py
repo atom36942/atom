@@ -81,6 +81,15 @@ def func_check_permission_user_role(*, app_state: State, role: int) -> None:
     allowed = getattr(app_state, "config_permission_user_roles", None) or []
     if role == 1 or role not in allowed: raise func_api_error(message=f"role {role} not allowed (config_permission_user_roles: {allowed})", status_code=400)
 
+def func_check_honeypot(*, app_state: State, obj_list: list) -> list:
+    """Refuse public rows whose hidden honeypot field (config_public_create_honeypot) was filled, as only bots fill it; drop the field from the rest."""
+    key = getattr(app_state, "config_public_create_honeypot", None)
+    if not key:
+        return obj_list
+    if any(str(item.get(key) or "").strip() for item in obj_list):
+        raise Exception("refused")
+    return [{column: value for column, value in item.items() if column != key} for item in obj_list]
+
 def func_check_batch_limit(*, app_state: State, items: list) -> None:
     """Ensure batch item list length does not exceed config_batch_item_limit."""
     limit = getattr(app_state, "config_batch_item_limit", None)

@@ -13,7 +13,7 @@ async def func_api_public_object_create(*, request: Request):
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "mode", "type": "str", "allowed": ["now", "buffer"], "default": "now"}])
     app_state.func_check_table_write_blocked(app_state=app_state, table=oq["table"])
     app_state.func_check_table_permission(app_state=app_state, table=oq["table"], scope="public", action="create")
-    obj_list = await app_state.func_extract_request_object_list(request=request)
+    obj_list = app_state.func_check_honeypot(app_state=app_state, obj_list=await app_state.func_extract_request_object_list(request=request))
     app_state.func_check_batch_limit(app_state=app_state, items=obj_list)
     app_state.func_validate_restricted_columns(app_state=app_state, obj_list=obj_list)
     app_state.func_check_table_column_exists(app_state=app_state, table=oq["table"], column="created_by_id", purpose="ownership tracking")

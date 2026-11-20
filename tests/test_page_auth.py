@@ -154,6 +154,12 @@ class PageThemeTests(unittest.TestCase):
         self.assertRegex(LOOK, r"\.dlg-body\{padding:18px")
         self.assertRegex(LOOK, r"\.dlg-actions\{[^}]*background:var\(--panel\)")
 
+    def test_add_ticket_is_the_customer_s_public_ticket(self):
+        # an agent's Add ticket goes without the token, so created_by_id stays empty (the agent is not the requester)
+        page = PAGES["ticket"]
+        self.assertIn('fetch("/public/object-create?table=ticket"', page)
+        self.assertNotIn("/my/object-create?table=ticket", page)
+
 
 if __name__ == "__main__":
     unittest.main()
