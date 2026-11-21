@@ -210,7 +210,7 @@ class RedisDeliveryTests(unittest.TestCase):
         consumer.slow_go.touch()
         consumer.start()
         wait_until(lambda: consumer.done() == ["ok", "slow"], "the restarted consumer finishes the job the killed one left")
-        self.assertEqual((self.redis.llen(self.channel), self.redis.llen(f"{self.channel}_processing")), (0, 0))
+        wait_until(lambda: (self.redis.llen(self.channel), self.redis.llen(f"{self.channel}_processing")) == (0, 0), "both lists empty: a job counts as done before the consumer removes it from _processing")
 
     def test_sigterm_finishes_the_running_job_then_exits_and_frees_the_channel(self):
         consumer = ConsumerProcess(self, queue="redis", channel=self.channel, url_key="config_redis_url_queue", url=REDIS_URL)

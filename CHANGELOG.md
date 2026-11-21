@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [18.6.1] - 2026-11-21
+
+- **Steadier queue test:** the Redis killed-consumer test waits for the job to leave `<channel>_processing` instead of checking the instant the job reports done, so CI no longer fails on that timing.
+
 ## [18.6.0] - 2026-11-21
 
 - **Incoming webhook verification:** a route another service calls (Stripe, GitHub, Razorpay, another Atom app) takes `"webhook_verify": {"scheme": "stripe", "secret": "config_webhook_secret_stripe"}` with `"auth": []` in its `config_api` entry; the middleware checks the HMAC-SHA256 signature of the raw body and the timestamp (`config_webhook_verify_tolerance_sec`, 300) before the route runs, answers 401 to a missing, forged or replayed call, gives the route `request.state.webhook`, and replays the body so the route reads it as usual. Schemes are data, not code: `config_webhook_verify_scheme` ships `standard` (Standard Webhooks, so Atom apps receive each other's webhooks), `stripe`, `github`, `shopify` and `razorpay`, and a project adds a provider with one dict (header, prefix or key, encoding, signed bytes, timestamp and id), checked at startup. OpenAPI adds `x-webhook-verify` ([docs/webhook.md](docs/webhook.md#incoming)).
