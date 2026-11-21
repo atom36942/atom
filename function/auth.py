@@ -62,7 +62,7 @@ async def func_auth_login_password(*, client_postgres: asyncpg.Pool | None, clie
     return user
 
 async def func_auth_user_find_or_create(*, client_postgres: asyncpg.Pool | None, field: str, value: Any, role: int, source: int = None, config_signup_allowed_roles: list = None, extra_cols: dict = None) -> dict:
-    """Find existing user or create a new user (for OTP and Social Logins) with signup policy enforcement."""
+    """Find existing user or create a new user (for OTP logins) with signup policy enforcement."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(field)): raise Exception(f"invalid identifier {field}")
     if field == "email": value = str(value).strip().lower()
@@ -83,16 +83,6 @@ async def func_auth_user_find_or_create(*, client_postgres: asyncpg.Pool | None,
         sql = f'INSERT INTO users ({", ".join(f"{c}" for c in cols)}) VALUES ({", ".join(placeholders)}) RETURNING *;'  # noqa: S608 - column names pattern-checked
         created = await conn.fetch(sql, *list(insert_dict.values()))
         return dict(created[0])
-
-async def func_auth_google_user(*, client_postgres: asyncpg.Pool | None, id_info: dict, role: int, source: int = None, config_signup_allowed_roles: list = None) -> dict:
-    """The user of a verified Google sign-in: found by google_login_id; else the user with the same email and role, now linked to Google; else a new user (signup policy applies)."""
-    if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
-    if not id_info.get("email") or id_info.get("email_verified") is not True: raise Exception("google email not verified")
-    email, metadata = str(id_info["email"]).strip().lower(), orjson.dumps(id_info).decode("utf-8")
-    async with client_postgres.acquire() as conn:
-        if not await conn.fetchval("SELECT 1 FROM users WHERE google_login_id=$1 AND role=$2 LIMIT 1;", id_info["sub"], role):
-            await conn.execute("UPDATE users SET google_login_id=$1, google_login_metadata=$2 WHERE id=(SELECT id FROM users WHERE google_login_id IS NULL AND lower(email)=$3 AND role=$4 ORDER BY id DESC LIMIT 1);", id_info["sub"], metadata, email, role)
-    return await func_auth_user_find_or_create(client_postgres=client_postgres, field="google_login_id", value=id_info["sub"], role=role, source=source, config_signup_allowed_roles=config_signup_allowed_roles, extra_cols={"email": email, "name": id_info.get("name"), "google_login_metadata": metadata})
 
 def func_auth_check_config(*, client_postgres: asyncpg.Pool | None, config_token_secret_key: str) -> None:
     """Check authentication prerequisites in order before any side effects."""

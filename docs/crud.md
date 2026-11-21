@@ -423,7 +423,7 @@ The effective condition is `id = 135 AND assigned_to_id = current_user.id`. If o
 
 ### Anyone's rows, for selected users (`/permission/object-*`)
 
-Off until a table is in `config_permission_table`, and then only for users holding the id of that table and action in `users.permissions`; nobody but root holds them until granted. Same requests as the `/my` routes (`?table=` on every one, delete's body `{"ids": [...]}`), without the owner filter. The same guards stay: `users` and `config_table_write_blocked` are refused, protected columns cannot change, `created_by_id`/`updated_by_id` is the caller, the batch limit applies. Reads take `filter`, `order`, `column`, `limit` and `after`/`page`, without relations. Detail in [auth.md](auth.md#object-permissions-one-id-per-table-and-action).
+Off until a table is in `config_permission_table`, and then only for users holding the id of that table and action in `users.permissions`; nobody but root holds them until granted. Same requests as the `/my` routes (`?table=` on every one, delete's body `{"ids": [...]}`), without the owner filter. The same guards stay: `users` and `config_table_write_blocked` are refused, protected columns cannot change, `created_by_id`/`updated_by_id` is the caller, the batch limit applies. Reads take `filter`, `order`, `column`, `limit` and `after`/`page`, without relations. Detail in [auth.md](auth-permission.md#object-permissions-one-id-per-table-and-action).
 
 ```python
 # config_extend.py: selected users may change or delete anyone's task or comment

@@ -19,7 +19,6 @@ from function import func_auth_check_config
 from function import func_auth_login_password
 from function import func_auth_signup_password
 from function import func_auth_user_find_or_create
-from function import func_auth_google_user
 from function import func_otp_verify
 from function import func_token_encode
 from function import func_token_decode
@@ -188,21 +187,6 @@ class AuthTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('lower("email")=$1', self.conn.fetch.await_args_list[0].args[0])
         self.assertEqual(self.conn.fetch.await_args_list[0].args[1], "alice@example.test")
         self.assertEqual(self.conn.fetch.await_args.args[1:], (5, "alice@example.test", None))    # created with the lowercase email
-
-    async def test_google_needs_a_verified_email_and_links_an_existing_user(self):
-        google = {"sub": "g-1", "email": "Alice@Example.TEST", "email_verified": True, "name": "Alice"}
-        for info in ({**google, "email_verified": False}, {**google, "email": None}):
-            with self.assertRaisesRegex(Exception, "google email not verified"):
-                await func_auth_google_user(client_postgres=self.pool, id_info=info, role=5, config_signup_allowed_roles=[5])
-        self.conn.fetchval.return_value = None    # no user has this Google account yet: link the same email and role
-        self.assertEqual(await func_auth_google_user(client_postgres=self.pool, id_info=google, role=5, config_signup_allowed_roles=[5]), self.user)
-        sql, sub, _, email, role = self.conn.execute.await_args.args
-        self.assertIn("UPDATE users SET google_login_id=$1", sql)
-        self.assertEqual((sub, email, role), ("g-1", "alice@example.test", 5))
-        self.conn.execute.reset_mock()
-        self.conn.fetchval.return_value = 1    # already linked: nothing is updated
-        await func_auth_google_user(client_postgres=self.pool, id_info=google, role=5, config_signup_allowed_roles=[5])
-        self.conn.execute.assert_not_awaited()
 
     async def test_tokens_round_trip_without_password_and_enforce_token_type(self):
         tokens = await self.tokens()

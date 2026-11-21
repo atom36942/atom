@@ -49,7 +49,7 @@ Rules:
 - Rows only through `func_check_table_permission` and `func_postgres_create/read/update/delete`; hand-written SQL only for what they can't express, values bound as `$1`, Postgres only through asyncpg.
 - Reuse Atom's `func_*` helpers (search `function/` first); never edit `main.py` (startup hook: `func_extend`).
 - Users go through Atom's routes (`/admin/user-*`, `/my/user-*`, `/permission/user-*`): never a project user API ([auth.md](docs/auth.md)).
-- Scripts and other systems call the API with an API key (`Authorization: Bearer atk_...`, a service account's key, on routes whose `auth` has `"api_key"`), never a person's password or a shared login ([auth.md](docs/auth.md#7-api-keys-machine-access)).
+- Scripts and other systems call the API with an API key (`Authorization: Bearer atk_...`, a service account's key, on routes whose `auth` has `"api_key"`), never a person's password or a shared login ([auth.md](docs/auth-api-key.md)).
 - Another system that must know when something happens gets a webhook (`func_webhook_send` in the change's transaction, [webhook.md](docs/webhook.md)), never a loop of its own calling it. A route another service calls takes `webhook_verify` (its scheme in `config_webhook_verify_scheme`), never signature code in the route.
 - Lists page after a cursor, never a total count; every CSV export goes through `func_<db>_export` ([crud.md](docs/crud.md)).
 - Temporary files in `tmp/<feature>/`; data users change at runtime in the database; never placeholder or demo data.
@@ -58,7 +58,7 @@ Rules:
 Defaults:
 - Scale to 100× today's data: one SQL statement per screen read, an index for every filter and sort, aggregates in SQL, streamed exports, batched resumable scripts ([backend.md](docs/backend.md#scale-and-speed-defaults-a-project-keeps-working-at-100-todays-data)).
 - Thin route in `router_extend/<f>.py` → logic in `function_extend/<f>.py` (`func_<f>_*`); files named after the feature in every folder ([extend.md](docs/extend.md)).
-- Paths `/<feature>/<thing>-<verb>`; use Atom's generic routes (`/private/object-read`, `/my/object-*`, and `/permission/object-*` with a `config_permission_table` entry for selected users' create, read, update, delete on any table) before writing one ([auth.md](docs/auth.md#recipe-a-teams-create-read-update-and-delete-on-any-table)).
+- Paths `/<feature>/<thing>-<verb>`; use Atom's generic routes (`/private/object-read`, `/my/object-*`, and `/permission/object-*` with a `config_permission_table` entry for selected users' create, read, update, delete on any table) before writing one ([auth.md](docs/auth-permission.md#recipe-a-teams-create-read-update-and-delete-on-any-table)).
 - Roles: 1 is Atom's admin; a project's users start at 2, each new kind takes the next number.
 - Scripts: `# type`, `# command`, `# info`, then `# import`, `# config`, `# setting`, `# logic`, `# main` ([backend.md](docs/backend.md#scripts)).
 - Postgres is the base: background work that must not be lost goes on Atom's Postgres queue (`?queue=postgres`, `script.consumer_postgres`); Redis, RabbitMQ, Kafka or Celery only when Postgres can't keep up ([queue.md](docs/queue.md)).
@@ -86,7 +86,7 @@ Built only when an app needs them, each with its own doc: user management ([user
 | :--- | :--- |
 | Backend rules in full (structure, `config_api`, data, settings, routes, users, scripts) | [backend.md](docs/backend.md) |
 | Pages: login and token, storage, lists, export, reference code | [frontend.md](docs/frontend.md) |
-| Auth, roles, permissions; user management | [auth.md](docs/auth.md), [user-management.md](docs/user-management.md) |
+| Auth, roles, permissions, API keys, 2FA, single sign-on; user management | [auth.md](docs/auth.md) and its `auth-*.md`, [user-management.md](docs/user-management.md) |
 | Rows, paging, ownership, export | [crud.md](docs/crud.md), [ownership.md](docs/ownership.md) |
 | Every setting; extending; syncing | [config.md](docs/config.md), [extend.md](docs/extend.md), [sync.md](docs/sync.md) |
 | Why Atom is built this way | [about.md](docs/about.md) |

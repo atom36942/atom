@@ -8,7 +8,7 @@ An optional feature: a page where some of an app's own users create and manage t
 - What the list shows: `/private/user-read` returns the `config_column_users_private_read` columns; add `last_active_at` and the profile columns Edit profile needs in `config_extend.py`.
 - What managers may not change: `config_permission_user_column_blocked` (Atom keeps `role`, `permissions` and the login columns in it).
 - Set `config_api_global_user_check_deactivated = "realtime"` so a deactivated user is signed out at their next request, not at their next token renewal.
-- Routes and checks in full: [auth.md](auth.md) (`/permission/user-create`, `/permission/user-update`).
+- Routes and checks in full: [auth.md](auth.md#4-managing-users) (`/permission/user-create`, `/permission/user-update`) and [auth-permission.md](auth-permission.md).
 
 ## Page (Defaults: what the page calls; its look is the project's own)
 - The list: `GET /private/user-read` (the `config_column_users_private_read` columns) filtered to the managed roles (`role = 2`, several: `role in 2,3`), plus `deactivated_at is null` / `is not null` and `{"username": "ilike,%text%"}` when chosen; cursor paging, newest first. Status is Active while `deactivated_at` is empty; `last_active_at` is set at most every 5 minutes by `/my/profile`.

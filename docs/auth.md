@@ -1,113 +1,24 @@
-# 🔐 Authentication, Identities & User Architecture
+# 🔐 Authentication & Users
 
-Atom features a comprehensive, schema-driven authentication and user management system built on **stateless JWT tokens**, **Argon2 password hashing**, **flexible multi-column identities**, and **built-in superadmin protections**.
+Atom's users, logins and tokens: **stateless JWT tokens**, **Argon2 password hashing**, several **identity columns** and a protected **root user**. All `/auth/*` routes are **public** (`"auth": []`): they mint tokens rather than requiring one.
 
-All auth endpoints are **public** (`"auth": []`) — they mint tokens rather than requiring one. Scripts and other systems use API keys instead ([section 7](#7-api-keys-machine-access)).
+| Topic | Doc |
+|---|---|
+| Users, identities, signup and login, managing users, OTP, tokens, root | this page |
+| Permissions: per-user ids on routes and tables | [auth-permission.md](auth-permission.md) |
+| API keys for scripts and other systems | [auth-api-key.md](auth-api-key.md) |
+| Two-factor login (TOTP) | [auth-totp.md](auth-totp.md) |
+| Single sign-on with Google, Microsoft and any OIDC provider | [auth-oidc.md](auth-oidc.md) |
+| Pages for user management | [user-management.md](user-management.md) |
 
 ---
 
-## 1. Users, Roles & Multi-Tenancy
+## 1. Users & Roles
 
-Users live in the `users` database table. Core authorization attributes include:
-- **`role`** (`smallint`): The user's tier; routes allow roles with `user_check_role`. Login validates a supplied role against `config_login_allowed_roles` (default: roles `1` through `20`); public signup uses `config_signup_allowed_roles`.
-  - **Role `1` is the root/superadmin role** and cannot be registered via public signup routes.
-- **Identity columns**: `username`, `email`, `mobile`, `google_login_id`, `id_ext`.
-
-### Per-User Permissions
-
-`users.permissions` (`smallint[]`, nullable) holds the permission ids a user holds. A permission id is either a route's `config_api` id (a route that asks for it) or an id from `config_permission_table` (one table and action on the `/permission/object-*` routes). `NULL` and `[]` grant none.
-
-A request passes these gates, in order, before the route runs. Role and permission are independent: a route sets either or both, and either one needs a credential (a non-empty `auth`). Startup enforces each group's gate: every `/admin/*` route checks role 1 (other roles and a permission may be added), every `/permission/*` route checks a permission (a role may be added).
-
-| # | Gate | Route key | Fails with |
-|---|---|---|---|
-| 1 | Credential | `auth`: `["jwt"]` (access token), `["api_key"]` (API key) or both; `[]` is public | 401 |
-| 2 | Role: the user's role is in the list | `"user_check_role": {"mode": "token", "roles": [2]}` | 403 |
-| 3 | Permission: the route's own `id` is in the user's `permissions` | `"user_check_permission": {"mode": "token"}` | 403 |
-| 3 | Permission on a `/permission/object-*` route: `config_permission_table[<?table=>][<action>]` is in the user's `permissions` | `"user_check_permission": {"mode": "token", "action": "update"}` | 403 (also when the table or action is not in the map) |
-
-### Object permissions: one id per table and action
-
-The `/permission/object-*` routes change or read anyone's rows of a table for selected users. One map in `config.py` says which tables they reach and which id each action needs:
-
-```python
-config_permission_table = {"ticket": {"read": 120, "update": 121, "delete": 122}, "ticket_comment": {"create": 123, "read": 124, "update": 125, "delete": 126}}
-```
-
-| Route | Action | Body / query |
-|---|---|---|
-| `POST /permission/object-create?table=` | `create` | the rows, as `/my/object-create`; `created_by_id` is the caller |
-| `GET /permission/object-read?table=` | `read` | `filter`, `order`, `column`, `limit`, `after`/`page` (no relations: a related table would need its own read) |
-| `GET /permission/object-read-export?table=` | `read` | `filter`, `order`, `column`, `limit`; CSV |
-| `PUT /permission/object-update?table=` | `update` | the rows with `id`; `updated_by_id` is the caller |
-| `POST /permission/object-delete?table=` | `delete` | `{"ids": [...]}` |
-
-- The middleware reads `table` from the query, finds the id for the route's `action` and checks the user holds it; the routes check nothing more. A table or action missing from the map is refused, so a table is reachable only through what the map lists.
-- A project adds its tables in `config_extend.py`, with ids from 200 that no route uses, each labelled:
-  ```python
-  config_permission_table = {**base_config_permission_table, "task": {"update": 211, "delete": 212}, "task_comment": {"update": 213, "delete": 214}}
-  "permissions": {**base_config_column_int_mapping["users"]["permissions"], 211: "Task update", 212: "Task delete", 213: "Comment update", 214: "Comment delete"},
-  ```
-- **Startup refuses**: an action other than `create`, `read`, `update`, `delete`; `users` in the map (users go through `/permission/user-*`); an id used twice, used by a `config_api` route, or without a label; `action` on a route other than `/permission/object-*`.
-- The routes' own ids (98, 99, 100, 59, 60) grant nothing: they only name the route in logs.
-
-### Recipe: a team's create, read, update and delete on any table
-
-No route or function to write: a table, one map entry, labels and grants.
-
-| Step | Where | What |
-|---|---|---|
-| 1. The table | `config_extend.py`, `config_postgres` | The columns, plus `created_by_id`, `updated_by_id`, `updated_at` (create and update stamp them) and an index for every filter and sort |
-| 2. The actions | `config_extend.py`, `config_permission_table` | Only the actions the team needs, each its own id from 200 that no route uses: `"vendor": {"create": 220, "read": 221, "update": 222, "delete": 223}` |
-| 3. The labels | `config_extend.py`, `config_column_int_mapping["users"]["permissions"]` | `220: "Vendor create", 221: "Vendor read", ...`; startup refuses an unlabelled id |
-| 4. The grants | `PUT /admin/user-update` `{"id": <user>, "permissions": [221, 222]}` | Who may do what: a viewer 221, an editor 221 + 222, a lead all four; a user logs in again to get them (token mode); root holds them all |
-| 5. The page | `static_extend/<page>/` | Calls the routes with `?table=vendor`: list `GET /permission/object-read` (`filter`, `order`, `limit`, `after`), CSV `GET /permission/object-read-export`, add `POST /permission/object-create`, edit `PUT /permission/object-update` (`{"id", ...changes}`), remove `POST /permission/object-delete` (`{"ids": [...]}`). It may read `/my/profile` `permissions` to know what to offer; the server checks every call anyway |
-
-```python
-# config_extend.py
-from config import config_permission_table as base_config_permission_table
-config_permission_table = {**base_config_permission_table, "vendor": {"create": 220, "read": 221, "update": 222, "delete": 223}}
-config_column_int_mapping = {**base_config_column_int_mapping, "users": {**base_config_column_int_mapping["users"], "permissions": {**base_config_column_int_mapping["users"]["permissions"], 220: "Vendor create", 221: "Vendor read", 222: "Vendor update", 223: "Vendor delete"}}}
-```
-```bash
-curl -G "$BASE_URL/permission/object-read" -H "Authorization: Bearer $TOKEN" --data-urlencode 'table=vendor' --data-urlencode 'filter=["status = 1"]'
-curl -X PUT "$BASE_URL/permission/object-update?table=vendor" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"id": 7, "status": 2}'
-curl -X POST "$BASE_URL/permission/object-delete?table=vendor" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"ids": [7]}'
-```
-
-Which tier for which need: own rows only `/my/object-*` (no grant); every logged-in user reads `/private/object-read` (`config_table_private_read_allowed`); selected users act on anyone's rows `/permission/object-*` (this recipe); a business rule (only some columns, a check across tables, a side effect) a project route with its own permission id.
-
-### Atom's permission ids
-
-```python
-"/admin/postgres-query-runner-write": {"id": 86, "is_active": True, "auth": ["jwt"], "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_permission": {"mode": "realtime"}, ...},
-"/permission/object-update": {"id": 59, "auth": ["jwt"], "user_check_permission": {"mode": "token", "action": "update"}},
-"/permission/user-create": {"id": 61, "auth": ["jwt"], "user_check_permission": {"mode": "token"}, "rate_limit": {...}},
-"/permission/user-update": {"id": 62, "auth": ["jwt"], "user_check_permission": {"mode": "token"}, "rate_limit": {...}},
-
-config_column_int_mapping = {"users": {"role": {1: "Admin"}, "permissions": {61: "Create user", 62: "Update user", 86: "Postgres query runner write", 120: "Ticket read", 121: "Ticket update", 122: "Ticket delete", 123: "Ticket comment create", 124: "Ticket comment read", 125: "Ticket comment update", 126: "Ticket comment delete"}}, ...}
-```
-
-| Id | Checks | Who may call it |
-|---|---|---|
-| 86, raw SQL writes | role 1 + permission | admins granted 86; a role 2 user granted 86 is still refused by the role |
-| 120, 121, 122: `ticket` read, update, delete; 123–126: `ticket_comment` create, read, update, delete (anyone's) on `/permission/object-*` | permission only | users granted it, any role (a support team); 120 also opens the Tickets page |
-| 61, 62: `/permission/user-create`, `/permission/user-update` | permission only | users granted it, any role; only users of roles in `config_permission_user_roles` (default none, never 1) |
-
-Root (id 1) holds exactly these at every startup: every `/admin/*` and `/permission/*` route id with a permission check (86, 61, 62 and a project's) and every `config_permission_table` id (Atom's and a project's). So root can use every admin and permission flow, the Tickets page included, and keeps nothing stale (an id that left goes at the next start). A project's other permission routes (outside `/admin` and `/permission`) are for other users, granted explicitly; root never holds them (a restart removes one granted by hand).
-
-A project route works the same way, for example only some role 2 users may delete a task:
-
-```python
-# config_extend.py
-"/task/delete": {"id": 205, "auth": ["jwt"], "user_check_role": {"mode": "token", "roles": [2]}, "user_check_permission": {"mode": "token"}},
-"users": {**base_config_column_int_mapping["users"], "role": {1: "Admin", 2: "User"}, "permissions": {**base_config_column_int_mapping["users"]["permissions"], 205: "Task delete"}},
-```
-
-- **Mode**: `token` only (the token's `permissions`); a change applies when the user logs in again.
-- **Granting**: only `/admin/user-update` writes `permissions`; `/my/user-update` refuses it (`config_column_users_my_blocked`) and the object APIs refuse `table=users`.
-- **Permission without role**: drop `user_check_role` and any role granted the `id` may call the route.
-- `user_check_permission` modes: `token` (from the token) or `realtime` (from the users row on each call, so a revoked permission stops at once; Atom's admin write routes use it). **Startup refuses** any other mode, or an `id` without a label in `config_column_int_mapping["users"]["permissions"]`.
+Users live in the `users` table:
+- **`role`** (`smallint`): the user's tier; routes allow roles with `user_check_role`. Login validates a supplied role against `config_login_allowed_roles` (default roles `1` to `20`); public signup uses `config_signup_allowed_roles`. **Role `1` is the root/admin role** and cannot be registered through public signup.
+- **`permissions`** (`smallint[]`): ids that open routes and table actions beyond the role ([auth-permission.md](auth-permission.md)).
+- **Identity columns**: `username`, `email`, `mobile`, `id_ext`, and `oidc_<provider>` for each single sign-on provider.
 
 ---
 
@@ -120,7 +31,7 @@ Atom supports multiple identity fields on the `users` table:
 | **`username`** | `text` | Username + password authentication. | `POST /auth/signup-username-password` |
 | **`email`** | `text` | Primary email for password and Email OTP login. | `POST /auth/login-email-password` / `POST /auth/login-email-otp` |
 | **`mobile`** | `text` | Mobile number for SMS OTP and password login. | `POST /auth/login-mobile-password` / `POST /auth/login-mobile-otp` |
-| **`google_login_id`** | `text` | Google OAuth subject (`sub`) ID for Google Social Login. | `POST /auth/login-google` |
+| **`oidc_<provider>`** | `text` | The provider's `sub` for single sign-on, one column per provider ([auth-oidc.md](auth-oidc.md)). | `POST /auth/login-oidc` |
 | **`id_ext`** | `text` | External identifier (Employee ID, Student ID, ERP sync). | `POST /auth/login-id-ext-password` |
 
 ### Configuring Uniqueness in `config.py`:
@@ -149,12 +60,9 @@ Uniqueness constraints are declared under `config_postgres["table"]["users"]`:
   ```
 
 ### Adding a Custom Identity Column:
-1. Add the column to `users` in `config.py` (or `config_extend.py`):
-   ```python
-   {"name": "github_login_id", "datatype": "text", "unique": "github_login_id"},
-   ```
-2. Include in token claims via `config_column_token_encode` if needed in `request.state.user`.
-3. Add a dedicated login route in `router_extend/auth_custom.py` (e.g. `POST /auth/login-github`).
+For an OIDC provider, add it to `config_oidc_provider`: its column comes with it. For anything else (a provider without ID tokens, a company directory):
+1. Add the column to `users` in `config_extend.py`, unique per role: `{"name": "github_login_id", "datatype": "text", "unique": "github_login_id,role"}`, and to `config_column_users_my_blocked`.
+2. Add its login route in `router_extend/` (e.g. `POST /auth/login-github`) ending with `func_auth_login_finish`, so 2FA applies.
 
 ---
 
@@ -171,16 +79,14 @@ config_login_allowed_roles = [1, 2, 5]
 
 In this example, new users can register only with role `5`. Login requests can supply roles `1`, `2`, or `5`.
 
-- `config_signup_allowed_roles` defaults to `[]`, which disables public registration. It applies to username/password signup and to new users created through email OTP, mobile OTP, or Google login. Existing users can still log in when registration is disabled. Role `1` is always rejected for public registration, even if listed.
-- `config_login_allowed_roles` defaults to roles `1` through `20`. It validates the supplied `role` in username, email, mobile, and external-ID password login, plus email OTP, mobile OTP, and Google login. OTP and Google login require `role`; password login allows it to be omitted. When omitted, password login does not apply this list and requires the identity to resolve to a single user.
+- `config_signup_allowed_roles` defaults to `[]`, which disables public registration. It applies to username/password signup and to new users created through email OTP, mobile OTP, or OIDC login. Existing users can still log in when registration is disabled. Role `1` is always rejected for public registration, even if listed.
+- `config_login_allowed_roles` defaults to roles `1` through `20`. It validates the supplied `role` in username, email, mobile, and external-ID password login, plus email OTP, mobile OTP, and OIDC login. OTP and OIDC login require `role`; password login allows it to be omitted. When omitted, password login does not apply this list and requires the identity to resolve to a single user.
 
-For new users created through OTP or Google login, the requested role must pass both lists. These settings do not define role permissions or apply to the static `/auth/login-password` endpoint.
+For new users created through OTP or OIDC login, the requested role must pass both lists. These settings do not define role permissions or apply to the static `/auth/login-password` endpoint.
 
-Every login (password, OTP, Google):
+Every login (password, OTP, OIDC):
 - **Deleted or deactivated users are refused** with `account deleted` or `account deactivated` (403), checked only after valid credentials, so a stranger learns nothing about the account.
 - **Emails match whatever their case**: `Ravi@Example.com` and `ravi@example.com` are the same user; new users are saved with the email in lowercase.
-
-`config_login_allowed_roles` replaces the former `config_allowed_users_role` name. Update existing configuration overrides to use the new name.
 
 | Endpoint | Credentials | Notes |
 | :--- | :--- | :--- |
@@ -192,7 +98,8 @@ Every login (password, OTP, Google):
 | `/auth/login-id-ext-password` | role, id_ext, password | |
 | `/auth/login-email-otp` | role, email, otp | Verifies OTP against `otp` table, auto-creates user on first login. |
 | `/auth/login-mobile-otp` | role, mobile, otp | Same as email OTP, sent via SMS. |
-| `/auth/login-google` | role, google_token | Verifies the Google ID token against `config_google_login_client_id` and requires Google's `email_verified`. Finds the user by `google_login_id`; else links the user with the same email and role to this Google account; else creates one (saving `email`, `name`, `google_login_metadata`). |
+| `/auth/login-oidc` | provider, id_token, role | Single sign-on with any configured provider ([auth-oidc.md](auth-oidc.md)). |
+| `/auth/login-totp` | mfa_token, code | Second step for a user with 2FA on ([auth-totp.md](auth-totp.md)). |
 
 ### `POST /auth/login-password`
 Compares the input against `config_login_password` configured in `.env`. If unconfigured, raises `"config_login_password not configured"`. Comparison uses `hmac.compare_digest` to prevent timing attacks.
@@ -272,121 +179,9 @@ async def func_api_my_profile(*, request: Request):
 ```
 
 ---
-
-## 7. API Keys (machine access)
-
-Machine-to-machine authentication for scripts, scheduled jobs and other companies' systems: a long-lived **API key** instead of a password login, owned by a **service account**. Terms used here, as in the industry:
-
-| Term | Meaning in Atom |
-| :--- | :--- |
-| API key | An opaque secret (`atk_` + 32 random bytes), not a JWT: it carries no data. Sent as `Authorization: Bearer atk_...`, like a JWT; the `atk_` prefix tells them apart (a JWT starts `eyJ`) |
-| Service account | A `users` row that stands for a system, not a person (e.g. `wms@company.com`); it owns the system's keys |
-| Key prefix | The first 12 characters (`atk_7Hk2xQ9p`), stored in clear so a key can be recognised in a list |
-| Key hash | sha256 of the key: the only form stored, so the key is shown once, at creation |
-| Scopes | Optional list of route paths a key may call; empty means every route that allows keys |
-| Expiry | Optional `expire_days`; an expired key is refused |
-| Revocation | Deleting the key; deactivating the service account revokes all its keys |
-| Rotation | Create a new key, switch the system to it, delete the old one (keys are never edited) |
-
-| Step | How |
-| :--- | :--- |
-| Create | `POST /my/api-key-create {"name": "Warehouse push", "scopes": ["/shipment/event-create"], "expire_days": 365}` → `{"id", "key", "key_prefix", ...}`. The key is shown only here. At most `config_api_key_max` keys per user (`20`) |
-| Allow a route | `"api_key"` in its `config_api` `auth` list: `["api_key"]` for machines only, `["jwt", "api_key"]` for people and machines (a project sets it in `config_extend.py`). No Atom route allows keys by default |
-| Call | `Authorization: Bearer atk_...` on any allowed route |
-| List | `GET /my/object-read?table=api_key` (own keys; `/admin/object-read` for all): name, prefix, scopes, expiry; `key_hash` is in `config_column_read_blocked`, so never returned |
-| Revoke | `POST /my/object-delete {"table": "api_key", "ids": [3]}` (own keys); `POST /admin/object-delete` (any key). A hard delete of the key row only; the service account is untouched |
-
-How a request is checked (middleware, right after the JWT step):
-```
-Bearer atk_... → sha256 → api_key JOIN users (cached per worker for config_api_key_cache_sec, 60 s)
-→ unknown or expired key, deleted or deactivated owner: 401
-→ request.state.user = the owner's config_column_token_encode columns + _token_type "api_key", _api_key_id, _api_key_scopes
-→ route whose auth lacks api_key: 401 · key with scopes not listing this path: 403
-→ role, permission, rate-limit and the other checks run as for a JWT
-```
-
-### Example: a partner system sends data
-A warehouse system (WMS) pushes shipment events into the app.
-1. **Service account** (admin, once): `POST /admin/user-create {"role": 2, "username": "wms@company.com", "password": "..."}`.
-2. **Key**: log in once as that account, `POST /my/api-key-create {"name": "WMS push", "scopes": ["/shipment/event-create"]}`; give the key to the WMS team (it lives in their system's settings, never in code or chat).
-3. **Route**: the project writes the route the partner calls, like any route (`router_extend/shipment.py`, `function_extend/shipment.py`), and allows keys on it:
-   ```python
-   # config_extend.py
-   "/shipment/event-create": {"id": 210, "auth": ["api_key"], "rate_limit": {"mode": "inmemory", "limit": 600, "window_sec": 60}},
-   ```
-4. **Call** (WMS side):
-   ```bash
-   curl -X POST https://app.company.com/shipment/event-create \
-     -H "Authorization: Bearer atk_..." -H "Content-Type: application/json" \
-     -d '{"shipment_no": "S123", "status": "loaded", "at": "2026-11-20T10:00:00Z"}'
-   ```
-   The row is saved with `created_by_id` = the service account.
-
-Prefer a project route like this for an outside system over opening a generic route: it is a fixed contract (its own fields and checks, unchanged when the app changes) and reaches one table only. Scopes limit paths, not tables, so a key allowed on `/my/object-create` can create rows in every table that route accepts. Generic routes suit your own scripts (`/my/object-read` for a report).
-
-- **One owner:** a key acts as the user who created it (`created_by_id`), with that user's role, permissions and row ownership. Use one service account per system: the integration outlives any person, and its rows and `log_api` entries (`/my/api-usage`) show which system made them.
-- **Only one route of its own:** creating needs the server to make and hash the key, so it has `/my/api-key-create`; reading and revoking use the generic routes. `api_key` is in `config_table_my_create_blocked` (no generic create) and in `config_postgres` `table_row_update_disable`, so the database refuses every `UPDATE`: a key is never edited, only revoked and created again.
-- **Revocation delay:** a resolved key is cached per worker, so a revoked key stops within `config_api_key_cache_sec` (60 s; `0` for at once). Deactivating or deleting the service account stops all its keys the same way; a deleted user's keys are removed with their other rows.
-- **Machine or person:** a route that must tell them apart reads `request.state.user["_token_type"] == "api_key"`. `/my/token-refresh` and the message socket never accept a key.
-
 ---
 
-## 8. Two-factor authentication (TOTP)
-
-A second step after the password: a 6-digit code from an authenticator app on the user's phone, changing every 30 seconds, so a leaked password alone no longer logs in. **Optional for each user and off by default:** a user who never turns it on logs in exactly as before. Backend only: Atom's pages do not show the code step yet, so a user who turns 2FA on finishes login through the API until a page adds it.
-
-| Term | Meaning in Atom |
-| :--- | :--- |
-| TOTP | Time-based one-time password (RFC 6238): `HMAC-SHA1(secret, now ÷ 30)` cut to 6 digits. The phone and the server compute it separately from the same secret and clock |
-| Authenticator app | Any: Microsoft or Google Authenticator, Apple Passwords, 1Password, Bitwarden, Authy. Atom uses the defaults every app supports (SHA-1, 6 digits, 30 s) |
-| TOTP secret | 20 random bytes per user, shown once (QR code) and kept in `users.totp_secret`, encrypted with AES-GCM by `config_totp_encryption_key` and bound to the user's id |
-| `mfa_token` | A 5-minute JWT of type `mfa` holding only the user id: proof that the password step passed. It opens no route; only `/auth/login-totp` reads it |
-| Recovery codes | 10 one-time codes (`XXXXX-XXXXX`) shown once when 2FA is turned on, for a lost phone; kept as HMAC hashes and removed when used |
-
-### Turn it on for the app
-Set `config_totp_encryption_key` in `.env` (32 characters or more, e.g. `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`). Until then the 2FA routes answer "2FA not configured" and nothing else changes. Keep the key: changing it makes every stored secret unreadable, and those users need an admin reset. `config_totp_issuer` names the app in the authenticator (default: the master database name).
-
-### What a page reads
-| Need | Where |
-|---|---|
-| Is 2FA available in this app? (show the Two-factor row or not) | `GET /info` → `is_totp_enabled` (`true` when `config_totp_encryption_key` is set) |
-| Is it on for this user, since when? | `GET /my/profile` → `totp_enabled_at` (`null` = off) |
-| Is it on for each user? (User management) | `/admin/object-read?table=users` → `totp_enabled_at` |
-
-### Columns in `users`
-| Column | Holds |
-| :--- | :--- |
-| `totp_enabled_at` | `null` = off (everyone at first), else when it was turned on |
-| `totp_secret` | The encrypted secret (set at setup, before 2FA is on) |
-| `totp_last_step` | The last 30-second step used, so a code works once |
-| `totp_recovery` | The recovery codes' hashes |
-
-`totp_secret` and `totp_recovery` are in `config_column_read_blocked` (never returned); `totp_secret`, `totp_last_step` and `totp_recovery` are in `config_column_users_blocked`; `totp_enabled_at` only an admin may change, and only to `null`. Clearing `totp_enabled_at`, by any path, clears the other three (trigger `users_totp_clear`).
-
-### Flow
-| Step | Request → response |
-| :--- | :--- |
-| Setup | `POST /my/totp-setup` → `{"secret", "uri"}`; the page shows `uri` (`otpauth://totp/pulse:ravi@x.com?secret=...`) as a QR code. 2FA is not on yet |
-| Enable | `POST /my/totp-enable {"code": "492039"}` → `{"recovery_codes": [10 codes]}`, shown only here. 2FA is on |
-| Login, step 1 | Any `/auth/login-*` with the right password → `{"mfa_required": true, "mfa_token": "eyJ..."}` instead of tokens |
-| Login, step 2 | `POST /auth/login-totp {"mfa_token": "eyJ...", "code": "310554"}` (or a recovery code) → `{"access_token", "refresh_token", ...}`, the same as any login |
-| Disable | `POST /my/totp-disable {"code": "..."}` (a current or recovery code) → `"2FA off"` |
-| Lost phone | A recovery code at step 2, or an admin: `PUT /admin/user-update {"id": 42, "totp_enabled_at": null}`; the user sets it up again |
-
-A client handles the one new response:
-```js
-const r = (await post("/auth/login-username-password", {username, password, role})).message;
-const tokens = r.mfa_required ? (await post("/auth/login-totp", {mfa_token: r.mfa_token, code: await askCode()})).message : r;
-```
-
-### Checks
-- A code is accepted for the current step and one either side (clock drift) and only for a step after the last one used, saved in one `UPDATE`, so the same code never works twice, even on two workers at once.
-- `/auth/login-totp` is limited to 5 tries a minute; an `mfa_token` expires in 5 minutes. Signup, `/my/token-refresh` and API keys are unchanged (they come after a full login).
-- The password is checked first and fails as before; the code is asked only after it.
-
----
-
-## 9. Root Superadmin User Architecture
+## 7. Root Superadmin User Architecture
 
 Atom features an automatic superadministrator (**root user**) with `role: 1` that is seeded on startup and defended by database triggers:
 

@@ -35,6 +35,7 @@ async def func_lifespan(app: FastAPI):
         cache_api_response = {}
         cache_api_response_bytes = {"total": 0}    # stored size of cache_api_response, kept as entries come and go
         cache_ratelimiter = {}
+        cache_oidc = {}    # each OIDC provider's discovery and signing keys, an hour
         buffer_postgres_create = {}
         buffer_postgres_log_api = {}
         cache_token = OrderedDict()

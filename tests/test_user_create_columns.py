@@ -20,7 +20,7 @@ class UserCreateColumnsTests(unittest.TestCase):
 
     def test_sign_up_and_login_columns_are_blocked(self):
         blocked = set(config.config_permission_user_column_blocked) | set(config.config_column_users_blocked)
-        for column in ("email", "mobile", "google_login_id", "google_login_metadata", "id_ext", "source", "parent_id", "verified_at", "permissions", "created_at", "last_active_at", "is_protected"):
+        for column in ("email", "mobile", "oidc_google", "id_ext", "source", "parent_id", "verified_at", "permissions", "created_at", "last_active_at", "is_protected"):
             with self.subTest(column=column): self.assertIn(column, blocked)
 
     def test_both_create_routes_pass_both_block_lists(self):

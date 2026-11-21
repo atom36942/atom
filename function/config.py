@@ -3,6 +3,7 @@ import contextlib
 import os
 import orjson
 from dotenv import load_dotenv
+from .oidc import func_oidc_config_apply
 
 # function
 def func_config_options_file_read(*, key: str, path: str) -> list:
@@ -18,7 +19,7 @@ def func_config_options_file_read(*, key: str, path: str) -> list:
     return items
 
 def func_config_load(*, global_dict: dict) -> None:
-    """Override config_* values in global_dict from .env and the environment; config_postgres_url_<name>, config_redis_url_<name>, config_clickhouse_url_<name>, and config_mssql_url_<name> fill the matching *_url_dict; a config_options value that is a file path is loaded into its list.
+    """Override config_* values in global_dict from .env and the environment; config_postgres_url_<name>, config_redis_url_<name>, config_clickhouse_url_<name>, and config_mssql_url_<name> fill the matching *_url_dict; a config_options value that is a file path is loaded into its list; each config_oidc_provider entry is checked and adds its users column oidc_<name>.
     ATOM_ENV_FILE (environment only) names another file to read instead of .env, such as an agent's local.env for a local run against a throwaway database; it must exist."""
     env_file = os.environ.get("ATOM_ENV_FILE", ".env")
     if env_file != ".env" and not os.path.isfile(env_file): raise ValueError(f"ATOM_ENV_FILE {env_file} not found")
@@ -69,6 +70,7 @@ def func_config_load(*, global_dict: dict) -> None:
                 global_dict[dict_key][k.removeprefix(prefix)] = v
     options = global_dict.get("config_options")
     if isinstance(options, dict): global_dict["config_options"] = {key: func_config_options_file_read(key=key, path=value) if isinstance(value, str) else value for key, value in options.items()}
+    func_oidc_config_apply(values=global_dict)    # each OIDC provider's users column oidc_<name>
     return
 
 def func_config_read() -> dict:

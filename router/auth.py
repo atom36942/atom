@@ -1,10 +1,7 @@
 # import
-import asyncio
 import hmac
 from fastapi import APIRouter
 from fastapi import Request
-from google.auth.transport import requests
-from google.oauth2 import id_token
 
 # router
 router = APIRouter()
@@ -89,14 +86,15 @@ async def func_api_auth_login_mobile_otp(*, request: Request):
     token = await app_state.func_auth_login_finish(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_sec=app_state.config_access_token_expires_sec, config_refresh_token_expires_sec=app_state.config_refresh_token_expires_sec, config_column_token_encode=app_state.config_column_token_encode)
     return {"status": 1, "message": token}
 
-@router.post("/auth/login-google")
-async def func_api_auth_login_google(*, request: Request):
+@router.post("/auth/login-oidc")
+async def func_api_auth_login_oidc(*, request: Request):
     app_state = request.app.state
     app_state.func_auth_check_config(client_postgres=request.state.client_postgres, config_token_secret_key=app_state.config_token_secret_key)
-    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "role", "type": "int", "required": True, "allowed": app_state.config_login_allowed_roles}, {"name": "google_token", "type": "str", "required": True}, {"name": "source", "type": "int"}])
-    id_info = await asyncio.to_thread(id_token.verify_oauth2_token, id_token=ob["google_token"], request=requests.Request(), audience=app_state.config_google_login_client_id)
-    if not id_info: raise Exception("invalid google token")
-    user = await app_state.func_auth_google_user(client_postgres=request.state.client_postgres, id_info=id_info, role=ob["role"], source=ob.get("source"), config_signup_allowed_roles=app_state.config_signup_allowed_roles)
+    if not app_state.config_oidc_provider: raise app_state.func_api_error(message="OIDC not configured: set config_oidc_provider", status_code=400)
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "provider", "type": "str", "required": True, "allowed": list(app_state.config_oidc_provider)}, {"name": "id_token", "type": "str", "required": True}, {"name": "role", "type": "int", "required": True, "allowed": app_state.config_login_allowed_roles}, {"name": "nonce", "type": "str"}, {"name": "source", "type": "int"}])
+    provider = app_state.config_oidc_provider[ob["provider"]]
+    claims = await app_state.func_oidc_verify(client_http=app_state.client_http, cache_oidc=app_state.cache_oidc, provider=provider, id_token=ob["id_token"], nonce=ob.get("nonce"))
+    user = await app_state.func_auth_oidc_user(client_postgres=request.state.client_postgres, name=ob["provider"], provider=provider, claims=claims, role=ob["role"], source=ob.get("source"), config_signup_allowed_roles=app_state.config_signup_allowed_roles)
     token = await app_state.func_auth_login_finish(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_sec=app_state.config_access_token_expires_sec, config_refresh_token_expires_sec=app_state.config_refresh_token_expires_sec, config_column_token_encode=app_state.config_column_token_encode)
     return {"status": 1, "message": token}
 

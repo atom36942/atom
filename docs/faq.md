@@ -250,7 +250,7 @@ Public signup cannot create role `1` users, which prevents callers from granting
 <details>
 <summary><strong>Why do I get "signup disabled"?</strong></summary>
 
-The application is running with `config_is_signup = False`. In that mode, password signup is rejected, and OTP or Google login cannot automatically create a user on their first login.
+The application is running with `config_is_signup = False`. In that mode, password signup is rejected, and OTP or OIDC login cannot automatically create a user on their first login.
 
 Set the value in `.env` or `config_extend.py`, then restart Atom:
 

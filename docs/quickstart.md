@@ -158,7 +158,7 @@ For records received by or assigned to you, pass an operation-approved `ownershi
 
 ## Next Steps
 
-- 🔐 **[Authentication Guide](auth.md)** — Google OAuth, OTP verification, and password management.
+- 🔐 **[Authentication Guide](auth.md)** — logins, OTP, tokens; single sign-on in [auth-oidc.md](auth-oidc.md).
 - 🗃️ **[Object Read Engine](crud.md)** — Relational joins, advanced filters, and aggregation.
 - 🛠️ **[Admin Toolkit](admin.md)** — Live SQL execution, AI query generation, and schema management.
 - ⚙️ **[Configuration Reference](config.md)** — Complete reference of all Atom settings.

@@ -123,7 +123,7 @@ class HttpRouteTests(unittest.TestCase):
 
     def test_admin_user_create_takes_other_users_columns_in_one_go(self):
         create = lambda body: self.client.post("/admin/user-create", json={"role": 5, "password": "dave-pass", **body}, headers=self.auth(self.admin))
-        for column, value in (("google_login_id", "g1"), ("email", "d@x.io"), ("permissions", [86]), ("created_at", "2026-01-01"), ("verified_at", "2026-01-01"), ("deactivated_at", "2026-01-01"), ("id", 5)):
+        for column, value in (("oidc_google", "g1"), ("email", "d@x.io"), ("permissions", [86]), ("created_at", "2026-01-01"), ("verified_at", "2026-01-01"), ("deactivated_at", "2026-01-01"), ("id", 5)):
             with self.subTest(column=column):
                 self.assertIn(f"{column} cannot be set when creating a user", self.message(create({"username": "dave", column: value}), 400))
         self.assertIn("does not exist", self.message(create({"username": "dave", "no_such_column": 1}), 400))

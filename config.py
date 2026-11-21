@@ -68,7 +68,6 @@ config_token_secret_key = None
 config_access_token_expires_sec = 604800
 config_refresh_token_expires_sec = 2592000
 config_login_password = None
-config_google_login_client_id = None
 config_signup_allowed_roles = []
 config_login_allowed_roles = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 config_is_user_delete = False
@@ -89,6 +88,9 @@ config_is_otp_require_users_update = False
 # totp
 config_totp_encryption_key = None
 config_totp_issuer = None
+
+# oidc
+config_oidc_provider = {}
 
 # profile
 config_is_profile_update_last_active_at = True
@@ -211,7 +213,7 @@ config_mongodb_my_create_allowed = {"test": ["post"]}
 # permission
 config_permission_table = {"ticket": {"read": 120, "update": 121, "delete": 122}, "ticket_comment": {"create": 123, "read": 124, "update": 125, "delete": 126}}
 config_permission_user_roles = []
-config_permission_user_column_blocked = ["role", "permissions", "totp_enabled_at", "username", "email", "mobile", "verified_at", "verified_by_id", "deactivated_by_id", "parent_id", "source", "id_ext", "google_login_id", "google_login_metadata"]
+config_permission_user_column_blocked = ["role", "permissions", "totp_enabled_at", "username", "email", "mobile", "verified_at", "verified_by_id", "deactivated_by_id", "parent_id", "source", "id_ext", "oidc_google"]
 
 # column
 config_column_token_encode = ["id", "role", "username", "id_ext" ,"deactivated_at", "deleted_at", "permissions"]
@@ -222,7 +224,7 @@ config_column_admin = ["created_at", "updated_at", "created_by_id", "role", "ver
 config_column_single_update = ["username", "password", "email", "mobile"]
 config_column_users_blocked = ["created_at", "created_by_id", "updated_at", "updated_by_id", "deleted_at", "deleted_by_id", "is_protected", "last_active_at", "totp_secret", "totp_last_step", "totp_recovery"]
 config_column_audit_blocked = ["created_at", "created_by_id", "updated_at", "updated_by_id", "deleted_at", "deleted_by_id"]
-config_column_users_my_blocked = ["role", "permissions", "totp_enabled_at", "verified_at", "verified_by_id", "deactivated_at", "deactivated_by_id", "parent_id", "source", "id_ext", "google_login_id", "google_login_metadata"]
+config_column_users_my_blocked = ["role", "permissions", "totp_enabled_at", "verified_at", "verified_by_id", "deactivated_at", "deactivated_by_id", "parent_id", "source", "id_ext", "oidc_google"]
 config_column_read_blocked = ["password", "key_hash", "secret", "totp_secret", "totp_recovery"]
 config_column_users_private_read = ["id", "username", "name", "role", "permissions", "created_at", "deactivated_at"]
 config_column_private_read_blocked = {"script_run": ["started_by", "host", "step", "message", "peak_memory_mb"]}
@@ -321,8 +323,7 @@ config_postgres = {
 {"name":"mobile","datatype":"text","unique":"mobile,role"},
 {"name":"id_ext","datatype":"text","unique":"id_ext,role"},
 {"name":"password","datatype":"text","index":"btree(password)"},
-{"name":"google_login_id","datatype":"text","unique":"google_login_id,role"},
-{"name":"google_login_metadata","datatype":"jsonb"},
+{"name":"oidc_google","datatype":"text","old":"google_login_id","unique":"oidc_google,role"},
 {"name":"last_active_at","datatype":"timestamptz"},
 {"name":"name","datatype":"text","index":"gin_trgm(name)"},
 {"name":"country","datatype":"text","index":"gin_trgm(country)"},
@@ -549,7 +550,7 @@ config_api = {
 "/auth/login-id-ext-password": {"id": 15, "auth": [], "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
 "/auth/login-email-otp": {"id": 16, "auth": [], "rate_limit": {"mode": "inmemory", "limit": 5, "window_sec": 60}},
 "/auth/login-mobile-otp": {"id": 17, "auth": [], "rate_limit": {"mode": "inmemory", "limit": 5, "window_sec": 60}},
-"/auth/login-google": {"id": 18, "auth": [], "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
+"/auth/login-oidc": {"id": 106, "auth": [], "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
 "/auth/login-totp": {"id": 102, "auth": [], "rate_limit": {"mode": "inmemory", "limit": 5, "window_sec": 60}},
 # my
 "/my/profile": {"id": 19, "auth": ["jwt"], "is_connection_param": True},

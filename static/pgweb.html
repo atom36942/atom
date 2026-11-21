@@ -2176,9 +2176,9 @@ function fieldWidget({column,meta={},value=null,isPassword=false,isNew=false,onC
 }
 /* ==== add a row ==== */
 // a form with the same input as Edit for each column; what the database fills (identity, generated, defaults, updated_* that is set on change) is listed apart and left out
-// columns only the app's later flows set (update, verify, deactivate, soft delete, activity, workers, sign-in): folded in the create form when they may be left empty
+// columns only the app's later flows set (update, verify, deactivate, soft delete, activity, workers, sign-in: oidc_*): folded in the create form when they may be left empty
 const SET_LATER=new Set(['created_at','updated_at','updated_by_id','verified_at','verified_by_id','deactivated_at','deactivated_by_id','deleted_at','deleted_by_id','is_protected',
-  'last_active_at','read_at','finished_at','worker_status','worker_retry_count','worker_processed_at','worker_next_retry_at','worker_last_error','google_login_id','google_login_metadata']);
+  'last_active_at','read_at','finished_at','worker_status','worker_retry_count','worker_processed_at','worker_next_retry_at','worker_last_error']);
 function rowAddBlock(){
   if(S.local||!S.meta||!S.table) return 'Open a table first';
   if(S.kind!=='table') return 'Rows can be added only to tables';
@@ -2190,7 +2190,7 @@ function openRowAdd(){
   if(rowAddBlock()) return;
   const table=S.table, plan=S.meta.columns.map(c=>{
     const fixed=!!c.generated||(c.name===S.pk&&/^nextval\(/.test(c.default_value||''));    // identity, generated, or a key the database numbers: never typed
-    const later=SET_LATER.has(c.name)&&(c.nullable||!!c.default_value);    // NOT NULL without a default must be filled, so it stays
+    const later=(SET_LATER.has(c.name)||c.name.startsWith('oidc_'))&&(c.nullable||!!c.default_value);    // NOT NULL without a default must be filled, so it stays
     return {c,fixed,on:!fixed&&!later,required:!c.nullable&&!c.default_value&&!c.generated};
   });
   const dlg=$('dlg'), body=$('dlg-b');

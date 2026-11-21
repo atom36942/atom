@@ -177,7 +177,6 @@ Disabled (`None`) by default; activated automatically when connection credential
 | Key | Usage |
 |---|---|
 | `config_root_user_password` | Password for seeded root admin (hashed at startup) |
-| `config_google_login_client_id` | Google OAuth Client ID for token verification |
 | `config_login_password` | Static login password for `/auth/login-password` (Must set in `.env` if used) |
 | `config_token_secret_key` | HMAC secret key for signing/verifying JWT tokens *(Must change)*. With `config_is_prod` on, startup refuses keys shorter than 32 bytes; generate one with `python3 -c "import secrets; print(secrets.token_urlsafe(48))"` |
 | `config_root_html_path` | Path to static HTML file served at `/` (default: Atom's home page, which lists every page in `static/` and `static_extend/`) |
@@ -185,7 +184,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_is_user_delete` | Enables user hard deletion through `/my/user-delete` and `/admin/user-delete` (default `False`); the database also needs `users` out of `config_postgres` control `table_row_delete_disable` |
 | `config_is_postgres_schema_init` | `True` (default): startup changes the master database to match `config_postgres`. `False`: startup changes nothing, compares instead, and stops if the database differs, listing the changes; run them with `venv/bin/python -m script.postgres_schema_plan --apply` (for production, where schema changes should be a deliberate step). With `config_is_read_only` neither runs |
 | `config_postgres_schema_lock_timeout_sec` | Longest wait for a table lock during schema init (default 10); past it startup stops and changes nothing. See what would change: `venv/bin/python -m script.postgres_schema_plan` |
-| `config_signup_allowed_roles` | Roles allowed for public signup, including new users created by OTP/Google login (default: `[]` disables signup; role `1` is always rejected). See [role settings](auth.md#signup-and-login-role-settings). |
+| `config_signup_allowed_roles` | Roles allowed for public signup, including new users created by OTP/OIDC login (default: `[]` disables signup; role `1` is always rejected). See [role settings](auth.md#signup-and-login-role-settings). |
 | `config_login_allowed_roles` | Allowed values for the supplied login `role` parameter (default: roles `1` through `20`; optional for password login) |
 | `config_is_otp_require_users_update` | `/admin/user-update` needs `otp` for `email`/`mobile` (default `False`); `/my/user-update` always does |
 | `config_is_read_only` | Boolean system-wide read-only mode toggle |
@@ -220,8 +219,9 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_otp_length` | Digit length generated for OTP codes (default: `6`) |
 | `config_otp_expiry_sec` | Expiry window for OTP codes in seconds (default: `600`) |
 | `config_otp_max_attempt` | Verification guesses allowed per OTP code before it is locked (default: `5`) |
-| `config_totp_encryption_key` | Turns two-factor (TOTP) on for the app: the key (32+ characters, in `.env`) that encrypts every user's TOTP secret. `None` (default): the 2FA routes answer "2FA not configured" ([auth.md](auth.md#8-two-factor-authentication-totp)) |
+| `config_totp_encryption_key` | Turns two-factor (TOTP) on for the app: the key (32+ characters, in `.env`) that encrypts every user's TOTP secret. `None` (default): the 2FA routes answer "2FA not configured" ([auth.md](auth-totp.md)) |
 | `config_totp_issuer` | The app's name in the authenticator app (default `None`: the master database name) |
+| `config_oidc_provider` | Single sign-on providers, `{name: {issuer, client_id, jwks_uri?, tenants?, link_email?}}` (JSON in `.env`); each adds the users column `oidc_<name>`. `{}` (default): `/auth/login-oidc` answers "OIDC not configured" ([auth-oidc.md](auth-oidc.md)) |
 | `config_schedule_timezone` | Time zone of every `config_schedule_*` time (`UTC`; a zone name such as `Asia/Kolkata`) ([schedule.md](schedule.md)) |
 | `config_schedule_check_sec` | How often scheduled scripts are checked, in seconds (`600`; 60 to 3600) |
 | `config_schedule_script_<script>` | When `script/<script>.py` or `script_extend/<script>.py` runs by itself: `off`, `every 6h`, `daily 02:00`, `every 3d 02:00`, `weekly sun 02:00` or `monthly 1 02:00`. Atom's: `config_schedule_script_postgres_cleanup` (`every 1h`), `config_schedule_script_postgres_backup` (`off`) ([schedule.md](schedule.md)) |
@@ -231,7 +231,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_retention_day_users_delete` | Days before soft-deleted users' data is purged by `script/worker_users_delete.py` (`30`) |
 | `config_access_token_expires_sec` | JWT Access Token lifetime in seconds |
 | `config_refresh_token_expires_sec` | JWT Refresh Token lifetime in seconds |
-| `config_api_key_max` | API keys one user may hold (`20`) ([auth.md](auth.md#7-api-keys-machine-access)) |
+| `config_api_key_max` | API keys one user may hold (`20`) ([auth.md](auth-api-key.md)) |
 | `config_api_key_cache_sec` | Seconds a resolved API key is reused per worker before it is read again (`60`), in the same cache as tokens (`config_token_cache_max`); a deleted key keeps working for at most this long. `0` reads the database on every request |
 | `config_cache_row_limit_config` | Rows of the `config` table (key → value) loaded into `cache_config` at startup and by `/admin/sync` (`1000`); `0` = not loaded |
 | `config_cache_row_limit_users_role`, `config_cache_row_limit_users_deactivated`, `config_cache_row_limit_users_deleted` | Users (lowest ids first) whose role, `deactivated_at` and `deleted_at` are loaded at startup and by `/admin/sync` for the `inmemory` user checks (`10000` each, about 1 MB in all); a user not loaded is read from the database. `0` = not loaded (a project that never uses `inmemory` checks can turn them off). Set them in `.env` like any number |
@@ -348,12 +348,12 @@ Keys are route paths as declared. A route with path parameters (`/page/{name}`) 
 |---|---|---|
 | `id` | `int` | Unique numeric identifier for the endpoint |
 | `is_active` | `bool` | Toggles endpoint availability (`False` disables the endpoint via middleware) |
-| `auth` | `list` | Required. The credentials the route accepts: `[]` public, `["jwt"]` a JWT access token, `["api_key"]` an API key, `["jwt", "api_key"]` either; both are sent as `Authorization: Bearer` ([auth.md](auth.md#7-api-keys-machine-access)) |
+| `auth` | `list` | Required. The credentials the route accepts: `[]` public, `["jwt"]` a JWT access token, `["api_key"]` an API key, `["jwt", "api_key"]` either; both are sent as `Authorization: Bearer` ([auth.md](auth-api-key.md)) |
 | `is_connection_param` | `bool` | `True` lets `?connection=<name>` pick the database for this route (default master; unknown name is 404). Without it the route always uses master and `?connection=` is 400 |
 | `webhook_verify` | `dict` | `{"scheme": <name in config_webhook_verify_scheme>, "secret": <config_ setting holding the secret>}`: the route is called by another service and runs only with a valid signature of its raw body; `auth` must be `[]` ([webhook.md](webhook.md#incoming)) |
 | `is_log_api` | `bool` | `False` keeps this route's requests out of `log_api` (default `True`). Atom sets it for `/pgweb` (every click would add a row) and the health checks (probed every few seconds). |
 | `user_check_role` | `{"mode": "...", "roles": [...]}` | Restricts access to users with listed role numbers |
-| `user_check_permission` | `{"mode": "token"}` | Only users whose `permissions` hold this route's `id` ([Per-User Permissions](auth.md#per-user-permissions)) |
+| `user_check_permission` | `{"mode": "token"}` | Only users whose `permissions` hold this route's `id` ([Per-User Permissions](auth-permission.md)) |
 | `user_check_deactivated` | `{"mode": "..."}` | Blocks request if user has `deactivated_at` timestamp set |
 | `user_check_deleted` | `{"mode": "..."}` | Blocks request if user has `deleted_at` timestamp set |
 
@@ -488,7 +488,7 @@ config_column_int_mapping = {
 }
 ```
 
-Assigned IDs are stored in the `users` column `{"name": "permissions", "datatype": "smallint[]", "default": None}`. See [Per-User Permissions](auth.md#per-user-permissions) for the flow.
+Assigned IDs are stored in the `users` column `{"name": "permissions", "datatype": "smallint[]", "default": None}`. See [Per-User Permissions](auth-permission.md) for the flow.
 
 ### `/info` Response Keys
 

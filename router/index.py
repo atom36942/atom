@@ -48,6 +48,7 @@ async def func_api_index_info(*, request:Request):
             "options": app_state.config_options,
             "export_limit": app_state.config_export_limit,
             "is_totp_enabled": bool(app_state.config_totp_encryption_key),
+            "oidc_provider": {name: {"issuer": provider["issuer"], "client_id": provider["client_id"]} for name, provider in (app_state.config_oidc_provider or {}).items()},
         }
     }
 
