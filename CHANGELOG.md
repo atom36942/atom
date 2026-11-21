@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [18.4.0] - 2026-11-21
+
+- **Ticket statuses for support:** New, In Progress, Blocked (stuck inside the company), Waiting (on the customer), Done. Only the labels of 1 (was To Do) and 4 (was Review) change; codes, colours and `closed_at` on Done stay, so no data changes.
+
 ## [18.3.1] - 2026-11-20
 
 - **Tickets page:** Add ticket's fields have no placeholders and no Markdown hint, as in Pulse's Add task (formatting still shows in the ticket).

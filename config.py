@@ -232,7 +232,7 @@ config_column_int_mapping = {
 "ticket": {
 "type": {1: "Support", 2: "Feedback", 3: "Bug"},
 "priority": {1: "Low", 2: "Normal", 3: "High"},
-"status": {1: "To Do", 2: "In Progress", 3: "Blocked", 4: "Review", 5: "Done"},
+"status": {1: "New", 2: "In Progress", 3: "Blocked", 4: "Waiting", 5: "Done"},
 },
 "log_users_delete": {
 "type": {1: "User Soft Deleted", 2: "User Restored", 3: "User Hard Deleted"},
