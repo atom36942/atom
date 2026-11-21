@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [19.2.0] - 2026-11-21
+
+- **Forgot password and invites:** `POST /public/password-set {role, email or mobile, otp, password}` sets a new password with the code from `/public/otp-send-email` or `-mobile`, for the user with that email or mobile and role (password rules, hashed, logged; the code works once; 5 a minute). An invite is the same route: an admin creates the user as today with a password nobody is told, sets their email, and the person sets their own. Role 1 and deleted or deactivated users are refused; without the code, nothing tells whether an account exists. Nothing existing changes ([docs/auth.md](docs/auth.md#forgot-password-and-invites)).
+
 ## [19.1.0] - 2026-11-21
 
 - **A page about Atom for everyone:** `/page/atom` explains Atom in plain words, with no login. About 2,000 particles take the shape of what the visitor looks at: they spell Atom, spin as an atom, become each feature's icon, streak for speed, become each of the five checks a request passes (pick a visitor and watch), become the Google or Microsoft logo for sign-in, form the built-in pages, carry one update to every app, and end as a star for the GitHub repository. The pointer pushes them aside. Dark and light, works on a phone, calm when the visitor asks for reduced motion, no outside scripts or fonts, and no call to the server ([docs/admin.md](docs/admin.md)).

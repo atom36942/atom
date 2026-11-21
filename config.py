@@ -585,6 +585,7 @@ config_api = {
 "/public/otp-send-email": {"id": 43, "auth": [], "rate_limit": {"mode": "inmemory", "limit": 3, "window_sec": 60}},
 "/public/otp-send-mobile": {"id": 44, "auth": [], "rate_limit": {"mode": "inmemory", "limit": 3, "window_sec": 60}},
 "/public/otp-send-mobile-sns-template": {"id": 45, "auth": [], "rate_limit": {"mode": "inmemory", "limit": 3, "window_sec": 60}},
+"/public/password-set": {"id": 107, "auth": [], "rate_limit": {"mode": "inmemory", "limit": 5, "window_sec": 60}},
 "/public/table-column-groupby": {"id": 46, "auth": [], "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}, "is_connection_param": True},
 "/public/table-column-distinct": {"id": 47, "auth": [], "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}, "is_connection_param": True},
 "/public/blob-upload-file": {"id": 48, "is_active": False, "auth": []},

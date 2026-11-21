@@ -106,6 +106,13 @@ async def func_api_public_blob_upload_presigned(*, request: Request):
     res = await app_state.func_blob_upload_url(app_state=app_state, service=oq["service"], container=oq["container"], count=oq["count"], user_id=request.state.user.get("id"))
     return {"status": 1, "message": res}
 
+@router.post("/public/password-set")
+async def func_api_public_password_set(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "role", "type": "int", "required": True, "allowed": app_state.config_login_allowed_roles}, {"name": "email", "type": "str"}, {"name": "mobile", "type": "str"}, {"name": "otp", "type": "int", "required": True}, {"name": "password", "type": "str", "required": True}], strict=True, reject_unknown=True)
+    res = await app_state.func_user_password_set(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_column_regex=app_state.config_column_regex, role=ob["role"], email=ob.get("email"), mobile=ob.get("mobile"), otp=ob["otp"], password=ob["password"], config_otp_expiry_sec=app_state.config_otp_expiry_sec, config_otp_static=app_state.config_otp_static, config_otp_max_attempt=app_state.config_otp_max_attempt)
+    return {"status": 1, "message": res}
+
 @router.post("/public/password-hash")
 async def func_api_public_password_hash(*, request: Request):
     app_state = request.app.state

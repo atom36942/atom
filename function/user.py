@@ -1,6 +1,8 @@
 # import
 import asyncpg
 from argon2 import PasswordHasher
+from .auth import func_auth_check_user_active
+from .auth import func_auth_user_login_fetch
 from .auth import func_otp_verify
 from .middleware import func_api_error
 from .postgres_crud import func_postgres_update
@@ -82,3 +84,18 @@ async def func_user_delete(*, client_postgres: asyncpg.Pool | None, user_id: int
         raise
     if result == "DELETE 0": raise func_api_error(message="user not found", status_code=404)
     return "user deleted"
+
+async def func_user_password_set(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, config_column_regex: dict, role: int, email: str | None, mobile: str | None, otp: int, password: str, config_otp_expiry_sec: int, config_otp_static: int = None, config_otp_max_attempt: int = 5) -> str:
+    """Forgot password, and an invited user's first password: the code sent to the email or mobile (/public/otp-send-email or -mobile) proves the person owns it, then the user of that email or mobile and role gets the new password (password rules, hashed, logged in log_users_password).
+    The code is checked before the account, so without it nothing tells whether an account exists. Role 1 is refused: the root user's password is config_root_user_password. A deleted or deactivated user is refused as at login."""
+    if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
+    if role == 1: raise func_api_error(message="password set not allowed for role 1", status_code=403)
+    if bool(email) == bool(mobile): raise Exception("provide one of email or mobile")
+    await func_regex_check(config_column_regex=config_column_regex, obj_list=[{"password": password}])
+    await func_otp_verify(client_postgres=client_postgres, otp=otp, email=email, mobile=mobile, config_otp_expiry_sec=config_otp_expiry_sec, config_otp_static=config_otp_static, config_otp_max_attempt=config_otp_max_attempt)
+    async with client_postgres.acquire() as conn:
+        user = await func_auth_user_login_fetch(conn=conn, field="email" if email else "mobile", value=(email or mobile).strip(), role=role, is_missing_ok=True)
+    if not user: raise func_api_error(message=f"no account with this {'email' if email else 'mobile'} for role {role}", status_code=404)
+    func_auth_check_user_active(user=user)
+    await func_postgres_update(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, config_column_regex=config_column_regex, table="users", obj_list=[{"id": user["id"], "password": password, "updated_by_id": user["id"]}], created_by_id=None, client_postgres_conn=None)
+    return "password set"

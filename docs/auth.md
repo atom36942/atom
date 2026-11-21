@@ -4,7 +4,7 @@ Atom's users, logins and tokens: **stateless JWT tokens**, **Argon2 password has
 
 | Topic | Doc |
 |---|---|
-| Users, identities, signup and login, managing users, OTP, tokens, root | this page |
+| Users, identities, signup and login, managing users, OTP, forgot password and invites, tokens, root | this page |
 | Permissions: per-user ids on routes and tables | [auth-permission.md](auth-permission.md) |
 | API keys for scripts and other systems | [auth-api-key.md](auth-api-key.md) |
 | Two-factor login (TOTP) | [auth-totp.md](auth-totp.md) |
@@ -149,6 +149,19 @@ For OTP logins, the client requests a verification code and then submits it:
 1. **Send**: `POST /public/otp-send-email` or `/public/otp-send-mobile` → `func_otp_generate` creates a random code of length `config_otp_length`, the configured provider sends it, and only then `func_otp_save` stores it in the `otp` table (valid for `config_otp_expiry_sec`). A failed send stores nothing.
 2. **Verify / Login**: `POST /auth/login-email-otp` validates code via `func_otp_verify`. Each code accepts at most `config_otp_max_attempt` guesses (default `5`), counted in `otp.attempt`; after that even the correct code returns HTTP 429 and the user must request a new one. Expired codes do not use up attempts.
 3. **Stand-alone check**: `GET /public/otp-verify` validates a code without issuing a JWT session.
+
+### Forgot password and invites
+One route, `POST /public/password-set {role, email or mobile, otp, password}` (5 a minute), after the code from `/public/otp-send-email` or `-mobile`. It sets the password of the user with that `email` (or `mobile`) and role: password rules, hashed, logged in `log_users_password`; the code works once.
+
+| Need | Steps |
+|---|---|
+| Forgot password | The page sends a code to the user's email, then calls `/public/password-set` with it and the new password |
+| Invite | An admin creates the user as usual with a random password nobody is told (`/admin/user-create`), sets their `email` or `mobile` (`/admin/user-update`), and tells them to use Forgot password; the admin never knows the password |
+
+- The code is checked before the account, so without it the answer is the same whether an account exists or not; only the owner of the email, holding its code, learns there is none (404).
+- Refused: role 1 (the root user's password is `config_root_user_password`), a deleted or deactivated user (403, as at login), unknown fields.
+- The user is found by `email` or `mobile` only: a user whose `username` is an email but whose `email` is empty gets it set first.
+- Tokens issued before the change stay valid until they expire (`config_access_token_expires_sec`).
 
 ---
 
