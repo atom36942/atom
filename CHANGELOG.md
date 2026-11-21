@@ -4,6 +4,11 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [18.11.0] - 2026-11-21
+
+- **Tickets' detail works like Pulse's task detail** (its code went out with the 18.10.0 commit; noted here): the header buttons in Pulse's order (Edit, Delete, Copy link, Duplicate, Refresh, Close); **Edit ticket** opens over the detail in the Add ticket layout, with Status too, and saves only what changed (ticket update, 121); **Copy link** copies `/page/ticket?ticket_id=<id>`, which opens only that ticket; **Duplicate** opens Add ticket filled from the ticket; "Created at" and "Updated at", a line under the description's title, "-" for an empty description, and the toast "Ticket ID copied".
+- **Avatar spacing:** in Atom's pages the avatar sits 16px from the header's last button, as in the apps.
+
 ## [18.10.0] - 2026-11-21
 
 - **`/info` says whether 2FA is available:** `is_totp_enabled` is `true` when the app has `config_totp_encryption_key`, so a page shows its Two-factor row only where it can work; the user's own state stays `totp_enabled_at` in `/my/profile` ([docs/auth.md](docs/auth.md#what-a-page-reads)).

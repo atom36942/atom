@@ -128,7 +128,7 @@ dialog.dlg .dlg-actions button:not(.kv-btn){height:var(--control-h);padding:0 14
 @media (max-width:600px){.toast{inset:auto 16px 16px 16px;max-width:none}}
 /* header account area: the avatar and its menu (My profile, Login details, Sync, Settings, Logout, as in the apps), or Login when logged out */
 .atom-account{display:flex;align-items:center;gap:8px}
-.account{position:relative;display:flex}
+.account{position:relative;display:flex;margin-left:8px}    /* the avatar 16px from the header's last button (its 8px gap + 8px), as in the apps */
 .avatar{width:32px;height:32px;border-radius:50%;border:none;padding:0;background:var(--accent);color:#fff;font-size:12px;font-weight:700;letter-spacing:.5px;display:inline-flex;align-items:center;justify-content:center}
 .avatar:hover:not(:disabled),.avatar[aria-expanded="true"]{background:var(--accent);border:none;box-shadow:0 0 0 3px rgba(66,153,225,.35)}
 .account-menu{position:absolute;right:0;top:calc(100% + 8px);z-index:60;min-width:190px;padding:6px;border-radius:12px;background:var(--panel);border:1px solid var(--line-strong);box-shadow:0 12px 32px rgba(0,0,0,.45)}
