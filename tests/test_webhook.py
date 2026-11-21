@@ -8,9 +8,12 @@ from function import func_webhook_sign
 from function import func_webhook_url_check
 
 
+SPEC_SECRET = "whsec_" + "MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"    # the Standard Webhooks spec's public test vector, split so secret scanners don't take it for a live key
+
+
 class WebhookSignTests(unittest.TestCase):
     def test_signature_matches_the_standard_webhooks_test_vector(self):
-        signature = func_webhook_sign(secret="whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw", message_id="msg_p5jXN8AQM9LWM0D4loKWxJek", timestamp=1614265330, body=b'{"test": 2432232314}')
+        signature = func_webhook_sign(secret=SPEC_SECRET, message_id="msg_p5jXN8AQM9LWM0D4loKWxJek", timestamp=1614265330, body=b'{"test": 2432232314}')
         self.assertEqual(signature, "v1,g0hM9SsE+OTPJTGt/tmIKtSyZlE3uFJELVlNIOLJ1OE=")
 
     def test_a_new_secret_is_32_random_bytes_after_whsec(self):

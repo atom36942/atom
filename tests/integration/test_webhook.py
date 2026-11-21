@@ -22,6 +22,7 @@ from tests.integration.support import fetch
 from tests.integration.support import requires_postgres
 
 URL = "https://partner.test/hook"
+SECRET = webhook.func_webhook_secret_create()    # made per run: no secret-shaped string in the repo
 
 
 @requires_postgres
@@ -50,7 +51,7 @@ class WebhookTests(unittest.TestCase):
         return response.json()["message"]
 
     def webhook_add(self, events, is_active=True, url=URL):
-        return fetch(self.url, "INSERT INTO webhook (created_by_id, url, events, secret, is_active) VALUES (1, $1, $2, 'whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw', $3) RETURNING id", url, events, is_active)[0]["id"]
+        return fetch(self.url, "INSERT INTO webhook (created_by_id, url, events, secret, is_active) VALUES (1, $1, $2, $3, $4) RETURNING id", url, events, SECRET, is_active)[0]["id"]
 
     def jobs(self):
         return fetch(self.url, "SELECT payload, status, attempt, error FROM queue_job WHERE channel = 'channel_webhook' ORDER BY id")
@@ -101,7 +102,7 @@ class WebhookTests(unittest.TestCase):
         body = orjson.loads(request.content)
         self.assertEqual((body["type"], body["data"]), ("shipment.delivered", {"shipment_id": 881}))
         self.assertTrue(request.headers["webhook-id"].startswith("msg_"))
-        expected = webhook.func_webhook_sign(secret="whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw", message_id=request.headers["webhook-id"], timestamp=int(request.headers["webhook-timestamp"]), body=request.content)
+        expected = webhook.func_webhook_sign(secret=SECRET, message_id=request.headers["webhook-id"], timestamp=int(request.headers["webhook-timestamp"]), body=request.content)
         self.assertEqual(request.headers["webhook-signature"], expected)
 
     def test_a_failing_receiver_is_retried_then_kept_as_failed_with_its_error(self):

@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [18.5.1] - 2026-11-21
+
+- **Webhook tests hold no secret-shaped string:** the integration tests make their signing secret per run, and the unit test's Standard Webhooks spec vector (public, not a key) is split, so GitHub secret scanning no longer reports it as a Stripe webhook secret.
+
 ## [18.5.0] - 2026-11-21
 
 - **Outgoing webhooks:** Atom tells other systems when something happens, with a signed POST in the [Standard Webhooks](https://www.standardwebhooks.com) format (`webhook-id`, `webhook-timestamp`, `webhook-signature: v1,<HMAC-SHA256>`). An admin subscribes a URL to events with the new route `/admin/webhook-create` (it returns the `whsec_` signing secret once); a project's code calls `app_state.func_webhook_send(client_postgres=conn, event="shipment.delivered", data={...})`, which queues one delivery per active subscriber as a `queue_job` row on channel `channel_webhook`, in the caller's transaction (a rollback sends nothing). With `config_webhook_is_active` on (off by default), each app worker delivers them (`FOR UPDATE SKIP LOCKED`, never twice at once), retries a failure after 60 s doubled each time, and keeps it as failed with its error after 8 retries (`config_webhook_timeout_sec`, `config_webhook_retry_max`, `config_webhook_retry_wait_sec`, `config_webhook_poll_sec`). New table `webhook`; the URL must be `https` to a public address, checked at creation and before every delivery; `secret` joins `config_column_read_blocked`. Webhooks are listed, paused and deleted through the generic admin routes ([docs/webhook.md](docs/webhook.md)).
