@@ -53,6 +53,9 @@ class TotpTests(unittest.TestCase):
         recovery = self.message(self.client.post("/my/totp-enable", json={"code": self.code(setup["secret"])}, headers=headers))["recovery_codes"]
         return setup, recovery
 
+    def test_info_tells_pages_2fa_is_available(self):
+        self.assertIs(self.message(self.client.get("/info"))["is_totp_enabled"], True)
+
     def test_off_by_default_login_is_unchanged(self):
         self.user("plain")
         tokens = self.login("plain")
@@ -73,6 +76,7 @@ class TotpTests(unittest.TestCase):
         profile = self.message(self.client.get("/my/profile", headers=headers))
         self.assertNotIn("totp_secret", profile)
         self.assertNotIn("totp_recovery", profile)
+        self.assertIsNotNone(profile["totp_enabled_at"], "a page reads the user's 2FA state from /my/profile")
 
         first = self.login("ravi")
         self.assertEqual(set(first), {"mfa_required", "mfa_token"})

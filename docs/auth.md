@@ -346,6 +346,13 @@ A second step after the password: a 6-digit code from an authenticator app on th
 ### Turn it on for the app
 Set `config_totp_encryption_key` in `.env` (32 characters or more, e.g. `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`). Until then the 2FA routes answer "2FA not configured" and nothing else changes. Keep the key: changing it makes every stored secret unreadable, and those users need an admin reset. `config_totp_issuer` names the app in the authenticator (default: the master database name).
 
+### What a page reads
+| Need | Where |
+|---|---|
+| Is 2FA available in this app? (show the Two-factor row or not) | `GET /info` → `is_totp_enabled` (`true` when `config_totp_encryption_key` is set) |
+| Is it on for this user, since when? | `GET /my/profile` → `totp_enabled_at` (`null` = off) |
+| Is it on for each user? (User management) | `/admin/object-read?table=users` → `totp_enabled_at` |
+
 ### Columns in `users`
 | Column | Holds |
 | :--- | :--- |

@@ -70,6 +70,9 @@ class HttpIntegrationTests(unittest.TestCase):
         self.assertIsNone(self.app.state.client_redis_dict.get("api_response"))
         self.assertTrue(os.path.isdir(os.path.join(self.workdir.name, "tmp")))
 
+    def test_info_says_2fa_is_off_without_its_key(self):
+        self.assertIs(self.client.get("/info").json()["message"]["is_totp_enabled"], False)
+
     def test_profile_with_token_and_security_headers(self):
         response = self.client.get("/my/profile", headers=self.auth())
         self.assertEqual(response.status_code, 200, response.text)

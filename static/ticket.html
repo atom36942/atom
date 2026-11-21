@@ -313,7 +313,7 @@ dialog.view::backdrop{background:rgba(16,24,40,.45)}
 .facts select.s2{background-color:var(--info-soft);color:var(--info);font-weight:600}.facts select.s3{background-color:var(--blocked-soft);color:var(--blocked);font-weight:600}.facts select.s4{background-color:var(--warn-soft);color:var(--warn);font-weight:600}.facts select.s5{background-color:var(--success-soft);color:var(--success);font-weight:600}
 .facts a{color:var(--brand-ink)}
 .description-card{display:flex;flex-direction:column;min-height:0;padding:10px 12px}
-.description-card h4{margin:0 0 6px;font-size:13px;font-weight:600;overflow-wrap:anywhere}
+.description-card h4{margin:0 0 8px;padding-bottom:8px;border-bottom:1px solid var(--line);font-size:13px;font-weight:600;overflow-wrap:anywhere}
 .description-text{flex:1;min-height:0;overflow:auto}
 .comments-pane{min-height:0;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--line);border-radius:12px;background:var(--card)}
 .comments-title{padding:10px 12px 6px;font-weight:600}
@@ -428,9 +428,12 @@ dialog.dlg .check input{width:16px;height:16px}
   <div class="view-head">
     <div><h3 id="viewTitle">Ticket detail</h3><div class="view-id"><span id="viewId"></span><button type="button" class="mini" id="viewCopy" aria-label="Copy ticket ID"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button></div></div>
     <div class="head-actions">
-      <button type="button" class="head-btn" id="viewReload" aria-label="Reload ticket"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5"/><path d="M19.4 12A7.5 7.5 0 1 1 17 6.6L20 9"/></svg></button>
-      <button type="button" class="head-btn" id="viewDelete" aria-label="Delete ticket"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5"/></svg></button>
-      <button type="button" class="head-btn" id="viewClose" aria-label="Close"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+      <button type="button" class="head-btn" id="viewEdit" aria-label="Edit ticket" data-tip="Edit ticket"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20Z"/><path d="m14 7 3 3"/></svg></button>
+      <button type="button" class="head-btn" id="viewDelete" aria-label="Delete ticket" data-tip="Delete ticket"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5"/></svg></button>
+      <button type="button" class="head-btn" id="viewShare" aria-label="Copy ticket link" data-tip="Copy ticket link"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg></button>
+      <button type="button" class="head-btn" id="viewDuplicate" aria-label="Duplicate ticket" data-tip="Duplicate ticket"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button>
+      <button type="button" class="head-btn" id="viewReload" aria-label="Refresh ticket" data-tip="Refresh ticket"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5"/><path d="M19.4 12A7.5 7.5 0 1 1 17 6.6L20 9"/></svg></button>
+      <button type="button" class="head-btn" id="viewClose" aria-label="Close" data-tip="Close"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
     </div>
   </div>
   <div class="view-grid">
@@ -483,7 +486,7 @@ dialog.dlg .check input{width:16px;height:16px}
 // Tickets: the support team's desk for what customers send (table ticket, from a project's form: /my/object-create logged in, /public/object-create without a login; Add ticket here sends it as public).
 // Any role may log in; the page needs ticket read (120) to open, and reads and changes everything through /permission/object-*: ticket 120 read, 121 update, 122 delete;
 // ticket_comment 123 create, 124 read, 125 update and 126 delete anyone's (a comment's author changes their own through /my). Root holds them all.
-const PAGE = { key: "ticket", title: "Tickets", role: null, loginRequired: true, idb: false, intro: { heading: "Answer what your customers send", text: "Support requests, feedback and bugs from your apps, on one board for the support team.", features: [['<rect x="4" y="4" width="4" height="14" rx="1"/><rect x="10" y="4" width="4" height="9" rx="1"/><rect x="16" y="4" width="4" height="11" rx="1"/>', "Board", "New to Done: drag a card to move it."], ['<path d="M4 6h16M7 12h10M10 18h4"/>', "Filters", "Status, priority, type, source, date, search."], ['<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>', "Comments", "The team's notes on every ticket."], ['<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>', "Export", "The list as CSV, filtered or all."]] }, onIn: () => pageOpen(), onOut: () => { el("appView").hidden = true; if (el("viewDialog").open) el("viewDialog").close() } };
+const PAGE = { key: "ticket", title: "Tickets", role: null, loginRequired: true, idb: false, intro: { heading: "Answer what your customers send", text: "Support requests, feedback and bugs from your apps, on one board for the support team.", features: [['<rect x="4" y="4" width="4" height="14" rx="1"/><rect x="10" y="4" width="4" height="9" rx="1"/><rect x="16" y="4" width="4" height="11" rx="1"/>', "Board", "New to Done: drag a card to move it."], ['<path d="M4 6h16M7 12h10M10 18h4"/>', "Filters", "Status, priority, type, source, date, search."], ['<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>', "Comments", "The team's notes on every ticket."], ['<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>', "Export", "The list as CSV, filtered or all."]] }, onIn: () => pageOpen(), onOut: () => { el("appView").hidden = true; if (el("viewDialog").open) viewDialogClose() } };
 /* ==== atom page: account ==== */
 // Identical in every Atom page that logs in (docs/frontend.md, Reference code); the page sets PAGE just above this block and calls Page.start() last. A test checks the copies match.
 // localStorage[PAGE.key] = {v, token, user, info, synced_at, ...the page's choices}; IndexedDB database PAGE.key, store "cache", records {name, user_id, saved_at, data} (pages with PAGE.idb).
@@ -1220,7 +1223,7 @@ const mdBlocks = value => {
   }
   return html;
 };
-const markdown = value => { const text = String(value ?? "").trim(); return text ? mdBlocks(text) : '<p class="muted">No description</p>' };
+const markdown = value => { const text = String(value ?? "").trim(); return text ? mdBlocks(text) : '<p class="muted">-</p>' };
 
 /* ==== the ticket detail: the facts (status, priority and type saved on change), the description, the comments ==== */
 const view = { row: null, comments: [], after: null, requestId: 0 };
@@ -1231,7 +1234,7 @@ const drawView = () => {
   el("viewTicketTitle").textContent = row.title;
   el("viewDescription").innerHTML = markdown(row.description);
   const link = (scheme, value) => value ? `<a href="${scheme}:${esc(value.replace(/\s+/g, ""))}">${esc(value)}</a>` : "-";
-  const facts = [["Status", select("status", row.status)], ["Priority", select("priority", row.priority)], ["Type", select("type", row.type)], ["Name", esc(row.name || "-")], ["Email", link("mailto", row.email)], ["Mobile", link("tel", row.mobile)], ["Source", row.created_by_id ? `Logged in (${esc(userName(row.created_by_id))})` : "Public"], ["Created", `<span title="${esc(dateTimeText(row.created_at))}">${esc(timeAgo(row.created_at))}</span>`], ["Updated", row.updated_at ? `<span title="${esc(dateTimeText(row.updated_at))}">${esc(timeAgo(row.updated_at))}</span>` : "-"], ["Done", row.closed_at ? esc(dateTimeText(row.closed_at)) : "-"]];
+  const facts = [["Status", select("status", row.status)], ["Priority", select("priority", row.priority)], ["Type", select("type", row.type)], ["Name", esc(row.name || "-")], ["Email", link("mailto", row.email)], ["Mobile", link("tel", row.mobile)], ["Source", row.created_by_id ? `Logged in (${esc(userName(row.created_by_id))})` : "Public"], ["Created at", `<span title="${esc(dateTimeText(row.created_at))}">${esc(timeAgo(row.created_at))}</span>`], ["Updated at", row.updated_at ? `<span title="${esc(dateTimeText(row.updated_at))}">${esc(timeAgo(row.updated_at))}</span>` : "-"], ["Done", row.closed_at ? esc(dateTimeText(row.closed_at)) : "-"]];
   el("facts").innerHTML = facts.map(([name, html]) => `<tr><th scope="row">${name}</th><td>${html}</td></tr>`).join("");
 };
 const viewOpen = async id => {
@@ -1249,13 +1252,13 @@ const viewOpen = async id => {
     ]);
     if (requestId !== view.requestId) return;
     const row = ticket.obj_list?.[0];
-    if (!row) { el("viewDialog").close(); return toast(`Ticket #${id} not found`, true) }
+    if (!row) { viewDialogClose(); return toast(`Ticket #${id} not found`, true) }
     view.row = row;
     await usersLoad([row.created_by_id, ...(comments.obj_list || []).map(c => c.created_by_id)]);
     drawView();
     if (comments.failure) el("commentList").innerHTML = `<div class="comments-empty">${esc(failText(comments.failure))}</div>`;
     else { view.comments = comments.obj_list || []; view.after = comments.after; drawComments() }
-  } catch (failure) { if (requestId === view.requestId) { el("viewDialog").close(); toast(failText(failure), true) } }
+  } catch (failure) { if (requestId === view.requestId) { viewDialogClose(); toast(failText(failure), true) } }
 };
 const viewChoice = async target => {
   const column = target.dataset.column, value = Number(target.value), row = view.row;
@@ -1270,7 +1273,7 @@ const viewDelete = async () => {
   const row = view.row;
   if (!holds(PERMISSION.delete)) return toast(NOT_ALLOWED, true);
   if (!await Page.confirm(`Delete ticket #${row.id}?`, "Its comments are deleted too. This can't be undone.", "Delete", true)) return;
-  try { await api("/permission/object-delete?table=ticket", { method: "POST", body: JSON.stringify({ ids: [row.id] }) }); el("viewDialog").close(); rowRemoved(row.id); toast(`Ticket #${row.id} deleted`) }
+  try { await api("/permission/object-delete?table=ticket", { method: "POST", body: JSON.stringify({ ids: [row.id] }) }); viewDialogClose(); rowRemoved(row.id); toast(`Ticket #${row.id} deleted`) }
   catch (failure) { toast(failText(failure), true) }
 };
 
@@ -1347,18 +1350,27 @@ const fitCommentInput = () => { const area = el("commentInput"); area.style.heig
 
 /* ==== add a ticket for a customer (a call or an email): /public/object-create without the agent's token, so it is the customer's ticket (no created_by_id), like the public form ==== */
 const options = (column, value) => Object.entries(labels(column)).map(([key, text]) => `<option value="${esc(key)}"${String(value) === key ? " selected" : ""}>${esc(text)}</option>`).join("");
-const addOpen = () => {
-  // Pulse's Add task: a card for the title and description, a card for the rest
-  Page.form({ title: "Add ticket", sub: "Saved as the customer's public ticket, not as yours", ok: "Create ticket",
-    body: `<div class="add-card"><div class="field"><label class="label-row" for="addTitle"><span>Title <span class="req">*</span></span><small class="field-help" id="addTitleCount">0 / 200</small></label><input id="addTitle" maxlength="200" required></div><div class="field"><label class="label-row" for="addDescription"><span>Description</span><small class="field-help" id="addDescriptionCount">0 / 10,000</small></label><textarea id="addDescription" maxlength="10000"></textarea></div></div>
-<div class="add-card form-grid"><div class="field"><label for="addType">Type</label><select id="addType">${options("type", 1)}</select></div><div class="field"><label for="addPriority">Priority</label><select id="addPriority">${options("priority", 2)}</select></div><div class="field wide"><label for="addName">Customer name</label><input id="addName" maxlength="120" autocomplete="off"></div><div class="field"><label for="addEmail">Email <span class="req">*</span></label><input id="addEmail" type="email" maxlength="254" autocomplete="off"></div><div class="field"><label for="addMobile">Mobile <span class="req">*</span></label><input id="addMobile" type="tel" maxlength="20" autocomplete="off"></div><p class="field-help wide">* Title, and an email or mobile so the team can reply.</p></div>`,
+// one form, Pulse's Add task layout (a card for the title and description, a card for the rest): Add ticket (empty), Duplicate (an Add filled from a ticket), Edit ticket (status too; only what changed is sent)
+const ticketForm = ({ row = null, edit = false } = {}) => {
+  const v = row || { type: 1, priority: 2 }, text = value => esc(value ?? "");
+  Page.form({ title: edit ? "Edit ticket" : "Add ticket", sub: edit ? `ID: ${v.id}` : "Saved as the customer's public ticket, not as yours", ok: edit ? "Save changes" : "Create ticket",
+    body: `<div class="add-card"><div class="field"><label class="label-row" for="addTitle"><span>Title <span class="req">*</span></span><small class="field-help" id="addTitleCount">0 / 200</small></label><input id="addTitle" maxlength="200" required value="${text(v.title)}"></div><div class="field"><label class="label-row" for="addDescription"><span>Description</span><small class="field-help" id="addDescriptionCount">0 / 10,000</small></label><textarea id="addDescription" maxlength="10000">${text(v.description)}</textarea></div></div>
+<div class="add-card form-grid"><div class="field"><label for="addType">Type</label><select id="addType">${options("type", v.type)}</select></div><div class="field"><label for="addPriority">Priority</label><select id="addPriority">${options("priority", v.priority)}</select></div>${edit ? `<div class="field wide"><label for="addStatus">Status</label><select id="addStatus">${options("status", v.status)}</select></div>` : ""}<div class="field wide"><label for="addName">Customer name</label><input id="addName" maxlength="120" autocomplete="off" value="${text(v.name)}"></div><div class="field"><label for="addEmail">Email <span class="req">*</span></label><input id="addEmail" type="email" maxlength="254" autocomplete="off" value="${text(v.email)}"></div><div class="field"><label for="addMobile">Mobile <span class="req">*</span></label><input id="addMobile" type="tel" maxlength="20" autocomplete="off" value="${text(v.mobile)}"></div><p class="field-help wide">* Title, and an email or mobile so the team can reply.</p></div>`,
     submit: async () => {
       const value = id => el(id).value.trim() || null;
-      const body = { title: value("addTitle"), description: value("addDescription"), type: Number(el("addType").value), priority: Number(el("addPriority").value), name: value("addName"), email: value("addEmail"), mobile: value("addMobile") };
+      const body = { title: value("addTitle"), description: value("addDescription"), type: Number(el("addType").value), priority: Number(el("addPriority").value), ...(edit ? { status: Number(el("addStatus").value) } : {}), name: value("addName"), email: value("addEmail"), mobile: value("addMobile") };
       if (!body.title) { el("addTitle").focus(); throw new Error("Enter a title") }
       if (!body.email && !body.mobile) { el("addEmail").focus(); throw new Error("Enter the customer's email or mobile, so the team can reply") }
       if (body.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) { el("addEmail").focus(); throw new Error("Email must look like name@example.com") }
       if (body.mobile && !/^\+?[\d\s()-]{6,20}$/.test(body.mobile)) { el("addMobile").focus(); throw new Error("Mobile may hold only digits, spaces, + ( ) -") }
+      if (edit) {
+        const changes = Object.fromEntries(Object.entries(body).filter(([key, value]) => value !== (v[key] ?? null)));
+        if (!Object.keys(changes).length) return;
+        const fresh = await ticketUpdate(v, changes);
+        if (view.row?.id === v.id) { view.row = fresh; drawView() }
+        rowChanged(fresh, v);
+        return toast("Ticket updated");
+      }
       // plain fetch, not Page.api: Page.api sends the agent's token, which would stamp the agent as created_by_id
       const response = await fetch("/public/object-create?table=ticket", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const answer = await response.json().catch(() => ({}));
@@ -1369,8 +1381,17 @@ const addOpen = () => {
       viewOpen(id);
     } });
   el("atomDialog").classList.add("wide");
-  for (const [id, max] of [["addTitle", 200], ["addDescription", 10000]]) el(id).addEventListener("input", () => { const n = el(id).value.length; el(`${id}Count`).textContent = `${n.toLocaleString()} / ${max.toLocaleString()}`; el(`${id}Count`).classList.toggle("limit", n >= max) });
+  for (const [id, max] of [["addTitle", 200], ["addDescription", 10000]]) { const count = () => { const n = el(id).value.length; el(`${id}Count`).textContent = `${n.toLocaleString()} / ${max.toLocaleString()}`; el(`${id}Count`).classList.toggle("limit", n >= max) }; el(id).addEventListener("input", count); count() }
 };
+const addOpen = () => ticketForm();
+const viewEdit = () => holds(PERMISSION.update) ? ticketForm({ row: view.row, edit: true }) : toast(NOT_ALLOWED, true);
+const viewDuplicate = () => { const row = view.row; viewDialogClose(); ticketForm({ row: { title: row.title, description: row.description, type: row.type, priority: row.priority, name: row.name, email: row.email, mobile: row.mobile } }) };
+// a link that opens only this ticket (?ticket_id=), like Pulse's ?task_id=; closing the ticket takes it off the address
+const ticketLink = id => { const url = new URL(location.pathname, location.origin); url.searchParams.set("ticket_id", String(id)); return url.href };
+const viewShare = () => navigator.clipboard.writeText(ticketLink(view.row.id)).then(() => toast("Ticket link copied"), () => toast("Couldn't copy the link", true));
+const sharedTicketId = () => { const id = new URL(location.href).searchParams.get("ticket_id"); return /^\d+$/.test(id || "") ? Number(id) : null };
+const viewDialogClose = () => { el("viewDialog").close(); sharedTicketClear() };
+const sharedTicketClear = () => { const url = new URL(location.href); if (url.searchParams.has("ticket_id")) { url.searchParams.delete("ticket_id"); history.replaceState(null, "", url) } };
 
 /* ==== export: the filtered list or every ticket, up to /info export_limit rows, as CSV ==== */
 const exportOpen = () => {
@@ -1412,10 +1433,14 @@ const pageOpen = () => {
     el("addBtn").addEventListener("click", addOpen);
     el("exportBtn").addEventListener("click", exportOpen);
     el("homeLink").addEventListener("click", e => { if (e.metaKey || e.ctrlKey) return; e.preventDefault(); el("clearBtn").click() });
-    el("viewClose").addEventListener("click", () => el("viewDialog").close());
+    el("viewClose").addEventListener("click", viewDialogClose);
     el("viewReload").addEventListener("click", () => viewOpen(view.row.id));
     el("viewDelete").addEventListener("click", viewDelete);
-    el("viewCopy").addEventListener("click", () => navigator.clipboard.writeText(String(view.row.id)).then(() => toast("Copied"), () => toast("Couldn't copy", true)));
+    el("viewEdit").addEventListener("click", viewEdit);
+    el("viewShare").addEventListener("click", viewShare);
+    el("viewDuplicate").addEventListener("click", viewDuplicate);
+    el("viewDialog").addEventListener("close", sharedTicketClear);
+    el("viewCopy").addEventListener("click", () => navigator.clipboard.writeText(String(view.row.id)).then(() => toast("Ticket ID copied"), () => toast("Couldn't copy the ticket ID", true)));
     el("facts").addEventListener("change", e => { if (e.target.matches("select[data-column]")) viewChoice(e.target) });
     el("commentForm").addEventListener("submit", e => { e.preventDefault(); commentAdd() });
     el("commentInput").addEventListener("input", fitCommentInput);
@@ -1426,6 +1451,7 @@ const pageOpen = () => {
   }
   drawFilters();
   reload();
+  if (sharedTicketId() && !el("viewDialog").open) viewOpen(sharedTicketId());
 };
 PAGE.onSynced = () => { if (Page.loggedIn() && wired && allowed()) { drawFilters(); reload() } };    // labels arrive with /info, so the open view is drawn again; a permission taken away closes the page at the next Sync
 Page.start();

@@ -47,6 +47,7 @@ async def func_api_index_info(*, request:Request):
             "config_column_int_mapping": app_state.config_column_int_mapping,
             "options": app_state.config_options,
             "export_limit": app_state.config_export_limit,
+            "is_totp_enabled": bool(app_state.config_totp_encryption_key),
         }
     }
 
