@@ -164,6 +164,13 @@ config_queue_services = ["postgres", "redis", "rabbitmq", "kafka", "celery"]
 config_queue_concurrency = 10
 config_queue_retry_max = 3
 config_queue_retry_wait_sec = 2
+
+# webhook
+config_webhook_is_active = False
+config_webhook_timeout_sec = 10
+config_webhook_retry_max = 8
+config_webhook_retry_wait_sec = 60
+config_webhook_poll_sec = 5
 config_blob_services = ["s3", "azure"]
 config_email_services = ["ses", "resend", "azure"]
 config_mobile_services = ["sns", "fast2sms", "azure"]
@@ -172,8 +179,8 @@ config_ai_services = ["gemini", "openai", "claude"]
 # table
 config_table_exclude_from_users_delete = ["spatial_ref_sys", "users", "log_users_delete"]
 config_table_write_blocked = ["log_api", "log_users_password", "log_users_delete", "script_run", "queue_job", "otp", "spatial_ref_sys"]
-config_table_my_create_blocked = ["users", "api_key", "ticket_comment", "log_api", "log_users_password", "otp", "script_run", "queue_job", "spatial_ref_sys"]
-config_table_my_read_blocked = ["users", "config", "log_users_password", "otp", "script_run", "queue_job", "spatial_ref_sys"]
+config_table_my_create_blocked = ["users", "api_key", "webhook", "ticket_comment", "log_api", "log_users_password", "otp", "script_run", "queue_job", "spatial_ref_sys"]
+config_table_my_read_blocked = ["users", "config", "webhook", "log_users_password", "otp", "script_run", "queue_job", "spatial_ref_sys"]
 config_table_my_delete_all_allowed = ["test", "message", "notification"]
 config_table_public_create_allowed = ["test", "ticket"]
 config_public_create_honeypot = "website"
@@ -196,7 +203,7 @@ config_column_single_update = ["username", "password", "email", "mobile"]
 config_column_users_blocked = ["created_at", "created_by_id", "updated_at", "updated_by_id", "deleted_at", "deleted_by_id", "is_protected", "last_active_at"]
 config_column_audit_blocked = ["created_at", "created_by_id", "updated_at", "updated_by_id", "deleted_at", "deleted_by_id"]
 config_column_users_my_blocked = ["role", "permissions", "verified_at", "verified_by_id", "deactivated_at", "deactivated_by_id", "parent_id", "source", "id_ext", "google_login_id", "google_login_metadata"]
-config_column_read_blocked = ["password", "key_hash"]
+config_column_read_blocked = ["password", "key_hash", "secret"]
 config_column_users_private_read = ["id", "username", "name", "role", "permissions", "created_at", "deactivated_at"]
 config_column_private_read_blocked = {"script_run": ["started_by", "host", "step", "message", "peak_memory_mb"]}
 
@@ -422,6 +429,17 @@ config_postgres = {
 {"name":"scopes","datatype":"text[]"},
 {"name":"expires_at","datatype":"timestamptz"}
 ],
+"webhook":[
+{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
+{"name":"created_at","datatype":"timestamptz","default":"now()"},
+{"name":"updated_at","datatype":"timestamptz"},
+{"name":"created_by_id","datatype":"bigint","is_mandatory": True},
+{"name":"updated_by_id","datatype":"bigint"},
+{"name":"url","datatype":"text","is_mandatory": True},
+{"name":"events","datatype":"text[]","is_mandatory": True},
+{"name":"secret","datatype":"text","is_mandatory": True},
+{"name":"is_active","datatype":"boolean","is_mandatory": True,"default":"true"}
+],
 "log_users_password":[
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
@@ -592,6 +610,7 @@ config_api = {
 "/admin/clickhouse-query-runner-read": {"id": 94, "auth": ["jwt"], "user_check_role": {"mode": "token", "roles": [1]}},
 "/admin/clickhouse-query-runner-read-export": {"id": 95, "auth": ["jwt"], "user_check_role": {"mode": "inmemory", "roles": [1]}},
 "/admin/clickhouse-query-ai": {"id": 96, "auth": ["jwt"], "user_check_role": {"mode": "token", "roles": [1]}},
+"/admin/webhook-create": {"id": 101, "auth": ["jwt"], "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
 }
 
 # override

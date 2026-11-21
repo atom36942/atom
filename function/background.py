@@ -99,11 +99,13 @@ def func_app_tasks_start(*, app_state: State) -> None:
         schedules = app_state.func_schedule_read(values=getattr(app_state, "_state", None) or vars(app_state))
         if postgres_master is not None and schedules:
             app_state.runtime_task_schedule = asyncio.create_task(app_state.func_schedule_periodic_task(client_postgres=postgres_master, schedules=schedules, timezone=app_state.func_schedule_timezone(name=app_state.config_schedule_timezone), check_sec=app_state.config_schedule_check_sec, runtime_error_count=app_state.runtime_error_count))
+        if postgres_master is not None and app_state.config_webhook_is_active:
+            app_state.runtime_task_webhook = asyncio.create_task(app_state.func_webhook_deliver_periodic_task(client_postgres=postgres_master, client_http=app_state.client_http, runtime_error_count=app_state.runtime_error_count, timeout_sec=app_state.config_webhook_timeout_sec, retry_max=app_state.config_webhook_retry_max, retry_wait_sec=app_state.config_webhook_retry_wait_sec, poll_sec=app_state.config_webhook_poll_sec))
     app_state.runtime_task_memory_history = asyncio.create_task(app_state.func_memory_history_periodic_task(app_state=app_state))
     app_state.runtime_task_inmemory_cache_cleanup = asyncio.create_task(app_state.func_inmemory_cache_cleanup_periodic_task(cache_api_response=app_state.cache_api_response, cache_api_response_bytes=app_state.cache_api_response_bytes, cache_ratelimiter=app_state.cache_ratelimiter, cache_token=app_state.cache_token, runtime_error_count=app_state.runtime_error_count, interval_sec=app_state.config_inmemory_cache_cleanup_auto_sec))
 
 async def func_app_tasks_stop(*, app_state: State, timeout_sec: int = 5) -> None:
     """Cancel all runtime background tasks and periodic system tasks on app_state."""
     runtime_tasks = list(getattr(app_state, "runtime_background_tasks", set()))
-    periodic_tasks = [getattr(app_state, "runtime_task_postgres_buffer_flush", None), getattr(app_state, "runtime_task_inmemory_cache_cleanup", None), getattr(app_state, "runtime_task_schedule", None), getattr(app_state, "runtime_task_memory_history", None)]
+    periodic_tasks = [getattr(app_state, "runtime_task_postgres_buffer_flush", None), getattr(app_state, "runtime_task_inmemory_cache_cleanup", None), getattr(app_state, "runtime_task_schedule", None), getattr(app_state, "runtime_task_webhook", None), getattr(app_state, "runtime_task_memory_history", None)]
     await app_state.func_async_tasks_cancel(task_list=runtime_tasks + periodic_tasks, timeout_sec=timeout_sec)

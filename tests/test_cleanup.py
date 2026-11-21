@@ -19,12 +19,13 @@ class CleanupTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_tasks_start_respects_read_only_and_stop_cancels_them(self):
         async def forever(**kwargs): await asyncio.Event().wait()
-        names = ("runtime_task_postgres_buffer_flush", "runtime_task_schedule", "runtime_task_memory_history", "runtime_task_inmemory_cache_cleanup")
+        names = ("runtime_task_postgres_buffer_flush", "runtime_task_schedule", "runtime_task_webhook", "runtime_task_memory_history", "runtime_task_inmemory_cache_cleanup")
         for is_read_only, expected in ((False, names), (True, ("runtime_task_memory_history", "runtime_task_inmemory_cache_cleanup"))):
             with self.subTest(is_read_only=is_read_only):
                 state = SimpleNamespace(config_is_read_only=is_read_only, client_postgres_dict={"master": object()}, client_postgres_log_api=object(), runtime_error_count={},
                     buffer_postgres_create={}, buffer_postgres_log_api={}, cache_api_response={}, cache_api_response_bytes={"total": 0}, cache_ratelimiter={}, cache_token={},
                     config_postgres_buffer_flush_auto_sec=1, config_inmemory_cache_cleanup_auto_sec=1, config_schedule_timezone="UTC", config_schedule_check_sec=600,
+                    client_http=object(), config_webhook_is_active=True, config_webhook_timeout_sec=10, config_webhook_retry_max=8, config_webhook_retry_wait_sec=60, config_webhook_poll_sec=5, func_webhook_deliver_periodic_task=forever,
                     func_postgres_buffer_flush_periodic_task=forever, func_schedule_periodic_task=forever, func_inmemory_cache_cleanup_periodic_task=forever, func_memory_history_periodic_task=forever,
                     func_schedule_read=lambda **kwargs: {"postgres_cleanup": {}}, func_schedule_timezone=lambda **kwargs: None, func_async_tasks_cancel=func_async_tasks_cancel)
                 func_app_tasks_start(app_state=state)

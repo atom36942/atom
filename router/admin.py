@@ -275,3 +275,10 @@ async def func_api_admin_clickhouse_query_ai(*, request: Request):
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "ai", "type": "str", "allowed": app_state.config_ai_services, "default": "gemini"}, {"name": "question", "type": "str", "required": True}, {"name": "connection", "type": "str", "default": "master"}, {"name": "execute", "type": "bool", "default": False}])
     res = await app_state.func_clickhouse_query_ai(client_clickhouse=app_state.func_clickhouse_client_read(client_clickhouse_dict=app_state.client_clickhouse_dict, name=ob["connection"], user=request.state.user), client_gemini=app_state.client_gemini, client_openai=app_state.client_openai, client_anthropic=app_state.client_anthropic, cache_clickhouse_schema=app_state.cache_clickhouse_schema_dict.get(ob["connection"], {}), config_query_runner_read_limit=app_state.config_query_runner_read_limit, ai=ob["ai"], question=ob["question"], execute=ob["execute"])
     return {"status": 1, "message": res}
+
+@router.post("/admin/webhook-create")
+async def func_api_admin_webhook_create(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "url", "type": "str", "required": True}, {"name": "events", "type": "list:str", "required": True}], strict=True, strict_types=True, reject_unknown=True)
+    res = await app_state.func_webhook_create(client_postgres=app_state.client_postgres_dict.get("master"), user_id=request.state.user["id"], url=ob["url"].strip(), events=ob["events"])
+    return {"status": 1, "message": res}
