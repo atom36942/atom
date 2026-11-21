@@ -96,11 +96,11 @@ dialog.dlg .dlg-actions button:not(.kv-btn){height:var(--control-h);padding:0 14
 /* key-value rows: My profile, Login details, Sync and any page's record view */
 .kv{width:100%;border:1px solid var(--line);border-radius:10px;border-collapse:separate;border-spacing:0;overflow:hidden}
 .kv th{width:38%;padding:10px 12px;text-align:left;vertical-align:middle;background:var(--panel);color:var(--muted);font-weight:600;font-size:var(--fs-small);border-bottom:1px solid var(--line)}
-.kv td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+.kv td{padding:10px 12px;text-align:right;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
 .kv tr:last-child th,.kv tr:last-child td{border-bottom:none}
 .kv th,.kv td{white-space:normal;font-family:var(--font)}
 .kv tbody tr:hover{background:none}
-.kv .cell{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.kv .cell{display:flex;align-items:center;justify-content:flex-end;gap:8px}
 .kv-group{margin:14px 2px 6px;color:var(--muted);font-size:var(--fs-small);font-weight:600}    /* a small caption over a group of rows (Login details: Sign in, Account) */
 .kv-group:first-child{margin-top:0}
 .sync-progress{height:6px;border-radius:3px;background:var(--line);overflow:hidden}

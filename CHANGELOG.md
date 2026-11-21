@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [18.7.1] - 2026-11-21
+
+- **Key-value rows right-aligned:** in Atom's pages (Login details, My profile and every `Page.kv` dialog) the value and its copy or edit button sit at the right of the row, as in the apps built on Atom.
+
 ## [18.7.0] - 2026-11-21
 
 - **Front end: the backend contract only.** `AGENTS.md`, `docs/frontend.md` and `docs/user-management.md` now say only how a page works with Atom: the routes it calls, the login and token flow, storage named after the page, labels and limits from `/info`, cursor lists, streamed export and scale, plus Atom's own pages as reference code. The look and layout (account menu items and order, Settings, toasts, dialogs, palette, sizes, header and navigation, words, User management's columns and menus) are each project's own, kept in its `docs_extend/`. `script.check`'s standard no longer scores the account menu, Settings or CSS variables (9 Defaults, was 12). No project change needed.
