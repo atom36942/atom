@@ -171,6 +171,14 @@ config_webhook_timeout_sec = 10
 config_webhook_retry_max = 8
 config_webhook_retry_wait_sec = 60
 config_webhook_poll_sec = 5
+config_webhook_verify_tolerance_sec = 300
+config_webhook_verify_scheme = {
+"standard": {"header": "webhook-signature", "prefix": "v1,", "encoding": "base64", "signed": "{id}.{timestamp}.{body}", "id": {"header": "webhook-id"}, "timestamp": {"header": "webhook-timestamp"}, "secret_encoding": "base64"},
+"stripe": {"header": "Stripe-Signature", "key": "v1", "encoding": "hex", "signed": "{timestamp}.{body}", "timestamp": {"key": "t"}},
+"github": {"header": "X-Hub-Signature-256", "prefix": "sha256=", "encoding": "hex", "signed": "{body}"},
+"shopify": {"header": "X-Shopify-Hmac-Sha256", "encoding": "base64", "signed": "{body}"},
+"razorpay": {"header": "X-Razorpay-Signature", "encoding": "hex", "signed": "{body}"},
+}
 config_blob_services = ["s3", "azure"]
 config_email_services = ["ses", "resend", "azure"]
 config_mobile_services = ["sns", "fast2sms", "azure"]

@@ -321,6 +321,8 @@ The `/permission/*` routes' settings, together as `config_permission_*` (the rou
 | `config_webhook_retry_max` | Retries of a failed delivery before it is kept as failed (`status` 2 in `queue_job`) (default 8) |
 | `config_webhook_retry_wait_sec` | Wait before a delivery's first retry, doubled each time: 60 s, 2 min, 4 min… (default 60) |
 | `config_webhook_poll_sec` | Seconds the delivery loop waits when nothing is due (default 5) |
+| `config_webhook_verify_scheme` | How each provider signs incoming webhooks: `standard`, `stripe`, `github`, `shopify`, `razorpay`; a project adds its own (`{**base, "acme": {...}}`), checked at startup ([webhook.md](webhook.md#schemes-are-data)) |
+| `config_webhook_verify_tolerance_sec` | Seconds an incoming webhook's timestamp may be off before it is refused as a replay (default 300) |
 | `config_blob_services` | Registered blob storage providers (`s3`, `azure`) |
 | `config_email_services` | Registered email providers (`ses`, `resend`, `azure`) |
 | `config_mobile_services` | Registered SMS providers (`sns`, `fast2sms`, `azure`) |
@@ -346,6 +348,7 @@ Keys are route paths as declared. A route with path parameters (`/page/{name}`) 
 | `is_active` | `bool` | Toggles endpoint availability (`False` disables the endpoint via middleware) |
 | `auth` | `list` | Required. The credentials the route accepts: `[]` public, `["jwt"]` a JWT access token, `["api_key"]` an API key, `["jwt", "api_key"]` either; both are sent as `Authorization: Bearer` ([auth.md](auth.md#7-api-keys-machine-access)) |
 | `is_connection_param` | `bool` | `True` lets `?connection=<name>` pick the database for this route (default master; unknown name is 404). Without it the route always uses master and `?connection=` is 400 |
+| `webhook_verify` | `dict` | `{"scheme": <name in config_webhook_verify_scheme>, "secret": <config_ setting holding the secret>}`: the route is called by another service and runs only with a valid signature of its raw body; `auth` must be `[]` ([webhook.md](webhook.md#incoming)) |
 | `is_log_api` | `bool` | `False` keeps this route's requests out of `log_api` (default `True`). Atom sets it for `/pgweb` (every click would add a row) and the health checks (probed every few seconds). |
 | `user_check_role` | `{"mode": "...", "roles": [...]}` | Restricts access to users with listed role numbers |
 | `user_check_permission` | `{"mode": "token"}` | Only users whose `permissions` hold this route's `id` ([Per-User Permissions](auth.md#per-user-permissions)) |

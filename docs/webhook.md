@@ -1,4 +1,13 @@
-# Webhooks (outgoing)
+# Webhooks
+
+Two directions, both signed with HMAC-SHA256:
+
+| | Who calls whom | Atom's part |
+|---|---|---|
+| [Outgoing](#outgoing) | Your app calls another system when something happens | Queue, sign, send, retry |
+| [Incoming](#incoming) | Another service (Stripe, GitHub, Razorpay, another Atom app) calls your route | Verify the signature before the route runs |
+
+# Outgoing
 
 When something happens in your app, Atom calls another system's URL with a signed POST, so that system never has to poll your API. The format follows the [Standard Webhooks](https://www.standardwebhooks.com) spec, the one Stripe-style receivers and the `standardwebhooks` libraries already verify.
 
@@ -79,4 +88,77 @@ ACME's ERP gets the signed POST within seconds and closes its purchase order; if
 
 - One delivery at a time per app worker; a slow receiver (up to `config_webhook_timeout_sec`) delays the next. Fine for thousands a day, not for a firehose.
 - Order is not guaranteed across retries; send the state in `data`, not only "it changed".
-- Incoming webhooks (another service calling you) are not this feature.
+- Incoming webhooks (another service calling you) are below.
+
+# Incoming
+
+A route another service calls must be public (the service can't log in), so anyone who finds its URL could post a fake "payment captured". The signature is the proof: the service signs the exact body with a secret only you and it know, and Atom checks it before your route runs. This is **webhook signature verification**.
+
+## Flow
+
+```
+Razorpay  POST /payment/webhook   X-Razorpay-Signature: 9f2c…   {"event":"payment.captured",…}
+   │
+Atom middleware (route has webhook_verify)
+   │  reads the raw body once → HMAC-SHA256(secret, signed bytes) → constant-time compare with the header
+   ├─ missing, wrong, or timestamp over config_webhook_verify_tolerance_sec (300) off → 401, the route never runs
+   └─ match → request.state.webhook = {"scheme", "id", "timestamp"} → your route reads the body as usual
+```
+
+## Setup
+
+```python
+# .env
+config_webhook_secret_razorpay=<from the Razorpay dashboard>
+
+# config_extend.py
+"/payment/webhook": {"id": 220, "auth": [], "webhook_verify": {"scheme": "razorpay", "secret": "config_webhook_secret_razorpay"}},
+```
+
+```python
+# router_extend/payment.py: business logic only, no signature code
+@router.post("/payment/webhook")
+async def func_api_payment_webhook(*, request: Request):
+    app_state = request.app.state
+    event = orjson.loads(await request.body())
+    if event["event"] == "payment.captured":
+        await app_state.client_postgres_dict["master"].execute("UPDATE invoice SET paid_at = now() WHERE razorpay_id = $1 AND paid_at IS NULL", event["payload"]["payment"]["entity"]["id"])
+    return {"status": 1, "message": "ok"}
+```
+
+`auth` must be `[]` (the signature is the credential); `secret` names the `config_` setting, never the secret itself. Startup refuses an unknown scheme or a bad entry; a request is 500 while the secret setting is empty.
+
+## Schemes are data
+
+Every provider signs the same way and differs only in which header, which bytes and how the HMAC is written, so a scheme is a dict in `config_webhook_verify_scheme`, not code. Atom ships:
+
+| Scheme | For | Header and signed bytes |
+|---|---|---|
+| `standard` | [Standard Webhooks](https://www.standardwebhooks.com): Svix, Clerk, Resend, and **Atom's own outgoing webhooks**, so one Atom app can receive another's | `webhook-signature: v1,<base64>` of `{id}.{timestamp}.{body}`; secret `whsec_…` |
+| `stripe` | Stripe | `Stripe-Signature: t=…,v1=<hex>` of `{timestamp}.{body}` |
+| `github` | GitHub | `X-Hub-Signature-256: sha256=<hex>` of `{body}` |
+| `shopify` | Shopify | `X-Shopify-Hmac-Sha256: <base64>` of `{body}` |
+| `razorpay` | Razorpay | `X-Razorpay-Signature: <hex>` of `{body}` |
+
+A provider Atom doesn't know is one line in `config_extend.py`:
+
+```python
+from config import config_webhook_verify_scheme as base_config_webhook_verify_scheme
+config_webhook_verify_scheme = {**base_config_webhook_verify_scheme, "acme_wms": {"header": "X-Acme-Sig", "encoding": "hex", "signed": "{timestamp}.{body}", "timestamp": {"header": "X-Acme-Time"}}}
+```
+
+| Field | Meaning |
+|---|---|
+| `header` | The header holding the signature (required) |
+| `encoding` | `hex` or `base64` (required) |
+| `signed` | The signed bytes, ending with `{body}`: `{body}`, `{timestamp}.{body}`, `{id}.{timestamp}.{body}` (required) |
+| `prefix` | Text before each signature (`sha256=`, `v1,`); several space-separated signatures are each tried |
+| `key` | The signature is this key's value in a `k=v,k=v` header (Stripe's `v1`) |
+| `timestamp`, `id` | Where they are: `{"header": <name>}` or `{"key": <name in the signature header>}`; a timestamp is checked against the tolerance |
+| `secret_encoding` | `raw` (default, the secret's bytes) or `base64` (the part after `whsec_`) |
+
+Every scheme is checked at startup, so a typo fails at boot, not on the first payment. A provider that signs with public-key cryptography rather than a shared secret (PayPal, Amazon SNS) is verified in its route with the provider's SDK.
+
+## Duplicates
+
+Providers retry, so one event can arrive twice: store the event's id (`request.state.webhook["id"]` for `standard`, the id in the body otherwise) with a unique index, and skip one already handled, as the `paid_at IS NULL` above does.

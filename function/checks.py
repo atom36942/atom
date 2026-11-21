@@ -7,6 +7,7 @@ from starlette.datastructures import State
 from .app import func_app_route_list
 from .postgres_schema import func_postgres_schema_config_validate
 from .schedule import func_schedule_read
+from .webhook import func_webhook_verify_scheme_check
 
 # function
 def func_check_log_api_table(*, app_state: State) -> None:
@@ -134,6 +135,11 @@ def func_check_runtime_config(*, app_state: State) -> None:
 def func_check_api_config(*, app: FastAPI) -> None:
     """Validate registered API middleware configuration and its Redis dependencies."""
     config_api = getattr(app.state, "config_api", {})
+    schemes = getattr(app.state, "config_webhook_verify_scheme", None) or {}
+    if not isinstance(schemes, dict): raise Exception("config_webhook_verify_scheme must be a dict of scheme name to scheme")
+    for name, scheme in schemes.items(): func_webhook_verify_scheme_check(name=name, scheme=scheme)
+    tolerance = getattr(app.state, "config_webhook_verify_tolerance_sec", 300)
+    if isinstance(tolerance, bool) or not isinstance(tolerance, int) or tolerance < 1: raise Exception("config_webhook_verify_tolerance_sec must be an integer, 1 or more")
     if not isinstance(config_api, dict): raise Exception("config_api must be dict")
     route_paths = {route.path for route in func_app_route_list(app=app) if hasattr(route, "path")}
     websocket_paths = {route.path for route in func_app_route_list(app=app) if isinstance(route, WebSocketRoute)}
@@ -147,7 +153,7 @@ def func_check_api_config(*, app: FastAPI) -> None:
         column = key.removeprefix("config_api_global_user_check_") + "_at"
         if value == "token" and column not in (getattr(app.state, "config_column_token_encode", None) or []): raise Exception(f"{key} is token: add {column} to config_column_token_encode")
     api_mode_allowed = ("redis", "inmemory")
-    api_keys_allowed = ("id", "is_active", "auth", "is_connection_param", "user_check_role", "user_check_permission", "user_check_deactivated", "user_check_deleted", "cache", "rate_limit", "api_cache_sec", "api_ratelimiting_times_sec", "is_log_api")
+    api_keys_allowed = ("id", "is_active", "auth", "is_connection_param", "user_check_role", "user_check_permission", "user_check_deactivated", "user_check_deleted", "cache", "rate_limit", "api_cache_sec", "api_ratelimiting_times_sec", "is_log_api", "webhook_verify")
     def flag_check(value, key):
         if not isinstance(value, bool): raise Exception(f"invalid {key}: expected bool")
     def int_check(value, key, min_value=0):
@@ -200,6 +206,12 @@ def func_check_api_config(*, app: FastAPI) -> None:
             if mode == "inmemory": inmemory_list.append(f"{path} user_check_role")
         if path.startswith("/admin/") and not (role_val and 1 in [int(role) for role in roles]): raise Exception(f"{path}: admin routes need user_check_role with role 1 (other roles and a permission may be added)")
         if path.startswith("/permission/") and "user_check_permission" not in cfg: raise Exception(f"{path}: permission routes need user_check_permission (a role may be added)")
+        if "webhook_verify" in cfg:
+            verify = cfg["webhook_verify"]
+            if not isinstance(verify, dict) or set(verify) != {"scheme", "secret"}: raise Exception(f'{path} invalid webhook_verify: expected {{"scheme": <name in config_webhook_verify_scheme>, "secret": <config_ setting holding the secret>}}')
+            if verify["scheme"] not in (getattr(app.state, "config_webhook_verify_scheme", None) or {}): raise Exception(f"{path} webhook_verify: unknown scheme {verify['scheme']!r}; add it to config_webhook_verify_scheme")
+            if not isinstance(verify["secret"], str) or not verify["secret"].startswith("config_"): raise Exception(f"{path} webhook_verify: secret must name a config_ setting (the secret itself goes in .env), such as config_webhook_secret_stripe")
+            if auth: raise Exception(f"{path} webhook_verify: auth must be [] (the signature is the credential)")
         if not auth and any(cfg.get(key) for key in ("user_check_role", "user_check_permission", "user_check_deactivated", "user_check_deleted")): raise Exception(f"{path}: a role, permission, deactivated or deleted check needs a credential (a non-empty auth)")
         if "user_check_permission" in cfg:
             permission_val = cfg["user_check_permission"]

@@ -162,6 +162,8 @@ def middleware(asgi_app):
             is_connection_param = api_cfg.get("is_connection_param", False)
             # active check
             await app_state.func_middleware_check_active(is_active=is_active)
+            # webhook signature: the route's caller is another service, proven by the HMAC of the raw body
+            if webhook_verify := api_cfg.get("webhook_verify"): receive = await app_state.func_webhook_verify_request(request=request, receive=receive, webhook_verify=webhook_verify, config_webhook_verify_scheme=app_state.config_webhook_verify_scheme, config_webhook_verify_tolerance_sec=app_state.config_webhook_verify_tolerance_sec, secret=getattr(app_state, webhook_verify["secret"], None))
             # token
             request.state.user = await app_state.func_token_decode(headers=request.headers, config_token_secret_key=app_state.config_token_secret_key, cache_token=app_state.cache_token, config_token_cache_max=app_state.config_token_cache_max)
             if not request.state.user: request.state.user = await app_state.func_api_key_decode(headers=request.headers, client_postgres=app_state.client_postgres_dict.get("master"), cache_token=app_state.cache_token, config_token_cache_max=app_state.config_token_cache_max, config_api_key_cache_sec=app_state.config_api_key_cache_sec, config_column_token_encode=app_state.config_column_token_encode)

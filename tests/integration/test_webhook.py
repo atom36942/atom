@@ -4,6 +4,8 @@ Same real-app boot as test_http.py (support.app_start), against a throwaway data
 httpx.MockTransport, and the URL check is patched where a test needs a local URL, so nothing leaves the machine.
 """
 import asyncio
+import hashlib
+import hmac
 import unittest
 from unittest.mock import AsyncMock
 from unittest.mock import patch
@@ -145,6 +147,26 @@ class WebhookTests(unittest.TestCase):
         self.assertEqual(self.run_async(steps), ("done", "retry"))
         self.assertEqual(self.requests, [])
         self.assertIn("not public", self.jobs()[0]["error"])
+
+    def test_incoming_webhook_is_verified_before_the_route_and_the_route_still_reads_the_body(self):
+        route = self.app.state.config_api["/public/object-create"]
+        saved = dict(route)
+        route["webhook_verify"] = {"scheme": "github", "secret": "config_webhook_secret_test"}    # a project sets this in config_extend.py
+        route["rate_limit"] = {"mode": "inmemory", "limit": 1000, "window_sec": 60}
+        self.app.state.config_webhook_secret_test = "partner-secret"
+        try:
+            body = orjson.dumps({"title": "from partner"})
+            sign = lambda secret, content: "sha256=" + hmac.new(secret.encode(), content, hashlib.sha256).hexdigest()
+            post = lambda headers, content=body: self.client.post("/public/object-create", params={"table": "test"}, content=content, headers={"content-type": "application/json", **headers})
+            self.message(post({"X-Hub-Signature-256": sign("partner-secret", body)}))
+            self.assertEqual(fetch(self.url, "SELECT count(*) AS n FROM test WHERE title = 'from partner'"), [{"n": 1}])
+            for label, headers, content in (("no signature", {}, body), ("wrong secret", {"X-Hub-Signature-256": sign("guess", body)}, body), ("changed body", {"X-Hub-Signature-256": sign("partner-secret", body)}, body.replace(b"partner", b"hacker"))):
+                with self.subTest(label): self.assertIn("webhook signature invalid", self.message(post(headers, content), 401))
+            del self.app.state.config_webhook_secret_test
+            self.assertIn("webhook secret not set", self.message(post({"X-Hub-Signature-256": sign("partner-secret", body)}), 500))
+        finally:
+            route.clear()
+            route.update(saved)
 
 
 if __name__ == "__main__":

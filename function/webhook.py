@@ -89,3 +89,65 @@ async def func_webhook_deliver_periodic_task(*, client_postgres: asyncpg.Pool, c
         except Exception as e:
             func_runtime_error_record(runtime_error_count=runtime_error_count, key="webhook_deliver", error=e)
             await asyncio.sleep(poll_sec)
+
+def func_webhook_verify_scheme_check(*, name: str, scheme: Any) -> None:
+    """Refuse a config_webhook_verify_scheme entry Atom can't verify with: unknown fields, encodings or placeholders, or a {id}/{timestamp} with no field saying where it is."""
+    allowed = {"header", "prefix", "key", "encoding", "signed", "id", "timestamp", "secret_encoding"}
+    where = f"config_webhook_verify_scheme[{name!r}]"
+    if not isinstance(scheme, dict): raise Exception(f"{where} must be a dict")
+    if unknown := set(scheme) - allowed: raise Exception(f"{where}: unknown field {', '.join(sorted(unknown))}; allowed: {', '.join(sorted(allowed))}")
+    if not isinstance(scheme.get("header"), str) or not scheme["header"]: raise Exception(f"{where}: header must name the signature header")
+    if scheme.get("encoding") not in ("hex", "base64"): raise Exception(f"{where}: encoding must be hex or base64")
+    if scheme.get("secret_encoding", "raw") not in ("raw", "base64"): raise Exception(f"{where}: secret_encoding must be raw or base64")
+    for field in ("prefix", "key"):
+        if field in scheme and not isinstance(scheme[field], str): raise Exception(f"{where}: {field} must be a string")
+    signed = scheme.get("signed")
+    if not isinstance(signed, str) or not signed.endswith("{body}") or signed.count("{body}") != 1: raise Exception(f"{where}: signed must end with {{body}}, as in \"{{timestamp}}.{{body}}\"")
+    for part in ("id", "timestamp"):
+        value = scheme.get(part)
+        if value is not None and (not isinstance(value, dict) or len(value) != 1 or not isinstance(next(iter(value.values())), str) or next(iter(value)) not in ("header", "key")): raise Exception(f"{where}: {part} must be {{\"header\": <name>}} or {{\"key\": <name in the signature header>}}")
+        if value and "key" in value and "key" not in scheme: raise Exception(f"{where}: {part} has a key, so the scheme needs key (the signature's own key in that header)")
+        if ("{" + part + "}") in signed and not value: raise Exception(f"{where}: signed uses {{{part}}}, so the scheme needs {part}")
+    if set(re.findall(r"\{(\w+)\}", signed)) - {"id", "timestamp", "body"}: raise Exception(f"{where}: signed may use only {{id}}, {{timestamp}} and {{body}}")
+
+def func_webhook_verify(*, scheme: dict, secret: str, headers: Any, body: bytes, tolerance_sec: int, now: float | None = None) -> dict:
+    """Check an incoming webhook's HMAC-SHA256 signature as scheme describes (header, prefix or key, encoding, signed bytes); a timestamp more than tolerance_sec off is refused. Returns {"id", "timestamp"} or raises 401."""
+    def refuse(message): return func_api_error(message=f"webhook signature invalid: {message}", status_code=401)
+    raw = headers.get(scheme["header"])
+    if not raw: raise refuse(f"{scheme['header']} header missing")
+    pairs = [p.split("=", 1) for p in raw.split(",") if "=" in p] if "key" in scheme else []
+    def part(name):
+        where = scheme.get(name)
+        if not where: return ""
+        value = headers.get(where["header"]) if "header" in where else next((v.strip() for k, v in pairs if k.strip() == where["key"]), None)
+        if not value: raise refuse(f"{name} missing")
+        return value
+    message_id, timestamp = part("id"), part("timestamp")
+    if timestamp:
+        try: age = abs((now if now is not None else time.time()) - int(timestamp))
+        except ValueError: raise refuse("timestamp is not a number") from None
+        if age > tolerance_sec: raise refuse("timestamp too old or in the future")
+    if "key" in scheme: candidates = [v.strip() for k, v in pairs if k.strip() == scheme["key"]]
+    else:
+        prefix = scheme.get("prefix", "")
+        candidates = [c.removeprefix(prefix) for c in raw.split() if c.startswith(prefix)] if prefix else [raw.strip()]
+    key = base64.b64decode(secret.removeprefix("whsec_")) if scheme.get("secret_encoding") == "base64" else secret.encode()
+    signed = scheme["signed"].removesuffix("{body}").format(id=message_id, timestamp=timestamp).encode() + body
+    digest = hmac.new(key, signed, hashlib.sha256).digest()
+    expected = digest.hex() if scheme["encoding"] == "hex" else base64.b64encode(digest).decode()
+    if not any(hmac.compare_digest(expected.encode(), c.encode()) for c in candidates): raise refuse("signature does not match")
+    return {"id": message_id or None, "timestamp": int(timestamp) if timestamp else None}
+
+async def func_webhook_verify_request(*, request: Any, receive: Any, webhook_verify: dict, config_webhook_verify_scheme: dict, config_webhook_verify_tolerance_sec: int, secret: str | None) -> Any:
+    """Middleware step for a route with webhook_verify: verify the raw body's signature (401 if bad), put {"scheme", "id", "timestamp"} on request.state.webhook, and return a receive that replays the body to the route."""
+    if not secret: raise func_api_error(message=f"webhook secret not set: {webhook_verify['secret']}", status_code=500)
+    body = await request.body()
+    result = func_webhook_verify(scheme=config_webhook_verify_scheme[webhook_verify["scheme"]], secret=secret, headers=request.headers, body=body, tolerance_sec=config_webhook_verify_tolerance_sec)
+    request.state.webhook = {"scheme": webhook_verify["scheme"], **result}
+    sent = False
+    async def receive_replay():
+        nonlocal sent
+        if sent: return await receive()
+        sent = True
+        return {"type": "http.request", "body": body, "more_body": False}
+    return receive_replay

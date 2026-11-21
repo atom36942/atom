@@ -50,7 +50,7 @@ Rules:
 - Reuse Atom's `func_*` helpers (search `function/` first); never edit `main.py` (startup hook: `func_extend`).
 - Users go through Atom's routes (`/admin/user-*`, `/my/user-*`, `/permission/user-*`): never a project user API ([auth.md](docs/auth.md)).
 - Scripts and other systems call the API with an API key (`Authorization: Bearer atk_...`, a service account's key, on routes whose `auth` has `"api_key"`), never a person's password or a shared login ([auth.md](docs/auth.md#7-api-keys-machine-access)).
-- Another system that must know when something happens gets a webhook (`func_webhook_send` in the change's transaction, [webhook.md](docs/webhook.md)), never a loop of its own calling it.
+- Another system that must know when something happens gets a webhook (`func_webhook_send` in the change's transaction, [webhook.md](docs/webhook.md)), never a loop of its own calling it. A route another service calls takes `webhook_verify` (its scheme in `config_webhook_verify_scheme`), never signature code in the route.
 - Lists page after a cursor, never a total count; every CSV export goes through `func_<db>_export` ([crud.md](docs/crud.md)).
 - Temporary files in `tmp/<feature>/`; data users change at runtime in the database; never placeholder or demo data.
 - Security: no route returns more than its screen needs; values bound and escaped; nothing secret in a URL ([backend.md](docs/backend.md#security-rules-check-them-in-every-review)).

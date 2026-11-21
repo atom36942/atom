@@ -143,6 +143,7 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: State) -> dict:
             is_auth_required = bool(auth)
             op["x-auth-required"] = is_auth_required
             op["x-auth"] = auth
+            op["x-webhook-verify"] = (api_cfg.get("webhook_verify") or {}).get("scheme")
             op["x-roles-allowed"] = api_cfg.get("user_check_role", None)
             op["x-permission"] = (api_cfg["user_check_permission"].get("action") or api_cfg.get("id")) if api_cfg.get("user_check_permission") else None    # an action route's id comes from config_permission_table
             op["x-check-deactivated"] = "user_check_deactivated" in api_cfg

@@ -4,6 +4,8 @@ from types import SimpleNamespace
 
 from fastapi import FastAPI
 
+import config
+
 from function import func_check_api_config
 from function import func_check_config_extend_alias
 from function import func_check_config_extend_keeps_atom
@@ -302,6 +304,7 @@ class WebsocketConfigCheckTests(unittest.TestCase):
         app.websocket("/ws")(socket)
         app.state.config_api = {"/x": http_cfg or {"id": 1, "auth": []}, "/ws": socket_cfg}
         app.state.config_uvicorn_workers = 1
+        app.state.config_webhook_verify_scheme = config.config_webhook_verify_scheme
         return app
 
     def test_websocket_entry_takes_only_id_and_is_active(self):
@@ -324,6 +327,13 @@ class WebsocketConfigCheckTests(unittest.TestCase):
                 func_check_api_config(app=self.app({"id": 2}, http_cfg={"id": 1, "auth": auth}))
         for auth in ([], ["jwt"], ["api_key"], ["jwt", "api_key"]):
             with self.subTest(auth=auth): func_check_api_config(app=self.app({"id": 2}, http_cfg={"id": 1, "auth": auth}))
+
+    def test_webhook_verify_needs_a_known_scheme_a_config_secret_and_no_auth(self):
+        ok = {"scheme": "stripe", "secret": "config_webhook_secret_stripe"}
+        func_check_api_config(app=self.app({"id": 2}, http_cfg={"id": 1, "auth": [], "webhook_verify": ok}))
+        for cfg, message in (({"auth": [], "webhook_verify": {**ok, "scheme": "paypal"}}, "unknown scheme 'paypal'"), ({"auth": [], "webhook_verify": {**ok, "secret": "whsec_x"}}, "secret must name a config_ setting"),
+                             ({"auth": ["jwt"], "webhook_verify": ok}, "auth must be \\[\\]"), ({"auth": [], "webhook_verify": {"scheme": "stripe"}}, "invalid webhook_verify")):
+            with self.subTest(cfg=cfg), self.assertRaisesRegex(Exception, message): func_check_api_config(app=self.app({"id": 2}, http_cfg={"id": 1, **cfg}))
 
     def test_old_is_token_and_is_api_key_say_how_to_upgrade(self):
         for cfg in ({"id": 1, "is_token": True}, {"id": 1, "auth": ["jwt"], "is_api_key": True}):
