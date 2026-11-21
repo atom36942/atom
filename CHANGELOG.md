@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [18.7.2] - 2026-11-21
+
+- **Row lists like the apps':** Login details, My profile, Sync and every `Page.kv` dialog in Atom's pages are now a bordered list of rows, an icon and label on the left and the value (with its copy or edit button) on the right, one line between rows, no shaded label column: the same design as the apps built on Atom.
+
 ## [18.7.1] - 2026-11-21
 
 - **Key-value rows right-aligned:** in Atom's pages (Login details, My profile and every `Page.kv` dialog) the value and its copy or edit button sit at the right of the row, as in the apps built on Atom.

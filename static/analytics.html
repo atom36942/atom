@@ -84,7 +84,7 @@ dialog.dlg .dlg-actions button:not(.kv-btn){height:var(--control-h);padding:0 14
 .field{display:grid;gap:6px}
 .field label{color:var(--muted);font-size:var(--fs-small);font-weight:600}
 .field input,.field select{width:100%}
-.kv .kv-input{width:100%;height:calc(var(--control-h) - 4px)}
+.kv .kv-input{width:100%;max-width:260px;height:calc(var(--control-h) - 4px);text-align:left}
 .kv textarea.kv-input{height:auto;min-height:60px;font-family:var(--font);font-size:var(--fs)}
 .field-help{margin:0;color:var(--muted);font-size:var(--fs-small)}
 .pw-wrap{position:relative;display:flex}
@@ -94,12 +94,13 @@ dialog.dlg .dlg-actions button:not(.kv-btn){height:var(--control-h);padding:0 14
 .pw-eye svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .kv-btn{width:28px;height:28px;padding:0;display:inline-flex;align-items:center;justify-content:center;flex:none}
 /* key-value rows: My profile, Login details, Sync and any page's record view */
-.kv{width:100%;border:1px solid var(--line);border-radius:10px;border-collapse:separate;border-spacing:0;overflow:hidden}
-.kv th{width:38%;padding:10px 12px;text-align:left;vertical-align:middle;background:var(--panel);color:var(--muted);font-weight:600;font-size:var(--fs-small);border-bottom:1px solid var(--line)}
-.kv td{padding:10px 12px;text-align:right;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
-.kv tr:last-child th,.kv tr:last-child td{border-bottom:none}
-.kv th,.kv td{white-space:normal;font-family:var(--font)}
-.kv tbody tr:hover{background:none}
+.kv{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);font-size:var(--fs)}
+.kv-row{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:42px;padding:6px 12px;border-top:1px solid var(--line)}
+.kv-row:first-child{border-top:0}
+.kv-label{display:flex;flex:none;align-items:center;gap:8px;color:var(--muted);font-size:var(--fs-small);font-weight:600}
+.kv-label svg{flex:none;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.kv-value{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0;text-align:right;overflow-wrap:anywhere}
+.kv-value:has(.kv-input){flex:1 1 auto}
 .kv .cell{display:flex;align-items:center;justify-content:flex-end;gap:8px}
 .kv-group{margin:14px 2px 6px;color:var(--muted);font-size:var(--fs-small);font-weight:600}    /* a small caption over a group of rows (Login details: Sign in, Account) */
 .kv-group:first-child{margin-top:0}
@@ -432,7 +433,9 @@ const Page = (() => {
     (el("atomForm").querySelector("input:not([disabled]),select,textarea") || el("atomOk")).focus();
   });
   const confirm = (title, text, ok = "OK", danger = false) => form({ title, body: `<p class="confirm-text">${esc(text)}</p>`, ok, tone: danger ? "danger" : "primary" });
-  const kv = rows => `<table class="kv"><tbody>${rows.map(([label, html]) => `<tr><th scope="row">${esc(label)}</th><td>${html}</td></tr>`).join("")}</tbody></table>`;
+  // the row list of My profile, Login details, Sync and any record view, as in the apps: icon and label left, value right, one line between rows
+  const KV_ICONS = { Name: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>', Username: '<circle cx="12" cy="12" r="4"/><path d="M16 12v1.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-3.5 7.1"/>', Email: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>', Mobile: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>', Created: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/>', "Job title": '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/>', City: '<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/>', Country: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>', About: '<path d="M4 6h16M4 11h16M4 16h10"/>', Role: '<path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6l-7-3Z"/>', Permissions: '<circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l3 3M14 9l2 2"/>', ID: '<path d="M5 9h14M5 15h14M10 4 8 20M16 4l-2 16"/>', Password: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>', "Local storage": '<rect x="3" y="13" width="18" height="7" rx="2"/><path d="M5 13 7.5 5h9L19 13"/><path d="M7 16.5h.01"/>', IndexedDB: '<ellipse cx="12" cy="5.5" rx="7" ry="2.5"/><path d="M5 5.5v13c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-13"/><path d="M5 12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5"/>' };
+  const kv = rows => `<div class="kv">${rows.map(([label, html]) => `<div class="kv-row"><span class="kv-label">${KV_ICONS[label] ? `<svg viewBox="0 0 24 24" aria-hidden="true">${KV_ICONS[label]}</svg>` : ""}${esc(label)}</span><span class="kv-value">${html}</span></div>`).join("")}</div>`;
   const eyeToggle = (input, button) => {
     const draw = () => { const shown = input.type === "text"; button.innerHTML = shown ? ICON.eyeOff : ICON.eye; button.ariaLabel = shown ? "Hide password" : "Show password" };
     button.addEventListener("click", () => { input.type = input.type === "password" ? "text" : "password"; draw(); input.focus() });
