@@ -1,66 +1,14 @@
-# database
-config_postgres_url_dict = {}
-config_redis_url_dict = {}
-config_mssql_url_dict = {}
-config_clickhouse_url_dict = {}
-config_mongodb_url = None
-
-# queue
-config_kafka_url = None
-config_kafka_username = None
-config_kafka_password = None
-config_rabbitmq_url = None
-config_celery_url = None
-
-# cloud
-config_aws_access_key_id = None
-config_aws_secret_access_key = None
-config_aws_s3_region_name = None
-config_aws_sns_region_name = None
-config_aws_ses_region_name = None
-config_azure_account_name = None
-config_azure_account_key = None
-config_azure_email_connection_string = None
-config_azure_sms_connection_string = None
-config_azure_sms_from_number = None
-config_msgraph_tenant_id = None
-config_msgraph_client_id = None
-config_msgraph_client_secret = None
-config_sftp_host = None
-config_sftp_port = None
-config_sftp_username = None
-config_sftp_password = None
-config_sftp_known_hosts_path = None
-config_sftp_is_host_verify = True
-
-# messaging
-config_fast2sms_url = None
-config_fast2sms_key = None
-config_resend_url = None
-config_resend_key = None
-
-# ai
-config_openai_key = None
-config_gemini_key = None
-config_anthropic_key = None
-
-# monitoring
-config_posthog_project_host = None
-config_posthog_project_key = None
-config_sentry_dsn = None
-config_sentry_traces_sample_rate = 0.05
-
 # app
 config_is_prod = True
 config_is_read_only = False
 config_is_tmp_reset = False
 config_uvicorn_workers = 1
+config_uvicorn_timeout_keep_alive_sec = 250
+config_is_uvicorn_access_log = False
+config_is_fastapi_telemetry = False
 config_root_html_path = "static/home.html"
 config_is_home_atom_listed = True
 config_is_pgweb_enabled = False
-config_is_fastapi_telemetry = False
-config_is_uvicorn_access_log = False
-config_uvicorn_timeout_keep_alive_sec = 250
 config_request_body_max_kb = 10240
 config_request_form_max_kb = 102400
 
@@ -72,41 +20,12 @@ config_cors_allow_headers = ["*"]
 config_cors_expose_headers = ["*"]
 config_cors_allow_credentials = True
 
-# cache
-config_redis_cache_ttl_sec = 3600
-config_inmemory_cache_cleanup_auto_sec = 300
-config_api_cache_inmemory_max_kb = 102400
-config_token_cache_max = 10000
-config_api_key_cache_sec = 60
-config_cache_row_limit_config = 1000
-config_cache_row_limit_users_role = 10000
-config_cache_row_limit_users_deactivated = 10000
-config_cache_row_limit_users_deleted = 10000
-
-# auth
-config_root_user_password = None
-config_google_login_client_id = None
-config_login_password = None
-config_token_secret_key = None
-config_access_token_expires_sec = 604800
-config_refresh_token_expires_sec = 2592000
-config_api_key_max = 20
-config_signup_allowed_roles = []
-config_login_allowed_roles = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
-config_is_user_delete = False
-config_api_global_user_check_deleted = "token"
-config_api_global_user_check_deactivated = "token"
-
-# profile
-config_is_profile_update_last_active_at = True
-config_profile_metadata_sql = {}
-
-# otp
-config_otp_length = 6
-config_otp_expiry_sec = 600
-config_otp_static = None
-config_otp_max_attempt = 5
-config_is_otp_require_users_update = False
+# database
+config_postgres_url_dict = {}
+config_redis_url_dict = {}
+config_mssql_url_dict = {}
+config_clickhouse_url_dict = {}
+config_mongodb_url = None
 
 # postgres
 config_is_postgres_schema_init = True
@@ -118,6 +37,62 @@ config_buffer_limit_default = 100
 config_buffer_limit_log_api = 1000
 config_buffer_rows_max = 100000
 config_postgres_buffer_flush_auto_sec = 60
+
+# mssql
+config_mssql_pool_min_size = 1
+config_mssql_pool_max_size = 10
+config_mssql_pool_recycle_sec = 1800
+
+# query
+config_sql_read_limit_default = 100
+config_sql_read_limit_max = 10000
+config_page_offset_max = 10000
+config_sql_read_relation_fetch_limit_max = 100
+config_batch_item_limit = 1000
+config_query_runner_read_limit = 5000
+config_export_limit = 1000000
+
+# cache
+config_redis_cache_ttl_sec = 3600
+config_inmemory_cache_cleanup_auto_sec = 300
+config_api_cache_inmemory_max_kb = 102400
+config_token_cache_max = 10000
+config_cache_row_limit_config = 1000
+config_cache_row_limit_users_role = 10000
+config_cache_row_limit_users_deactivated = 10000
+config_cache_row_limit_users_deleted = 10000
+
+# auth
+config_root_user_password = None
+config_token_secret_key = None
+config_access_token_expires_sec = 604800
+config_refresh_token_expires_sec = 2592000
+config_login_password = None
+config_google_login_client_id = None
+config_signup_allowed_roles = []
+config_login_allowed_roles = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+config_is_user_delete = False
+config_api_global_user_check_deleted = "token"
+config_api_global_user_check_deactivated = "token"
+
+# api_key
+config_api_key_max = 20
+config_api_key_cache_sec = 60
+
+# otp
+config_otp_length = 6
+config_otp_expiry_sec = 600
+config_otp_static = None
+config_otp_max_attempt = 5
+config_is_otp_require_users_update = False
+
+# totp
+config_totp_encryption_key = None
+config_totp_issuer = None
+
+# profile
+config_is_profile_update_last_active_at = True
+config_profile_metadata_sql = {}
 
 # log_api
 config_is_log_api = True
@@ -139,31 +114,16 @@ config_retention_day_log_api = 7
 config_retention_day_users_delete = 30
 config_retention_day_script_run = 90
 
-# mssql
-config_mssql_pool_min_size = 1
-config_mssql_pool_max_size = 10
-config_mssql_pool_recycle_sec = 1800
-
-# query
-config_sql_read_limit_default = 100
-config_sql_read_limit_max = 10000
-config_page_offset_max = 10000
-config_sql_read_relation_fetch_limit_max = 100
-config_batch_item_limit = 1000
-config_query_runner_read_limit = 5000
-config_export_limit = 1000000
-
-# blob
-config_blob_limit_size_kb = 500
-config_blob_limit_upload = 100
-config_blob_expire_sec_upload = 3600
-config_blob_expire_sec_preview = 360000
-
-# service
+# queue
 config_queue_services = ["postgres", "redis", "rabbitmq", "kafka", "celery"]
 config_queue_concurrency = 10
 config_queue_retry_max = 3
 config_queue_retry_wait_sec = 2
+config_rabbitmq_url = None
+config_kafka_url = None
+config_kafka_username = None
+config_kafka_password = None
+config_celery_url = None
 
 # webhook
 config_webhook_is_active = False
@@ -179,10 +139,62 @@ config_webhook_verify_scheme = {
 "shopify": {"header": "X-Shopify-Hmac-Sha256", "encoding": "base64", "signed": "{body}"},
 "razorpay": {"header": "X-Razorpay-Signature", "encoding": "hex", "signed": "{body}"},
 }
+
+# blob
 config_blob_services = ["s3", "azure"]
+config_blob_limit_size_kb = 500
+config_blob_limit_upload = 100
+config_blob_expire_sec_upload = 3600
+config_blob_expire_sec_preview = 360000
+
+# email
 config_email_services = ["ses", "resend", "azure"]
+config_resend_url = None
+config_resend_key = None
+
+# mobile
 config_mobile_services = ["sns", "fast2sms", "azure"]
+config_fast2sms_url = None
+config_fast2sms_key = None
+
+# ai
 config_ai_services = ["gemini", "openai", "claude"]
+config_openai_key = None
+config_gemini_key = None
+config_anthropic_key = None
+
+# aws
+config_aws_access_key_id = None
+config_aws_secret_access_key = None
+config_aws_s3_region_name = None
+config_aws_sns_region_name = None
+config_aws_ses_region_name = None
+
+# azure
+config_azure_account_name = None
+config_azure_account_key = None
+config_azure_email_connection_string = None
+config_azure_sms_connection_string = None
+config_azure_sms_from_number = None
+
+# msgraph
+config_msgraph_tenant_id = None
+config_msgraph_client_id = None
+config_msgraph_client_secret = None
+
+# sftp
+config_sftp_host = None
+config_sftp_port = None
+config_sftp_username = None
+config_sftp_password = None
+config_sftp_known_hosts_path = None
+config_sftp_is_host_verify = True
+
+# monitoring
+config_sentry_dsn = None
+config_sentry_traces_sample_rate = 0.05
+config_posthog_project_host = None
+config_posthog_project_key = None
 
 # table
 config_table_exclude_from_users_delete = ["spatial_ref_sys", "users", "log_users_delete"]
@@ -191,15 +203,15 @@ config_table_my_create_blocked = ["users", "api_key", "webhook", "ticket_comment
 config_table_my_read_blocked = ["users", "config", "webhook", "log_users_password", "otp", "script_run", "queue_job", "spatial_ref_sys"]
 config_table_my_delete_all_allowed = ["test", "message", "notification"]
 config_table_public_create_allowed = ["test", "ticket"]
-config_public_create_honeypot = "website"
 config_table_public_read_allowed = ["test"]
-config_mongodb_my_create_allowed = {"test": ["post"]}
 config_table_private_read_allowed = ["test"]
+config_public_create_honeypot = "website"
+config_mongodb_my_create_allowed = {"test": ["post"]}
 
 # permission
 config_permission_table = {"ticket": {"read": 120, "update": 121, "delete": 122}, "ticket_comment": {"create": 123, "read": 124, "update": 125, "delete": 126}}
 config_permission_user_roles = []
-config_permission_user_column_blocked = ["role", "permissions", "username", "email", "mobile", "verified_at", "verified_by_id", "deactivated_by_id", "parent_id", "source", "id_ext", "google_login_id", "google_login_metadata"]
+config_permission_user_column_blocked = ["role", "permissions", "totp_enabled_at", "username", "email", "mobile", "verified_at", "verified_by_id", "deactivated_by_id", "parent_id", "source", "id_ext", "google_login_id", "google_login_metadata"]
 
 # column
 config_column_token_encode = ["id", "role", "username", "id_ext" ,"deactivated_at", "deleted_at", "permissions"]
@@ -208,14 +220,14 @@ config_column_ownership_update = ["created_by_id", "assigned_to_id"]
 config_column_ownership_delete = ["created_by_id", "received_by_id", "assigned_to_id"]
 config_column_admin = ["created_at", "updated_at", "created_by_id", "role", "verified_at", "verified_by_id"]
 config_column_single_update = ["username", "password", "email", "mobile"]
-config_column_users_blocked = ["created_at", "created_by_id", "updated_at", "updated_by_id", "deleted_at", "deleted_by_id", "is_protected", "last_active_at"]
+config_column_users_blocked = ["created_at", "created_by_id", "updated_at", "updated_by_id", "deleted_at", "deleted_by_id", "is_protected", "last_active_at", "totp_secret", "totp_last_step", "totp_recovery"]
 config_column_audit_blocked = ["created_at", "created_by_id", "updated_at", "updated_by_id", "deleted_at", "deleted_by_id"]
-config_column_users_my_blocked = ["role", "permissions", "verified_at", "verified_by_id", "deactivated_at", "deactivated_by_id", "parent_id", "source", "id_ext", "google_login_id", "google_login_metadata"]
-config_column_read_blocked = ["password", "key_hash", "secret"]
+config_column_users_my_blocked = ["role", "permissions", "totp_enabled_at", "verified_at", "verified_by_id", "deactivated_at", "deactivated_by_id", "parent_id", "source", "id_ext", "google_login_id", "google_login_metadata"]
+config_column_read_blocked = ["password", "key_hash", "secret", "totp_secret", "totp_recovery"]
 config_column_users_private_read = ["id", "username", "name", "role", "permissions", "created_at", "deactivated_at"]
 config_column_private_read_blocked = {"script_run": ["started_by", "host", "step", "message", "peak_memory_mb"]}
 
-# dict
+# column dict
 config_column_regex = {
 "username": ["^(?=.{1,120}\\Z)\\S+\\Z", "Username must be 1-120 characters and contain no spaces"],
 "password": ["^(?=.{6,120}\\Z)\\S+\\Z", "Password must be 6-120 characters and contain no spaces"],
@@ -255,6 +267,7 @@ config_column_int_mapping = {
 },
 }
 
+# schema
 config_postgres = {
 "extension": ["postgis", "pg_trgm", "btree_gin"],
 "table":{
@@ -325,6 +338,10 @@ config_postgres = {
 {"name":"dashboard","datatype":"jsonb"},
 {"name":"source","datatype":"smallint"},
 {"name":"parent_id","datatype":"bigint"},
+{"name":"totp_secret","datatype":"text"},
+{"name":"totp_enabled_at","datatype":"timestamptz"},
+{"name":"totp_last_step","datatype":"bigint"},
+{"name":"totp_recovery","datatype":"text[]"},
 ],
 "config":[
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
@@ -506,10 +523,12 @@ config_postgres = {
 },
 "sql":{
 "ticket_closed_at":"CREATE OR REPLACE FUNCTION ticket_closed_at() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.status = 5 THEN NEW.closed_at = CASE WHEN TG_OP = 'UPDATE' AND OLD.status = 5 THEN OLD.closed_at ELSE now() END; ELSE NEW.closed_at = NULL; END IF; RETURN NEW; END $$; CREATE OR REPLACE TRIGGER ticket_closed_at BEFORE INSERT OR UPDATE OF status ON ticket FOR EACH ROW EXECUTE FUNCTION ticket_closed_at();",
+"users_totp_clear":"CREATE OR REPLACE FUNCTION users_totp_clear() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.totp_enabled_at IS NULL AND OLD.totp_enabled_at IS NOT NULL THEN NEW.totp_secret = NULL; NEW.totp_last_step = NULL; NEW.totp_recovery = NULL; END IF; RETURN NEW; END $$; CREATE OR REPLACE TRIGGER users_totp_clear BEFORE UPDATE OF totp_enabled_at ON users FOR EACH ROW EXECUTE FUNCTION users_totp_clear();",
 "ticket_delete_comments":"CREATE OR REPLACE FUNCTION ticket_delete_comments() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN DELETE FROM ticket_comment WHERE ticket_id = OLD.id; RETURN OLD; END $$; CREATE OR REPLACE TRIGGER ticket_delete_comments AFTER DELETE ON ticket FOR EACH ROW EXECUTE FUNCTION ticket_delete_comments();",
 },
 }
 
+# api
 config_api = {
 # index
 "/": {"id": 1, "auth": [], "is_log_api": False},
@@ -531,6 +550,7 @@ config_api = {
 "/auth/login-email-otp": {"id": 16, "auth": [], "rate_limit": {"mode": "inmemory", "limit": 5, "window_sec": 60}},
 "/auth/login-mobile-otp": {"id": 17, "auth": [], "rate_limit": {"mode": "inmemory", "limit": 5, "window_sec": 60}},
 "/auth/login-google": {"id": 18, "auth": [], "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
+"/auth/login-totp": {"id": 102, "auth": [], "rate_limit": {"mode": "inmemory", "limit": 5, "window_sec": 60}},
 # my
 "/my/profile": {"id": 19, "auth": ["jwt"], "is_connection_param": True},
 "/my/ping": {"id": 20, "auth": ["jwt"]},
@@ -551,6 +571,9 @@ config_api = {
 "/my/blob-preview-urls": {"id": 35, "auth": ["jwt"]},
 "/my/blob-delete-all": {"id": 36, "auth": ["jwt"]},
 "/my/blob-delete-url": {"id": 37, "auth": ["jwt"]},
+"/my/totp-setup": {"id": 103, "auth": ["jwt"], "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
+"/my/totp-enable": {"id": 104, "auth": ["jwt"], "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 5, "window_sec": 60}},
+"/my/totp-disable": {"id": 105, "auth": ["jwt"], "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 5, "window_sec": 60}},
 "/my/api-key-create": {"id": 97, "auth": ["jwt"], "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
 # public
 "/public/object-create": {"id": 38, "auth": [], "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},

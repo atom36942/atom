@@ -4,6 +4,11 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [18.9.0] - 2026-11-21
+
+- **Two-factor authentication (TOTP), optional per user:** a user turns it on with `/my/totp-setup` (secret and `otpauth://` link for the QR code) and `/my/totp-enable` (a code from any authenticator app; returns 10 one-time recovery codes once), and off with `/my/totp-disable` (a code). Every `/auth/login-*` then answers `{"mfa_required": true, "mfa_token"}` instead of tokens, and the new `/auth/login-totp` (`mfa_token` and a code or recovery code, 5 tries a minute) gives the tokens; users without 2FA log in exactly as before. New `users` columns `totp_secret` (AES-GCM encrypted, bound to the user), `totp_enabled_at`, `totp_last_step` (a code works once) and `totp_recovery` (hashed); an admin resets a user with `/admin/user-update {"totp_enabled_at": null}`. Off for the app until `config_totp_encryption_key` is set in `.env`; `config_totp_issuer` names the app in the authenticator. Backend only: pages don't show the code step yet. `cryptography` is now pinned in `requirements.txt` ([docs/auth.md](docs/auth.md#8-two-factor-authentication-totp)).
+- **`config.py` in standard sections:** settings are grouped by area (app, cors, database, postgres, mssql, query, cache, auth, api_key, otp, totp, profile, log_api, schedule, retention, queue, webhook, blob, email, mobile, ai, aws, azure, msgraph, sftp, monitoring, table, permission, column), then the column dicts, `# schema` (`config_postgres`) and `# api` (`config_api`). Only order and headers changed; every setting keeps its name and value.
+
 ## [18.8.1] - 2026-11-21
 
 - **Permissions ✓ looks clickable:** a small bordered button like the copy and edit buttons beside it, with a hover state.

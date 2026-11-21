@@ -220,6 +220,8 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_otp_length` | Digit length generated for OTP codes (default: `6`) |
 | `config_otp_expiry_sec` | Expiry window for OTP codes in seconds (default: `600`) |
 | `config_otp_max_attempt` | Verification guesses allowed per OTP code before it is locked (default: `5`) |
+| `config_totp_encryption_key` | Turns two-factor (TOTP) on for the app: the key (32+ characters, in `.env`) that encrypts every user's TOTP secret. `None` (default): the 2FA routes answer "2FA not configured" ([auth.md](auth.md#8-two-factor-authentication-totp)) |
+| `config_totp_issuer` | The app's name in the authenticator app (default `None`: the master database name) |
 | `config_schedule_timezone` | Time zone of every `config_schedule_*` time (`UTC`; a zone name such as `Asia/Kolkata`) ([schedule.md](schedule.md)) |
 | `config_schedule_check_sec` | How often scheduled scripts are checked, in seconds (`600`; 60 to 3600) |
 | `config_schedule_script_<script>` | When `script/<script>.py` or `script_extend/<script>.py` runs by itself: `off`, `every 6h`, `daily 02:00`, `every 3d 02:00`, `weekly sun 02:00` or `monthly 1 02:00`. Atom's: `config_schedule_script_postgres_cleanup` (`every 1h`), `config_schedule_script_postgres_backup` (`off`) ([schedule.md](schedule.md)) |
@@ -302,9 +304,9 @@ The `/permission/*` routes' settings, together as `config_permission_*` (the rou
 | `config_column_admin` | Server-managed columns blocked from user mutation (`created_at`, `role`, etc.) |
 | `config_column_single_update` | `users` columns updated alone by `/my/user-update` and `/admin/user-update` (`username`, `password`, `email`, `mobile`) |
 | `config_column_audit_blocked` | Audit columns no request may set on any table, admin's included (default `created_at`, `created_by_id`, `updated_at`, `updated_by_id`, `deleted_at`, `deleted_by_id`): Atom sets them; admin create, update and CSV import refuse them |
-| `config_column_users_blocked` | `users` columns neither `/my/user-update` nor `/admin/user-update` may change (`created_*`, `updated_*`, `deleted_*`, `is_protected`, `last_active_at`); a project adds its own (e.g. a column only a script sets) |
-| `config_column_users_my_blocked` | `users` columns only `/admin/user-update` may change; `/my/user-update` refuses them (`role`, `permissions`, `deactivated_at`, ...) |
-| `config_column_read_blocked` | Sensitive columns blocked and stripped from read responses and relations (`password`, `key_hash`, `secret`) |
+| `config_column_users_blocked` | `users` columns neither `/my/user-update` nor `/admin/user-update` may change (`created_*`, `updated_*`, `deleted_*`, `is_protected`, `last_active_at`, `totp_secret`, `totp_last_step`, `totp_recovery`); a project adds its own (e.g. a column only a script sets) |
+| `config_column_users_my_blocked` | `users` columns only `/admin/user-update` may change; `/my/user-update` refuses them (`role`, `permissions`, `totp_enabled_at`, `deactivated_at`, ...) |
+| `config_column_read_blocked` | Sensitive columns blocked and stripped from read responses and relations (`password`, `key_hash`, `secret`, `totp_secret`, `totp_recovery`) |
 | `config_column_private_read_blocked` | Per table, the columns `/private/*` reads may not select, filter, sort or group by, on top of `config_column_read_blocked` (Atom: `script_run`'s `started_by`, `host`, `step`, `message`, `peak_memory_mb`, so any user may read the run list but not the server details); extend it in `config_extend.py` (`{**base, "invoice": ["cost"]}`) |
 | `config_column_users_private_read` | The only `users` columns `/private/user-read` returns, filters and sorts on (`id`, `username`, `name`, `role`, `permissions`, `created_at`, `deactivated_at`); readable by every logged-in user, checked at startup |
 

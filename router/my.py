@@ -225,3 +225,24 @@ async def func_api_my_api_key_create(*, request: Request):
     if unknown: raise app_state.func_api_error(message=f"scopes must be config_api paths whose auth has api_key: {', '.join(unknown)}", status_code=400)
     res = await app_state.func_api_key_create(client_postgres=app_state.client_postgres_dict.get("master"), user_id=request.state.user["id"], name=ob["name"].strip()[:100], scopes=ob["scopes"], expire_days=ob["expire_days"], config_api_key_max=app_state.config_api_key_max)
     return {"status": 1, "message": res}
+
+@router.post("/my/totp-setup")
+async def func_api_my_totp_setup(*, request: Request):
+    app_state = request.app.state
+    issuer = app_state.config_totp_issuer or app_state.func_redis_key_prefix(postgres_url=getattr(app_state, "config_postgres_url_master", None) or (app_state.config_postgres_url_dict or {}).get("master")).rstrip(":") or "Atom"
+    res = await app_state.func_totp_setup(client_postgres=app_state.client_postgres_dict.get("master"), user_id=request.state.user["id"], config_totp_encryption_key=app_state.config_totp_encryption_key, issuer=issuer)
+    return {"status": 1, "message": res}
+
+@router.post("/my/totp-enable")
+async def func_api_my_totp_enable(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "code", "type": "str", "required": True}], strict=True, reject_unknown=True)
+    res = await app_state.func_totp_enable(client_postgres=app_state.client_postgres_dict.get("master"), user_id=request.state.user["id"], code=ob["code"], config_totp_encryption_key=app_state.config_totp_encryption_key)
+    return {"status": 1, "message": res}
+
+@router.post("/my/totp-disable")
+async def func_api_my_totp_disable(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "code", "type": "str", "required": True}], strict=True, reject_unknown=True)
+    res = await app_state.func_totp_disable(client_postgres=app_state.client_postgres_dict.get("master"), user_id=request.state.user["id"], code=ob["code"], config_totp_encryption_key=app_state.config_totp_encryption_key)
+    return {"status": 1, "message": res}

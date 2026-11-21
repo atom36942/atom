@@ -32,6 +32,7 @@ async def func_user_update_check(*, client_postgres: asyncpg.Pool | None, obj: d
     if not obj: raise Exception("update field required")
     if column := next((c for c in obj if c in (config_column_users_blocked or [])), None): raise Exception(f"{column} cannot be updated")
     if not is_admin and (column := next((c for c in obj if c in (config_column_users_my_blocked or [])), None)): raise Exception(f"{column} can be updated only by an admin")
+    if obj.get("totp_enabled_at") is not None: raise Exception("totp_enabled_at can only be cleared (null), which turns the user's 2FA off; the user turns it on with /my/totp-setup")
     if (column := next((c for c in obj if c in (config_column_single_update or [])), None)) and len(obj) > 1: raise Exception(f"{column} must be updated alone")
     if obj.get("permissions") is not None:
         permissions = obj["permissions"]
