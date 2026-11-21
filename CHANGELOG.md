@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [18.8.1] - 2026-11-21
+
+- **Permissions ✓ looks clickable:** a small bordered button like the copy and edit buttons beside it, with a hover state.
+
 ## [18.8.0] - 2026-11-21
 
 - **Permissions at a glance:** Login details in Atom's pages shows Permissions as a ✓ when the user holds any and a ✗ when none; a click on the ✓ opens a small dialog over it with a table of each permission's ID and Name (from `/info` `config_column_int_mapping.users.permissions`, `-` without one).

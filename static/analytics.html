@@ -102,9 +102,9 @@ dialog.dlg .dlg-actions button:not(.kv-btn){height:var(--control-h);padding:0 14
 .kv-value{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0;text-align:right;overflow-wrap:anywhere}
 .kv-value:has(.kv-input){flex:1 1 auto}
 .kv .cell{display:flex;align-items:center;justify-content:flex-end;gap:8px}
-.permissions-open{height:auto;padding:0 6px;border:none;background:none;color:var(--primary);font-weight:700;cursor:pointer}
-.permissions-open:hover:not(:disabled){background:none;color:var(--accent)}
-.permissions-none{padding:0 6px;color:var(--muted)}
+.permissions-open{display:inline-grid;place-items:center;width:26px;height:26px;padding:0;border:1px solid var(--line-strong);border-radius:var(--radius);background:var(--card);color:var(--primary);font-weight:700;line-height:1;cursor:pointer}
+.permissions-open:hover:not(:disabled){border-color:var(--accent);background:rgba(var(--hl),.08)}
+.permissions-none{display:inline-grid;place-items:center;width:26px;color:var(--muted)}
 .permissions-table{width:100%;border-collapse:collapse;font-size:var(--fs-small)}
 .permissions-table th,.permissions-table td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;background:none}
 .permissions-table th{color:var(--muted);font-weight:600}
