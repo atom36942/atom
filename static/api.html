@@ -102,6 +102,14 @@ dialog.dlg .dlg-actions button:not(.kv-btn){height:var(--control-h);padding:0 14
 .kv-value{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0;text-align:right;overflow-wrap:anywhere}
 .kv-value:has(.kv-input){flex:1 1 auto}
 .kv .cell{display:flex;align-items:center;justify-content:flex-end;gap:8px}
+.permissions-open{height:auto;padding:0 6px;border:none;background:none;color:var(--primary);font-weight:700;cursor:pointer}
+.permissions-open:hover:not(:disabled){background:none;color:var(--accent)}
+.permissions-none{padding:0 6px;color:var(--muted)}
+.permissions-table{width:100%;border-collapse:collapse;font-size:var(--fs-small)}
+.permissions-table th,.permissions-table td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;background:none}
+.permissions-table th{color:var(--muted);font-weight:600}
+.permissions-table th:first-child,.permissions-table td:first-child{width:72px}
+.permissions-table tr:last-child td{border-bottom:none}
 .kv-group{margin:14px 2px 6px;color:var(--muted);font-size:var(--fs-small);font-weight:600}    /* a small caption over a group of rows (Login details: Sign in, Account) */
 .kv-group:first-child{margin-top:0}
 .sync-progress{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
@@ -796,6 +804,10 @@ select.row-val{padding-right:64px}
   <div class="dlg-body" id="atomBody"></div>
   <div class="dlg-actions" id="atomActions" hidden></div>
 </dialog>
+<dialog class="dlg" id="permissionsDialog" aria-labelledby="permissionsTitle">
+  <div class="dlg-head"><div><h3 id="permissionsTitle">Permissions</h3><p class="dlg-sub" id="permissionsSub"></p></div><button type="button" class="dlg-x" id="permissionsClose" aria-label="Close" data-tip="Close"></button></div>
+  <div class="dlg-body" id="permissionsBody"></div>
+</dialog>
 <div class="toast" id="toast" role="status" aria-live="polite" popover="manual"><span class="toast-icon" aria-hidden="true"></span><span class="toast-text"></span><button class="toast-close" id="toastClose" type="button" aria-label="Close" data-tip="Close">×</button></div>
 <!-- ==== end atom page: dialogs ==== -->
 <script>
@@ -1081,7 +1093,14 @@ const Page = (() => {
   const menuToggle = open => { const isOpen = open ?? el("accountMenu").hidden; el("accountMenu").hidden = !isOpen; el("accountBtn").setAttribute("aria-expanded", String(isOpen)) };
   const roleText = role => { if (role == null) return "-"; const label = read().info?.config_column_int_mapping?.users?.role?.[role]; return esc(label ? `${role} (${label})` : String(role)) };    // "1 (Admin)": the number first, the label from /info in brackets; only the number before the first sync
   // the route ids as stored, comma separated ("136, 137"); "None" when there are none: a user tells the developer the numbers, the labels are in the backend
-  const permissionsCell = u => { const ids = Array.isArray(u.permissions) ? u.permissions : []; return ids.length ? esc(ids.join(", ")) : "None" };
+  // Permissions: a ✓ when the user holds any (a click lists them: ID and Name from /info config_column_int_mapping.users.permissions, "-" without one), a ✗ when none
+  const permissionsCell = u => { const ids = Array.isArray(u.permissions) ? u.permissions : []; return ids.length ? `<button type="button" class="permissions-open" data-user="${esc(String(u.id))}" data-permissions="${esc(ids.join(","))}" aria-label="Show permissions" data-tip="Show permissions">✓</button>` : '<span class="permissions-none" data-tip="No permissions">✗</span>' };
+  const permissionsOpen = button => {
+    const names = read().info?.config_column_int_mapping?.users?.permissions || {}, ids = button.dataset.permissions.split(",").map(Number).sort((x, y) => x - y);
+    el("permissionsSub").textContent = `ID ${button.dataset.user}`;
+    el("permissionsBody").innerHTML = `<table class="permissions-table"><thead><tr><th>ID</th><th>Name</th></tr></thead><tbody>${ids.map(id => `<tr><td>${id}</td><td>${esc(names[id] ?? "-")}</td></tr>`).join("")}</tbody></table>`;
+    el("permissionsDialog").showModal();
+  };
   const usernameCell = u => u.username ? `<span class="cell"><span>${esc(u.username)}</span><button type="button" class="kv-btn" data-copy="${esc(u.username)}" aria-label="Copy username">${ICON.copy}</button></span>` : "-";
   const idCell = u => u.id != null ? `<span class="cell"><span>${esc(String(u.id))}</span><button type="button" class="kv-btn" data-copy="${esc(String(u.id))}" data-copy-label="ID" aria-label="Copy ID">${ICON.copy}</button></span>` : "-";    // the users id, the number User management shows: a user tells an admin this one
   // My profile is the person, Login details what the login sends: each field shows in one of the two only.
@@ -1195,6 +1214,9 @@ const Page = (() => {
     eyeToggle(el("loginPassword"), el("loginEye"));
     el("atomClose").innerHTML = el("loginClose").innerHTML = ICON.x;
     el("atomClose").addEventListener("click", dialogClose);
+    el("permissionsClose").innerHTML = ICON.x;
+    el("permissionsClose").addEventListener("click", () => el("permissionsDialog").close());
+    document.addEventListener("click", event => { const button = event.target.closest(".permissions-open"); if (button) permissionsOpen(button) });
     el("atomDialog").addEventListener("cancel", e => { if (dialogLocked) e.preventDefault() });
     // a setting's choice moves with the arrow keys, as in any radio group
     el("atomDialog").addEventListener("keydown", e => {

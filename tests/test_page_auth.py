@@ -104,12 +104,12 @@ class PageStandardTests(unittest.TestCase):
         # the login page (intro and card; only the card where no login is needed), the role fixed when the page has one, Sync in the account menu,
         # My profile and Login details sharing no field, the role as "1 (Admin)", a blocked account told in its own dialog
         dialogs, header = block("analytics", "dialogs")[0], block("analytics", "account header")[0]
-        for part in ('id="loginPage"', 'id="loginIntro"', 'id="loginFeatures"', 'class="login-btn" id="loginBtn">Login</button>', 'id="blockedDialog"', 'id="blockedOk">OK</button>'):
+        for part in ('id="loginPage"', 'id="loginIntro"', 'id="loginFeatures"', 'class="login-btn" id="loginBtn">Login</button>', 'id="blockedDialog"', 'id="blockedOk">OK</button>', 'id="permissionsDialog"'):
             with self.subTest(part=part): self.assertIn(part, dialogs)
         self.assertNotIn("loginDialog", dialogs)
-        # Login details' Permissions: the ids as stored, comma separated, "None" when there are none
+        # Login details' Permissions: a ✓ that lists ID and Name in its own dialog, a ✗ when there are none
         account = block("analytics", "account")[0]
-        for part in ('["Permissions", permissionsCell(u)]', 'esc(ids.join(", ")) : "None"'):
+        for part in ('["Permissions", permissionsCell(u)]', 'class="permissions-open"', 'class="permissions-none"', "config_column_int_mapping?.users?.permissions"):
             with self.subTest(part=part): self.assertIn(part, account)
         self.assertIn('class="account-item" id="syncBtn"', header)
         self.assertNotIn("sync-btn", header)
