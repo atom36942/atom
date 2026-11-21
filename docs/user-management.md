@@ -1,6 +1,6 @@
 # User management
 
-An optional feature: a page where some of an app's own users create and manage the app's other users (Atom's own pages don't have it). Build it only when the app needs it; it is not part of the account flow ([frontend.md](frontend.md)), which every page has. Atom has every route it needs: never write a project user API.
+An optional feature: a page where some of an app's own users create and manage the app's other users (Atom's own pages don't have it). Build it only when the app needs it; it is not part of the login flow ([frontend.md](frontend.md)) every page has. Atom has every route it needs: never write a project user API.
 
 ## Backend: settings and grants only
 - The roles it manages: `config_permission_user_roles` in `config_extend.py` (the app's users, e.g. `[2]`; never 1). The same list limits both user routes.
@@ -10,8 +10,8 @@ An optional feature: a page where some of an app's own users create and manage t
 - Set `config_api_global_user_check_deactivated = "realtime"` so a deactivated user is signed out at their next request, not at their next token renewal.
 - Routes and checks in full: [auth.md](auth.md) (`/permission/user-create`, `/permission/user-update`).
 
-## Page
-- A header button, Users (people icon), the last before the avatar, open to every logged-in user; the list reads `GET /private/user-read` (columns: `config_column_users_private_read`, plus `last_active_at` and the profile columns Edit profile needs) filtered to the roles the page manages, active or inactive, and a username search; columns ID, Created, Username, Last active (`last_active_at`, set at most every 5 minutes by `/my/profile`: "5 min ago", "Never" when empty), Role, Permissions, Status, Action; 25 a page after the cursor, newest first.
-- The roles it manages are one list in the page (`USERS_ROLES`), equal to `config_permission_user_roles`; today one role. New user (permission 61, `/permission/user-create`): Role first (always shown, each option `2 (General)`; disabled while the list has one role, a choice once it has several), then Username and Password; it sends `{username, password, role}`. Adding a role is config only: the page's list, `config_permission_user_roles` and the label in `config_column_int_mapping`.
-- Each row's ⋯ (permission 62, `/permission/user-update`, every row, your own too): Edit profile, Reset password, Deactivate (Activate when inactive); each sends one request with only what changed. Your own Deactivate explains in a toast that you can't (Atom refuses it too).
-- Actions shown to everyone (a UI default, not a rule): every user sees the same buttons and menu items, permission or not, on every row (their own too); clicking one they may not use shows a toast saying why ("You are not allowed to do this. Ask an admin for access.", "You can't deactivate yourself.") instead of the control being hidden or disabled. The server still refuses it; the toast only explains.
+## Page (Defaults: what the page calls; its look is the project's own)
+- The list: `GET /private/user-read` (the `config_column_users_private_read` columns) filtered to the managed roles (`role = 2`, several: `role in 2,3`), plus `deactivated_at is null` / `is not null` and `{"username": "ilike,%text%"}` when chosen; cursor paging, newest first. Status is Active while `deactivated_at` is empty; `last_active_at` is set at most every 5 minutes by `/my/profile`.
+- The roles it manages are one list in the page (`USERS_ROLES`), equal to `config_permission_user_roles`; adding a role is config only: that list, `config_permission_user_roles` and the label in `config_column_int_mapping` (shown from `/info`).
+- New user (permission 61): `POST /permission/user-create` `{username, password, role}`.
+- Update user (permission 62): `PUT /permission/user-update` with `{id, ...only the changed profile columns}`, `{id, password}` or `{id, deactivated_at}` (now to deactivate, `null` to activate). Atom refuses the blocked columns, users outside the managed roles and deactivating yourself; the page shows Atom's refusal in plain words.

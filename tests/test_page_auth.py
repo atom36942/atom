@@ -1,4 +1,4 @@
-"""Atom's pages that log in (Admin, Monitor, API, Message) follow one page standard (docs/frontend.md, Page standard): each page carries the same four blocks,
+"""Atom's pages that log in (Admin, Monitor, API, Message) follow one page standard (docs/frontend.md, Reference code): each page carries the same four blocks,
 copied unchanged (look CSS, account script, account header, dialogs), and only sets PAGE above the account script. A new page or project copies the blocks."""
 import re
 import unittest

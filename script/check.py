@@ -62,9 +62,7 @@ RULE_DRIVERS = re.compile(r"^\s*(import|from)\s+(psycopg|psycopg2|sqlalchemy)\b"
 STANDARD_PAGE_DEFAULTS = [
     ("keeps the login alive (/my/token-refresh)", ["/my/token-refresh"]),
     ("loads /my/profile after login", ["/my/profile"]),
-    ("account menu: My profile, Login details, Sync, Settings, Logout", ["My profile", "Login details", "Sync", "Settings", "Logout"]),
     ("Sync reads /info", ["/info"]),
-    ("Settings: theme and density", ["theme", "density"]),
     ("export up to /info export_limit", ["export_limit"]),
 ]
 
@@ -248,7 +246,6 @@ def standard_check(*, root="."):
         ("each feature has tests_extend/test_<f>.py", [f for f in features if not (root / "tests_extend" / f"test_{f}.py").exists()]),
         ("pages load no script or style from another site", [name for name, text in pages.items() if re.search(r"<(script|link)[^>]+(src|href)=[\"']?(https?:)?//", text, re.IGNORECASE)]),
         ("pages fit a phone (viewport meta)", [name for name, text in pages.items() if 'name="viewport"' not in text]),
-        ("pages take colours and sizes from CSS variables", [name for name, text in pages.items() if "var(--" not in text]),
     ]
     logins = {name: text for name, text in pages.items() if STANDARD_PAGE_LOGIN in text}
     return defaults + [(what, [name for name, text in logins.items() if not all(word in text for word in words)]) for what, words in STANDARD_PAGE_DEFAULTS]

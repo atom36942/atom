@@ -6,7 +6,7 @@ Three kinds of rule:
 - **Rule**: always followed, but code can't check it (a reviewer or agent does, in [Update](#update)). A rule that code can check is Enforced instead.
 - **Default**: Atom's chosen way, already weighed. Follow it unless the project has a real reason, written in its `docs_extend/`.
 
-Atom is a backend. Its front end is Defaults only: suggestions, never rules. A page may always differ, and only how Atom serves pages and their route paths is enforced. A new rule for every project is proposed to Atom (released, then synced), never kept in one project.
+Atom is a backend. Its front end is how a page works with it (routes, login, storage, lists, export), as Defaults; the look is each project's own. Only how Atom serves pages and their route paths is enforced. A new rule for every project is proposed to Atom (released, then synced), never kept in one project.
 
 ## Work
 - Work autonomously; ask only for essential missing info or destructive actions outside the request.
@@ -64,21 +64,19 @@ Defaults:
 - Postgres is the base: background work that must not be lost goes on Atom's Postgres queue (`?queue=postgres`, `script.consumer_postgres`); Redis, RabbitMQ, Kafka or Celery only when Postgres can't keep up ([queue.md](docs/queue.md)).
 
 ## Front end ([frontend.md](docs/frontend.md))
+Atom is a backend: a page's look, layout, words and build are the project's own (a family of apps keeps its shared look in its `docs_extend/`). Atom sets only how a page works with it.
+
 Enforced:
 - A page is `static_extend/<name>.html` or `static_extend/<name>/index.html`, served at `/page/<name>`; its other files at `/static/<path>`, linked by full path (Atom stamps `?v=`).
 - A page calls Atom's and the project's routes by their full `config_api` path, written whole: values only after `?`, or as `${...}` where the route has `{name}`. `config_api` is the source of truth: when a route is renamed or removed, the page changes to the new path in `CHANGELOG.md`, never `config_api` to suit the page.
 
-Defaults (suggestions, not rules: a page may differ wherever it needs to. One flow on every page, Atom's own included; the working code to copy is in `static/analytics.html`, the full example, and `static/monitor.html`, the smallest: their five `atom page` blocks go into a page unchanged, only `PAGE` and the page's own screens differ):
-- Each page is standalone: its own login and storage, every key named after it; logout clears all of it. Escape data before `innerHTML`.
-- Keep the login alive with `/my/token-refresh`; a refused renewal shows the login form; a deactivated or deleted account is logged out with a plain message.
-- Login with the page's one role (`/auth/login-username-password`), then `/my/profile`.
-- Account menu (the avatar's initials): My profile, Login details, Sync, Settings, Logout. New needs grow inside them (Sync is the whole sync flow, Settings takes new settings); a sixth item only for a real account need. A page's own actions and features (Users included) are header buttons left of the avatar.
-- Sync every 3 hours and from the menu: token, `/my/profile`, `/info` (labels and limits), the page's reference data in IndexedDB.
-- Settings: Theme and Density; every colour and size a CSS variable; an app page starts light (`<html data-default-theme="light">`), Atom's own dark. One dialog, toast and password box style.
-- Lists: cursor paging (Previous/Next), search on Enter, an export dialog up to `/info` `export_limit`.
-- One page per app; a single `<name>.html` until it needs a folder.
-- Screens: outlined header buttons, one filter row with Clear filters, one-column search on Enter, searchable dropdowns past 10 choices, chevron pager, tables that fit their width, one date format, frames that don't jump, actions shown to everyone with a toast saying why; the browser never downloads a growing table ([frontend.md](docs/frontend.md) (Screens; Scale and speed)).
-- Up to 5 views as header tabs; from about 6, or grouped views, a left sidebar. Compact: 13px text, 36px controls, tight table cells. One palette, light by default, every colour a CSS variable with the hex codes in [frontend.md](docs/frontend.md) (Layout, size and colour).
+Defaults (the working code: `static/analytics.html`, the full flow, and `static/monitor.html`, the smallest; copy it or write your own):
+- Escape data before `innerHTML`; nothing secret in a URL; hiding a button is not access control (`config_api` refuses).
+- Each page is standalone: one localStorage key and one IndexedDB database named after it; logout clears both, in every tab.
+- Login with the page's one role (`/auth/login-username-password`), then `/my/profile` and its user check; renew with `/my/token-refresh` before expiry; a refused renewal or a deactivated or deleted account logs out with a plain message.
+- Labels and limits from `/info` (`config_column_int_mapping`, `export_limit`), never written in the page; reference data refreshed on a timer and on request.
+- Lists page after a cursor with no total count; search asks the server; export streams from `/<feature>/export` up to `export_limit`; counts and totals in SQL: the browser never downloads a table that grows.
+- One page per app; pages share no CSS or JS files; no script or style from another site; a viewport meta tag.
 
 ## Optional features
 Built only when an app needs them, each with its own doc: user management ([user-management.md](docs/user-management.md)), messaging, file storage, queues, schedules, Redis, ClickHouse and more (the list in [readme.md](readme.md)).
@@ -87,7 +85,7 @@ Built only when an app needs them, each with its own doc: user management ([user
 | Area | Doc |
 | :--- | :--- |
 | Backend rules in full (structure, `config_api`, data, settings, routes, users, scripts) | [backend.md](docs/backend.md) |
-| Pages: login, account menu, sync, settings, dialogs, lists, export | [frontend.md](docs/frontend.md) |
+| Pages: login and token, storage, lists, export, reference code | [frontend.md](docs/frontend.md) |
 | Auth, roles, permissions; user management | [auth.md](docs/auth.md), [user-management.md](docs/user-management.md) |
 | Rows, paging, ownership, export | [crud.md](docs/crud.md), [ownership.md](docs/ownership.md) |
 | Every setting; extending; syncing | [config.md](docs/config.md), [extend.md](docs/extend.md), [sync.md](docs/sync.md) |
@@ -107,7 +105,7 @@ Two parts: `python3 sync.py` replaces Atom's files exactly (the shared core); th
    - Structure: right `*_extend` folder, one feature name, no edited core file, generated files only in `tmp/`.
    - Security: secrets outside `.env` (also `git log -p`; a leaked key is reported for rotation), route access, responses wider than their screen, SQL built from strings, unescaped HTML, tokens or personal data in URLs or logs.
    - Speed and scale: a filter, sort or search without an index, one query per item, totals counted in the browser, tables downloaded whole, exports not streamed, caches without a limit; with database access, from the evidence too: `/admin/monitor` (database view) lists each table's sequential vs index scans and the slowest queries.
-   - Pages: against the reference pages above and [frontend.md](docs/frontend.md); at phone width and in dark mode.
+   - Pages: against [frontend.md](docs/frontend.md) and the project's own `docs_extend/` look; at phone width.
    - Clean-up: dead code, unused files, CSS and settings, duplicate helpers, `docs_extend/` out of date, missing tests for rules that fail silently.
 4. **Propose** a table (area, now, the rule, its tier, the fix) and wait for the OK. A missed Rule is fixed; a Default is a suggestion: one kept on purpose gets its reason in `docs_extend/`, a risky change to a working page is optional.
 5. **Refactor and verify.** Project files only (never Atom's core, `.env` values or data); the check passes; click through every page on the local run; report what changed and what was skipped. Commit or push only when asked or `CLAUDE.md` allows. A later run reads `notes.md` and proposes only what drifted.

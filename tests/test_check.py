@@ -189,7 +189,7 @@ class StandardTests(unittest.TestCase):
         self.assertIsNone(standard_check(root=tempfile.gettempdir() + "/no-such-project"))
 
     def test_a_project_following_the_standard_misses_nothing(self):
-        page = '<meta name="viewport"><style>a{color:var(--text)}</style><script>"/auth/login /my/profile /my/token-refresh /info export_limit theme density My profile Login details Sync Settings Logout"</script>'
+        page = '<meta name="viewport"><script>"/auth/login /my/profile /my/token-refresh /info export_limit"</script>'
         files = {"router_extend/invoice.py": "", "function_extend/invoice.py": "import asyncpg", "docs_extend/invoice.md": "", "tests_extend/test_invoice.py": "", "static_extend/invoice/index.html": page}
         self.assertEqual(self.project(files), {})
 

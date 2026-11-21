@@ -6,7 +6,7 @@
 <title>API</title>
 <!-- ==== atom page: theme ==== -->
 <script>
-// Identical in every Atom page (docs/frontend.md, Page standard): the look before the page draws, so it never flashes another one.
+// Identical in every Atom page (docs/frontend.md, Reference code): the look before the page draws, so it never flashes another one.
 // Saved in the page's own localStorage key (<html data-storage-key>, the key it keeps its login in) under "settings": theme = "dark", "light" or "system"
 // (the computer's mode, followed as it changes); density = "comfortable" (the default) or "compact". So each page keeps its own; logout removes the whole key (back on the defaults).
 // Chosen in Settings (account menu), followed by every tab of the page; the result is <html data-theme data-density>. window.atomSettings: get, set, apply.
@@ -30,7 +30,7 @@
 <!-- ==== end atom page: theme ==== -->
 <style>
 /* ==== atom page: look ==== */
-/* Identical in every Atom page (docs/frontend.md, Page standard); a page's own styles come after this block and only add layout. A test checks the copies match. */
+/* Identical in every Atom page (docs/frontend.md, Reference code); a page's own styles come after this block and only add layout. A test checks the copies match. */
 :root{--bg:#0b0d10;--card:#0f1114;--panel:#1a1d23;--field:#14171c;--line:rgba(var(--hl),.08);--line-strong:rgba(var(--hl),.14);--text:#e6eef3;--muted:#9aa0a6;--primary:#38a169;--accent:#4299e1;--brand:#2b6cb0;--brand-soft:#c3dafe;--brand-ink:#90cdf4;--hl:255,255,255;--warn:#ed8936;--danger:#f87171;--font:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"SF Mono",Menlo,Consolas,monospace;--fs:13px;--fs-small:12px;--fs-title:15px;--radius:8px;--control-h:34px;--cell-y:8px;color-scheme:dark}
 /* light: <html data-theme="light"> (Settings > Theme, or the computer when Theme is System); --hl is the overlay colour (white on dark, ink on light) */
 /* compact: <html data-density="compact"> (Settings > Density): smaller fields, buttons and table rows */
@@ -807,7 +807,7 @@ const UI = id => d.getElementById(id);
 // localStorage "api" = {v, token, user, synced_at} (the account block)
 const PAGE = { key: "api", title: "API", role: null, loginRequired: false, idb: true, login: () => openLoginRunner(), refresh: () => specRefresh(), onOut: () => { Store.responses = {} } };
 /* ==== atom page: account ==== */
-// Identical in every Atom page that logs in (docs/frontend.md, Page standard); the page sets PAGE just above this block and calls Page.start() last. A test checks the copies match.
+// Identical in every Atom page that logs in (docs/frontend.md, Reference code); the page sets PAGE just above this block and calls Page.start() last. A test checks the copies match.
 // localStorage[PAGE.key] = {v, token, user, info, synced_at, ...the page's choices}; IndexedDB database PAGE.key, store "cache", records {name, user_id, saved_at, data} (pages with PAGE.idb).
 // Logged in means a valid token object; the user comes from GET /my/profile and is checked on every sync; Sync runs every 3 hours and from the account menu; logout clears everything in every tab.
 // Without a login: a page that needs one shows the login page (PAGE.intro: {heading, text, features: [[svg paths, title, line], ...]}); a page with PAGE.login opens its own login instead (API: the runner).
