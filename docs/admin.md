@@ -11,6 +11,9 @@ Atom embeds single-page browser interfaces in `static/`. The page at `/` (`confi
 ### Home (`/`)
 Served at `/`: a table of every page, from `GET /static-pages` (public, kept out of `log_api`). A page is a top-level `.html` file or a folder with an `index.html`, opened by name at `GET /page/<name>` (`<name>.html` or `<name>/index.html` → `/page/<name>`; public, revalidated on every load), in Atom's `static/` and the project's `static_extend/`, the home page included, whatever the name; other files (CSV, scripts, images, folders without `index.html`, deeper pages) are skipped but still served at `/static/...`. Two pages with one name stop startup. Each `/static-pages` entry is `{name, url, folder, path}`; with `config_is_home_atom_listed=false` it lists only `static_extend/` pages, so the home page shows just the project's (Atom's still open at `/page/<name>`). Each row shows the page's name (its file or folder name with the first letter capitalized) and its path; clicking the row opens the page in a new tab. Search with `/`, Enter opens the first match.
 
+### Atom (`/page/atom`)
+A public page about Atom for anyone, with no login and no call to the server: what it does in plain words, a story per feature, its speed, the five checks on every request, the ways to sign in, the built-in pages and one update for every app, drawn by particles that take the shape of each part; a link to the GitHub repository.
+
 ### A. API (`/page/api`)
 - **Live Endpoint Introspection**: Dynamically displays all endpoints, schemas, and parameter requirements.
 - **Interactive Request Runner**: Test GET, POST, PUT, DELETE, and WebSocket connections with headers and request payloads.

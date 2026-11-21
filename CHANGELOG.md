@@ -4,6 +4,12 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [19.1.0] - 2026-11-21
+
+- **A page about Atom for everyone:** `/page/atom` explains Atom in plain words, with no login. About 2,000 particles take the shape of what the visitor looks at: they spell Atom, spin as an atom, become each feature's icon, streak for speed, become each of the five checks a request passes (pick a visitor and watch), become the Google or Microsoft logo for sign-in, form the built-in pages, carry one update to every app, and end as a star for the GitHub repository. The pointer pushes them aside. Dark and light, works on a phone, calm when the visitor asks for reduced motion, no outside scripts or fonts, and no call to the server ([docs/admin.md](docs/admin.md)).
+- **Readme docs as a table:** every doc with one short line.
+- **Fix:** `docs/queue.md` named Celery's setting `config_celery_broker_url`; it is `config_celery_url`.
+
 ## [19.0.0] - 2026-11-21
 
 **Upgrade (projects must change):** Google login is now one OIDC provider. A page that called `/auth/login-google {"google_token", "role"}` calls `/auth/login-oidc {"provider": "google", "id_token", "role"}`; `.env` `config_google_login_client_id=<id>` becomes `config_oidc_provider={"google": {"issuer": ["https://accounts.google.com", "accounts.google.com"], "client_id": "<id>"}}`. Existing Google users keep their accounts: `users.google_login_id` is renamed to `oidc_google` at startup with its data. `google_login_metadata` is no longer used (Atom keeps columns it no longer lists; drop it with `ALTER TABLE users DROP COLUMN IF EXISTS google_login_metadata;` when you wish). Projects whose pages never called `/auth/login-google` change nothing.

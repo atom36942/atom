@@ -130,9 +130,42 @@ venv/bin/python -m script.check                 # must pass before a pull reques
 Then open a pull request against `main`. Details: [CONTRIBUTING.md](https://github.com/atom36942/atom/blob/main/CONTRIBUTING.md) · [Code of Conduct](https://github.com/atom36942/atom/blob/main/CODE_OF_CONDUCT.md) · [tests/README.md](tests/README.md)
 
 # Docs
-- **Start:** [quickstart](docs/quickstart.md) · [about](docs/about.md) · [config](docs/config.md) · [extend](docs/extend.md) · [sync](docs/sync.md) · [windows](docs/windows.md) · [faq](docs/faq.md) · [AGENTS.md](AGENTS.md)
-- **Features:** [auth](docs/auth.md) ([permissions](docs/auth-permission.md), [API keys](docs/auth-api-key.md), [2FA](docs/auth-totp.md), [single sign-on](docs/auth-oidc.md)) · [crud](docs/crud.md) · [backend](docs/backend.md) · [front end](docs/frontend.md) · [user management](docs/user-management.md) · [ownership](docs/ownership.md) · [database](docs/database.md) · [timescaledb](docs/timescaledb.md) · [schedule](docs/schedule.md) · [redis](docs/redis.md) · [queue](docs/queue.md) · [webhook](docs/webhook.md) · [messaging](docs/messaging.md) · [storage](docs/storage.md)
-- **Operate:** [admin](docs/admin.md) · [performance](docs/performance.md) · [benchmark](docs/benchmark.md) · [security](docs/security.md) · [audit](docs/audit.md) · [tests](tests/README.md)
+| Area | Doc | About |
+|---|---|---|
+| Start | [quickstart](docs/quickstart.md) | Sign up and first records |
+|  | [about](docs/about.md) | Design decisions and layout |
+|  | [config](docs/config.md) | Every setting |
+|  | [extend](docs/extend.md) | Where project code goes |
+|  | [sync](docs/sync.md) | Updating to a new Atom |
+|  | [windows](docs/windows.md) | Running on Windows |
+|  | [faq](docs/faq.md) | Common questions |
+|  | [AGENTS.md](AGENTS.md) | Rules for every project |
+| Auth | [auth](docs/auth.md) | Users, logins, tokens |
+|  | [auth-permission](docs/auth-permission.md) | Per-user permissions |
+|  | [auth-api-key](docs/auth-api-key.md) | API keys for systems |
+|  | [auth-totp](docs/auth-totp.md) | Two-factor login |
+|  | [auth-oidc](docs/auth-oidc.md) | Single sign-on |
+|  | [user-management](docs/user-management.md) | Managing an app's users |
+| Data | [crud](docs/crud.md) | Create, read, update, delete |
+|  | [ownership](docs/ownership.md) | Own-row access |
+|  | [database](docs/database.md) | Pools, schema, AI query |
+|  | [timescaledb](docs/timescaledb.md) | Time-series data |
+|  | [storage](docs/storage.md) | Files in S3 or Azure |
+| Jobs | [queue](docs/queue.md) | Background jobs |
+|  | [schedule](docs/schedule.md) | Scripts on a schedule |
+|  | [webhook](docs/webhook.md) | Webhooks out and in |
+|  | [messaging](docs/messaging.md) | Messages, email, SMS |
+|  | [redis](docs/redis.md) | Cache, limits, state |
+| Build | [backend](docs/backend.md) | Back-end rules |
+|  | [frontend](docs/frontend.md) | Pages and login flow |
+| Operate | [admin](docs/admin.md) | Built-in pages, admin APIs |
+|  | [performance](docs/performance.md) | Tuning and profiling |
+|  | [benchmark](docs/benchmark.md) | Measured speed |
+|  | [security](docs/security.md) | Security model |
+|  | [audit](docs/audit.md) | Security audit |
+|  | [tests](tests/README.md) | Running the tests |
+
+Showcase for everyone: `/page/atom` on any Atom app.
 
 # License
 MIT.
