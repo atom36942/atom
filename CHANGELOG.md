@@ -4,6 +4,11 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [19.3.0] - 2026-11-22
+
+- **Full-text search:** a table gets a generated `tsvector` column from its text columns (with weights) and a GIN index; every read route then takes `filter=["search @@ printer working -toner"]` (words in any order, word forms, `"phrases"`, `-excluded`, `or`, in the column's own language) and `order=search desc` (best match first, paged after a cursor). The column is never returned or exported. Atom's `ticket` table has one (title and description), added at the next start. Existing filters are unchanged ([docs/crud-search.md](docs/crud-search.md)).
+- **Generated columns:** `"generated": "<SQL expression>"` on any `config_postgres` column (`GENERATED ALWAYS AS (...) STORED`), rebuilt when the expression changes; GIN indexes accept `tsvector` ([docs/config.md](docs/config.md)).
+
 ## [19.2.0] - 2026-11-21
 
 - **Forgot password and invites:** `POST /public/password-set {role, email or mobile, otp, password}` sets a new password with the code from `/public/otp-send-email` or `-mobile`, for the user with that email or mobile and role (password rules, hashed, logged; the code works once; 5 a minute). An invite is the same route: an admin creates the user as today with a password nobody is told, sets their email, and the person sets their own. Role 1 and deleted or deactivated users are refused; without the code, nothing tells whether an account exists. Nothing existing changes ([docs/auth.md](docs/auth.md#forgot-password-and-invites)).

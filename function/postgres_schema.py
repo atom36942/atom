@@ -50,6 +50,9 @@ def func_postgres_schema_config_validate(*, config_postgres: dict) -> None:
                     raise Exception(f"{table_name}.{name} {key} must be bool")
             if name.lower() in reserved:
                 raise Exception(f"Column name '{name}' in table '{table_name}' is a PostgreSQL reserved keyword. Please rename it.")
+            if "generated" in col:
+                if not isinstance(col["generated"], str) or not col["generated"].strip(): raise Exception(f"{table_name}.{name} generated must be the SQL expression of the column")
+                if mixed := [key for key in ("default", "is_mandatory", "in", "regex", "check", "unique", "old") if key in col]: raise Exception(f"{table_name}.{name} is generated: Postgres fills it, so it takes no {', '.join(mixed)}")
             if "regex" in col and "[]" in dtype.lower():
                 raise Exception(f"Regex constraint is not supported for array column {table_name}.{name}. Remove 'regex' key to resolve.")
             if col.get("index"):
@@ -67,8 +70,8 @@ def func_postgres_schema_config_validate(*, config_postgres: dict) -> None:
                             if order and index_type != "btree":
                                 raise Exception(f"Index column '{ic}' in {table_name}: a sort direction only on btree indexes")
                         if index_type == "gin":
-                            if not any(x in dtype.lower() for x in ("[]", "jsonb", "text", "varchar")):
-                                raise Exception(f"GIN index is not compatible with '{dtype}' on {table_name}.{name}. Supported: arrays, jsonb, text, varchar.")
+                            if not any(x in dtype.lower() for x in ("[]", "jsonb", "text", "varchar", "tsvector")):
+                                raise Exception(f"GIN index is not compatible with '{dtype}' on {table_name}.{name}. Supported: arrays, jsonb, text, varchar, tsvector.")
                         elif index_type == "gist":
                             if not any(x in dtype.lower() for x in ("geography", "geometry", "box", "circle", "point", "polygon")):
                                 raise Exception(f"GIST index is not compatible with '{dtype}' on {table_name}.{name}. Supported: geography, geometry, spatial types.")
@@ -155,13 +158,15 @@ async def func_postgres_schema_tables_sync(*, conn: asyncpg.Connection, tables: 
         primary_cfg = tables[table_name][0]
         identity_clause = f" GENERATED {primary_cfg['identity'].upper().replace('_', ' ')} AS IDENTITY" if primary_cfg.get("identity") else ""
         await conn.execute(f'CREATE TABLE IF NOT EXISTS "{table_name}" ("{primary_cfg["name"]}" {primary_cfg["datatype"]}{identity_clause} PRIMARY KEY);')
-    column_rows = await conn.fetch("SELECT t.relname, a.attname, format_type(a.atttypid, a.atttypmod) as type, a.attnotnull as notnull, pg_get_expr(ad.adbin, ad.adrelid) as default FROM pg_attribute a JOIN pg_class t ON a.attrelid = t.oid JOIN pg_namespace n ON t.relnamespace = n.oid LEFT JOIN pg_attrdef ad ON a.attrelid = ad.adrelid AND a.attnum = ad.adnum WHERE t.relname = ANY($1::text[]) AND n.nspname = 'public' AND a.attnum > 0 AND NOT a.attisdropped", names)
+    column_rows = await conn.fetch("SELECT t.relname, a.attname, format_type(a.atttypid, a.atttypmod) as type, a.attnotnull as notnull, pg_get_expr(ad.adbin, ad.adrelid) as default, a.attgenerated = 's' AS generated, col_description(t.oid, a.attnum) AS comment FROM pg_attribute a JOIN pg_class t ON a.attrelid = t.oid JOIN pg_namespace n ON t.relnamespace = n.oid LEFT JOIN pg_attrdef ad ON a.attrelid = ad.adrelid AND a.attnum = ad.adnum WHERE t.relname = ANY($1::text[]) AND n.nspname = 'public' AND a.attnum > 0 AND NOT a.attisdropped", names)
     meta_rows = await conn.fetch("SELECT tablename, indexname FROM pg_indexes WHERE schemaname = 'public' AND tablename = ANY($1::text[]) UNION ALL SELECT t.relname, con.conname FROM pg_constraint con JOIN pg_class t ON con.conrelid = t.oid JOIN pg_namespace n ON t.relnamespace = n.oid WHERE n.nspname = 'public' AND t.relname = ANY($1::text[])", names)
     for table_name, column_configs in tables.items():
         rows = [r[1:] for r in column_rows if r[0] == table_name]
         current_cols = {r[0]: r[1] for r in rows}
         current_notnulls = {r[0]: r[2] for r in rows}
         current_defaults = {r[0]: r[3] for r in rows}
+        current_generated = {r[0]: r[4] for r in rows}
+        current_comments = {r[0]: r[5] for r in rows}
         existing_meta = {r[1] for r in meta_rows if r[0] == table_name}
         table_changed = False
         renamed_cols = {}
@@ -170,6 +175,19 @@ async def func_postgres_schema_tables_sync(*, conn: asyncpg.Connection, tables: 
                 continue
             col_name = col_cfg["name"]
             col_type = col_cfg["datatype"]
+            if col_cfg.get("generated"):
+                # a generated column (Postgres fills it from other columns): marked with its expression's hash, rebuilt when the expression changes; it holds no data of its own
+                marker = f"atom generated {func_postgres_schema_hash(col_cfg['generated'])}"
+                if col_name in current_cols:
+                    if current_comments.get(col_name) == marker: continue
+                    if not current_generated.get(col_name): raise Exception(f"{table_name}.{col_name} is a plain column with data: rename it (old) or drop it before it becomes generated")
+                    await conn.execute(f'ALTER TABLE "{table_name}" DROP COLUMN "{col_name}"')
+                    existing_meta = {r[0] for r in await conn.fetch("SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND tablename = $1 UNION ALL SELECT con.conname FROM pg_constraint con JOIN pg_class t ON con.conrelid = t.oid JOIN pg_namespace n ON t.relnamespace = n.oid WHERE n.nspname = 'public' AND t.relname = $1", table_name)}
+                await conn.execute(f'ALTER TABLE "{table_name}" ADD COLUMN "{col_name}" {col_type} GENERATED ALWAYS AS ({col_cfg["generated"]}) STORED')
+                await conn.execute(f"COMMENT ON COLUMN \"{table_name}\".\"{col_name}\" IS '{marker}'")
+                current_cols[col_name] = col_type
+                table_changed = True
+                continue
             if col_name not in current_cols:
                 old_name = col_cfg.get("old") if col_cfg.get("old") not in (None, "") else None
                 if old_name and old_name in current_cols:
@@ -485,7 +503,7 @@ async def func_postgres_schema_check(*, app_state: State, client_postgres: async
     return "schema check done"
 
 SCHEMA_RISKS = ((r"ALTER COLUMN .* TYPE ", "rewrites the table, which stays locked until it finishes"), (r"SET NOT NULL", "reads every row while the table is locked"),
-                (r"^\s*CREATE (UNIQUE )?INDEX (?!CONCURRENTLY)", "blocks writes to the table while the index builds"), (r"\bDROP (TABLE|COLUMN)\b", "removes data"))
+                (r"^\s*CREATE (UNIQUE )?INDEX (?!CONCURRENTLY)", "blocks writes to the table while the index builds"), (r"\bDROP (TABLE|COLUMN)\b", "removes data"), (r"GENERATED ALWAYS AS .* STORED", "computes the column for every row while the table is locked"))
 SCHEMA_ROUTINE = (r"^\s*CREATE OR REPLACE FUNCTION", r"^\s*DO \$\$", r"^\s*INSERT INTO users \(username, password, role\)", r"^\s*UPDATE users SET username = 'admin'", r"^\s*UPDATE users SET permissions = ")    # run on every start, whether anything changed or not
 
 async def func_postgres_schema_plan(*, app_state: State, client_postgres: asyncpg.Pool, config_postgres: dict) -> list:

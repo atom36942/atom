@@ -147,6 +147,7 @@ Then open a pull request against `main`. Details: [CONTRIBUTING.md](https://gith
 |  | [auth-oidc](docs/auth-oidc.md) | Single sign-on |
 |  | [user-management](docs/user-management.md) | Managing an app's users |
 | Data | [crud](docs/crud.md) | Create, read, update, delete |
+|  | [crud-search](docs/crud-search.md) | Full-text search |
 |  | [ownership](docs/ownership.md) | Own-row access |
 |  | [database](docs/database.md) | Pools, schema, AI query |
 |  | [timescaledb](docs/timescaledb.md) | Time-series data |

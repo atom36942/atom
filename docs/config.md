@@ -402,6 +402,7 @@ Declarative schema initialization and migration configuration.
 | `index` | `str` | Index spec (`"btree(email)"`, `"gin_trgm(title)"`, `"gist(coordinate)"`); several joined by `\|`; a btree column may add its sort order, so a list sorted that way reads in index order: `"btree(score desc nulls last,id)"` for `ORDER BY score desc nulls last, id` |
 | `in` | `tuple` | Allowed integer value set (e.g. `(1, 2, 3, 4)`) |
 | `old` | `str` | Renames existing column from `old` to `name` safely without dropping data |
+| `generated` | `str` | SQL expression Postgres fills the column from (`GENERATED ALWAYS AS (...) STORED`); takes no `default`, `is_mandatory`, `in`, `regex`, `check`, `unique` or `old`; rebuilt when the expression changes ([crud-search.md](crud-search.md)) |
 
 #### `control`
 

@@ -79,8 +79,8 @@ async def func_postgres_export(*, client_postgres: asyncpg.Pool | None, config_e
 async def func_postgres_read_export(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, config_export_limit: int, table: str, filter: list, order: str, column: str, config_column_read_blocked: list = None, limit: int | None = None) -> AsyncIterator[str]:
     """A table as CSV through func_postgres_export, with every read rule of func_postgres_read (blocked columns, filters, order); "*" means every column a reader may see."""
     blocked = set(config_column_read_blocked) if config_column_read_blocked is not None else {"password"}
-    if str(column).strip() == "*": column = ",".join(c for c in (cache_postgres_schema or {}).get(table, {}) if c not in blocked) or "*"
-    sql, values, _ = await func_postgres_read_sql(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, filter=filter, order=order, column=column, config_column_read_blocked=config_column_read_blocked)
+    if str(column).strip() == "*": column = ",".join(c for c, meta in (cache_postgres_schema or {}).get(table, {}).items() if c not in blocked and str(meta.get("datatype")) != "tsvector") or "*"
+    sql, values, _ = await func_postgres_read_sql(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, filter=filter, order=order, column=column, config_column_read_blocked=config_column_read_blocked, is_rank_selected=False)
     return await func_postgres_export(client_postgres=client_postgres, config_export_limit=config_export_limit, sql=sql, values=values, limit=limit)
 
 async def func_mssql_export(*, client_mssql: Any, config_export_limit: int, sql: str, limit: int | None = None) -> AsyncIterator[str]:

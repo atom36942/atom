@@ -7,6 +7,7 @@ from argon2 import PasswordHasher
 from .middleware import func_api_error
 from .validation import func_regex_check
 from .postgres_query import func_postgres_relation
+from .postgres_query import func_postgres_search_query
 from .postgres_query import func_postgres_serialize
 from .postgres_query import func_postgres_where_build
 from .postgres_page import func_page_after_next
@@ -144,15 +145,18 @@ async def func_postgres_create(*, client_postgres: asyncpg.Pool | None, client_p
         async with client_postgres.acquire() as conn:
             return await _execute_now(conn)
 
-async def func_postgres_read_sql(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, table: str, filter: list, order: str, column: str, config_column_read_blocked: list = None, after: Any = None, is_key_selected: bool = False, condition: str | None = None) -> tuple:
+async def func_postgres_read_sql(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, table: str, filter: list, order: str, column: str, config_column_read_blocked: list = None, after: Any = None, is_key_selected: bool = False, condition: str | None = None, is_rank_selected: bool = True) -> tuple:
     """The SELECT behind func_postgres_read and func_postgres_read_export, without LIMIT: (sql, values, keys), the table, columns, filters and order checked; values bound as $1, $2.
     The order (default id desc, id added last) comes from func_page_keys; after limits it to the rows after that cursor; is_key_selected adds the order columns a column list leaves out (func_postgres_read removes them again)."""
     blocked_cols = set(config_column_read_blocked) if config_column_read_blocked is not None else {"password"}
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
     if table not in (cache_postgres_schema or {}): raise Exception(f"table '{table}' not found")
-    keys = func_page_keys(order=order, columns=cache_postgres_schema[table])
+    schema = cache_postgres_schema[table]
+    search_cols = [name for name, meta in schema.items() if str(meta.get("datatype")) == "tsvector"]    # search columns: used in filters and order, never returned
+    keys = func_page_keys(order=order, columns=schema)
     for key in keys:
         if key["name"] in blocked_cols: raise Exception(f"column '{key['name']}' is restricted from reading")
+        if key["name"] in search_cols: key.update(is_rank=True, type="float4", nullable=False)    # ordered by how well each row matches the search
     column_list = "*"
     if column != "*":
         cols = []
@@ -160,11 +164,19 @@ async def func_postgres_read_sql(*, client_postgres: asyncpg.Pool | None, client
             c_strip = c.strip()
             if c_strip in blocked_cols: raise Exception(f"column '{c_strip}' is restricted from reading")
             if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(c_strip)): raise Exception(f"invalid identifier {c_strip}")
-            if c_strip not in cache_postgres_schema[table]: raise Exception(f"column '{c_strip}' not found in table: {table}")
+            if c_strip not in schema: raise Exception(f"column '{c_strip}' not found in table: {table}")
+            if c_strip in search_cols: raise Exception(f"column '{c_strip}' is for search only: use it in a filter or the order")
             cols.append(c_strip)
-        if is_key_selected: cols += [key["name"] for key in keys if key["name"] not in cols]
+        if is_key_selected: cols += [key["name"] for key in keys if key["name"] not in cols and not key.get("is_rank")]
         column_list = ",".join([f'"{c}"' for c in cols])
+    elif search_cols: column_list = ",".join(f'"{c}"' for c in schema if c not in search_cols)
     where_statement, values = await func_postgres_where_build(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, filter=filter, prefix="", config_column_read_blocked=config_column_read_blocked)
+    for key in (key for key in keys if key.get("is_rank")):
+        words = next((found[1] for item in (filter or []) if isinstance(item, str) and (found := re.match(rf'^\s*"?{key["name"]}"?\s+@@\s+(.+)$', item, re.IGNORECASE))), None)
+        if not words: raise func_api_error(message=f"order by {key['name']} needs its search: a filter '{key['name']} @@ <words>'", status_code=400)
+        values.append(words.strip())
+        key["sql"] = f'ts_rank("{key["name"]}", {func_postgres_search_query(column=schema[key["name"]], bind=len(values))})'
+        if is_rank_selected: column_list += f', {key["sql"]} AS "{key["name"]}"'    # the cursor of the next page needs it
     after_sql = func_page_after_where(keys=keys, after=after, values=values)
     for extra in (after_sql, condition):    # condition: SQL built by the caller from checked identifiers (func_postgres_read's group_column)
         if extra: where_statement = f"WHERE ({where_statement[len('WHERE '):]}) AND {extra}" if where_statement else f"WHERE {extra}"
@@ -187,7 +199,7 @@ async def func_postgres_read(*, client_postgres: asyncpg.Pool | None, client_pas
         records = await conn.fetch(f"{sql} LIMIT ${len(values)}{f' OFFSET {offset}' if offset else ''}", *values)    # offset: an int from func_page_offset
         next_after = func_page_after_next(keys=keys, rows=records, limit=limit)
         result_list = [dict(r) for r in records[:limit]]
-        added = [key["name"] for key in keys if column != "*" and key["name"] not in [c.strip() for c in column.split(",")]]
+        added = [key["name"] for key in keys if key.get("is_rank") or (column != "*" and key["name"] not in [c.strip() for c in column.split(",")])]
         for r in result_list:
             for name in (*blocked_cols, *added): r.pop(name, None)
         if relation and result_list:
@@ -214,7 +226,7 @@ async def func_postgres_read_group(*, client_postgres: asyncpg.Pool, client_pass
     # identifiers pattern-checked and quoted, the datatype from the schema cache, values bound as $n
     statement = f'SELECT g.value AS "__group", t.* FROM unnest(${len(values) - 1}::text[]) g(value) CROSS JOIN LATERAL ({sql} LIMIT ${len(values)}) t'  # noqa: S608
     records = await client_postgres.fetch(statement, *values)
-    added = [key["name"] for key in keys if column != "*" and key["name"] not in [c.strip() for c in column.split(",")]]
+    added = [key["name"] for key in keys if key.get("is_rank") or (column != "*" and key["name"] not in [c.strip() for c in column.split(",")])]
     groups = {}
     for text in texts:
         found = [record for record in records if record["__group"] == text]

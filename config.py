@@ -416,7 +416,8 @@ config_postgres = {
 {"name":"name","datatype":"text","index":"gin_trgm(name)"},
 {"name":"email","datatype":"text","index":"gin_trgm(email)"},
 {"name":"mobile","datatype":"text","index":"gin_trgm(mobile)"},
-{"name":"closed_at","datatype":"timestamptz"}
+{"name":"closed_at","datatype":"timestamptz"},
+{"name":"search","datatype":"tsvector","generated":"setweight(to_tsvector('english', coalesce(title, '')), 'A') || setweight(to_tsvector('english', coalesce(description, '')), 'B')","index":"gin(search)"}
 ],
 "ticket_comment":[
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
