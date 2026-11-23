@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [19.4.1] - 2026-11-23
+
+- **Readme docs table:** each doc's line says a little more about what it covers.
+
 ## [19.4.0] - 2026-11-23
 
 - **Vector search (pgvector):** a `vector(N)` column with an `hnsw` index stores an embedding per row (written as a list of numbers); every read route then takes `filter=["embedding <=> [0.12,-0.4,...]"]` with `order=embedding` (closest first by cosine distance, paged after a cursor). A vector column is left out of `column=*` and exports, and returned as a list when named. Atom makes no embeddings and none of its own tables has one ([docs/crud-vector.md](docs/crud-vector.md)).
