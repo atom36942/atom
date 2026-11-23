@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [19.4.2] - 2026-11-23
+
+- **`/page/atom` rebuilt as a universe:** the page scrolls naturally while one sky of particles behind it travels from shape to shape: a newborn star ("Every app begins with an atom"), an atom, a galaxy of features, a warp of speed, a world inside five rings of checks, five ways to sign in joined to one account, one Atom feeding many apps, and the star again. Only the words of each idea, no buttons, dots or icons; one GitHub link, on the first screen. Always dark; still and complete when the visitor asks for reduced motion.
+
 ## [19.4.1] - 2026-11-23
 
 - **Readme docs table:** each doc's line says a little more about what it covers.
