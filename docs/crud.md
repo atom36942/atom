@@ -173,6 +173,7 @@ Replace the `filter` value with any of these JSON examples. Columns must exist a
 | Date/time range | `["created_at >= 2026-09-01T00:00:00Z","created_at < 2026-10-01T00:00:00Z"]` |
 | Simple OR | `["status = pending OR status = active","priority >= 2"]` |
 | Full-text search | `["search @@ printer working -toner"]` on a `tsvector` column, ranked with `order=search desc` ([crud-search.md](crud-search.md)) |
+| Nearest rows | `["embedding <=> [0.12,-0.4,...]"]` on a `vector` column, closest first with `order=embedding` ([crud-vector.md](crud-vector.md)) |
 
 For nested logic, use `_and` / `_or` objects. Leaf values use `operator,value`; list/range values in this form use `|` separators:
 

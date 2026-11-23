@@ -311,7 +311,7 @@ config_postgres = {
 
 `config.py` holds Atom core tables; keep application tables in `config_extend.py`. Spreading the base keeps Atom's tables and leaves `config.py`'s own dictionaries unchanged (see [Replace or modify a core table's columns](#replace-or-modify-a-core-tables-columns) for Atom's tables).
 
-Column specs support `is_primary`, `is_mandatory`, `default`, `unique`, `check`, `regex`, `index` (btree / gin / gist / gin_trgm), array types, PostGIS geography, and `old` (for renames). Once a table has a `created_by_id` column it works with the generic `object-create` / `object-read` ownership flow out of the box. Give the owner column an index on (owner, `id`), e.g. `"index": "btree(created_by_id,id)"` (and `btree(received_by_id,id)` etc. for other owner columns you read by): `/my/object-read` filters by owner and sorts by `id`, and without it Postgres scans the table, which gets slower as it grows (see [performance.md](performance.md#9-owner-index-and-json-encoding)).
+Column specs support `is_primary`, `is_mandatory`, `default`, `unique`, `check`, `regex`, `index` (btree / gin / gist / gin_trgm / hnsw), array types, PostGIS geography, and `old` (for renames). Once a table has a `created_by_id` column it works with the generic `object-create` / `object-read` ownership flow out of the box. Give the owner column an index on (owner, `id`), e.g. `"index": "btree(created_by_id,id)"` (and `btree(received_by_id,id)` etc. for other owner columns you read by): `/my/object-read` filters by owner and sorts by `id`, and without it Postgres scans the table, which gets slower as it grows (see [performance.md](performance.md#9-owner-index-and-json-encoding)).
 
 ## 5. Add background workers
 

@@ -381,7 +381,7 @@ Declarative schema initialization and migration configuration.
 
 | Key | Type | Usage |
 |---|---|---|
-| `extension` | `list[str]` | PostgreSQL extensions to install on startup (`["postgis", "pg_trgm", "btree_gin"]`) |
+| `extension` | `list[str]` | PostgreSQL extensions to install on startup (`["postgis", "pg_trgm", "btree_gin", "vector"]`); each is optional: one the server lacks or the user may not install is skipped with a warning, and a column that needs it stops startup naming it |
 | `table` | `dict[str, list[dict]]` | Table schemas defined as list of column specification dicts |
 | `control` | `dict` | Safety flags and auto-migration control settings |
 | `sql` | `dict[str, str]` | Raw custom SQL executed during schema startup initialization |
@@ -399,7 +399,7 @@ Declarative schema initialization and migration configuration.
 | `unique` | `str` | Unique constraint (`"code,type"` for composite; `"code,type\|code,slug"` for multiple) |
 | `check` | `str` | SQL `CHECK` clause (e.g. `"rating >= 0 AND rating <= 10"`) |
 | `regex` | `str` | Validation pattern checked on write by `func_regex_check` |
-| `index` | `str` | Index spec (`"btree(email)"`, `"gin_trgm(title)"`, `"gist(coordinate)"`); several joined by `\|`; a btree column may add its sort order, so a list sorted that way reads in index order: `"btree(score desc nulls last,id)"` for `ORDER BY score desc nulls last, id` |
+| `index` | `str` | Index spec (`"btree(email)"`, `"gin_trgm(title)"`, `"gist(coordinate)"`, `"hnsw(embedding)"` for a vector column); several joined by `\|`; a btree column may add its sort order, so a list sorted that way reads in index order: `"btree(score desc nulls last,id)"` for `ORDER BY score desc nulls last, id` |
 | `in` | `tuple` | Allowed integer value set (e.g. `(1, 2, 3, 4)`) |
 | `old` | `str` | Renames existing column from `old` to `name` safely without dropping data |
 | `generated` | `str` | SQL expression Postgres fills the column from (`GENERATED ALWAYS AS (...) STORED`); takes no `default`, `is_mandatory`, `in`, `regex`, `check`, `unique` or `old`; rebuilt when the expression changes ([crud-search.md](crud-search.md)) |

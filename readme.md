@@ -148,6 +148,7 @@ Then open a pull request against `main`. Details: [CONTRIBUTING.md](https://gith
 |  | [user-management](docs/user-management.md) | Managing an app's users |
 | Data | [crud](docs/crud.md) | Create, read, update, delete |
 |  | [crud-search](docs/crud-search.md) | Full-text search |
+|  | [crud-vector](docs/crud-vector.md) | Nearest rows by meaning (pgvector) |
 |  | [ownership](docs/ownership.md) | Own-row access |
 |  | [database](docs/database.md) | Pools, schema, AI query |
 |  | [timescaledb](docs/timescaledb.md) | Time-series data |

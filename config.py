@@ -271,7 +271,7 @@ config_column_int_mapping = {
 
 # schema
 config_postgres = {
-"extension": ["postgis", "pg_trgm", "btree_gin"],
+"extension": ["postgis", "pg_trgm", "btree_gin", "vector"],
 "table":{
 "test":[
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},

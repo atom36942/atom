@@ -4,6 +4,11 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [19.4.0] - 2026-11-23
+
+- **Vector search (pgvector):** a `vector(N)` column with an `hnsw` index stores an embedding per row (written as a list of numbers); every read route then takes `filter=["embedding <=> [0.12,-0.4,...]"]` with `order=embedding` (closest first by cosine distance, paged after a cursor). A vector column is left out of `column=*` and exports, and returned as a list when named. Atom makes no embeddings and none of its own tables has one ([docs/crud-vector.md](docs/crud-vector.md)).
+- **Every extension is optional:** `vector` joins `config_postgres` `extension`; at startup an extension the server lacks or the user may not install is skipped with a warning (before, only a missing privilege was), and a column that needs a missing one (`vector`, `geography`, `geometry`) stops startup naming the column. The schema plan and check treat installing an extension as routine.
+
 ## [19.3.0] - 2026-11-22
 
 - **Full-text search:** a table gets a generated `tsvector` column from its text columns (with weights) and a GIN index; every read route then takes `filter=["search @@ printer working -toner"]` (words in any order, word forms, `"phrases"`, `-excluded`, `or`, in the column's own language) and `order=search desc` (best match first, paged after a cursor). The column is never returned or exported. Atom's `ticket` table has one (title and description), added at the next start. Existing filters are unchanged ([docs/crud-search.md](docs/crud-search.md)).

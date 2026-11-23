@@ -76,4 +76,4 @@ def func_page_after_next(*, keys: list, rows: list, limit: int) -> str | None:
         if isinstance(value, bool): return "true" if value else "false"
         if hasattr(value, "isoformat"): return value.isoformat()
         return str(value)
-    return json.dumps([text(last[key["name"]]) for key in keys], separators=(",", ":"))
+    return json.dumps([text(last[key.get("field", key["name"])]) for key in keys], separators=(",", ":"))    # field: a computed key's own name in the row (a search rank, a vector distance)
