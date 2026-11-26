@@ -281,9 +281,11 @@ body.more-open .tab.on{background:transparent;color:var(--nav-fg)}    /* only on
 /* ==== virtual grid ==== */
 /* contain must not include size here: #rows is absolutely positioned and shrink-to-fit,
    so size-contained rows would measure as empty and collapse to zero width */
-#vp{flex:1;overflow:auto;position:relative;contain:layout paint;font-size:12px}
+#vp{flex:1;overflow:auto;position:relative;contain:layout paint;font-size:12px;
+    margin:8px 10px 10px;background:var(--bg);border:1px solid var(--line);border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.06)}    /* a card: its own edges, so columns past the right edge read as scrolled, not cut */
+.view:has(> #vp){background:var(--side)}
 #inner{position:relative;box-sizing:content-box}
-#head{position:sticky;top:0;z-index:3;display:flex;background:var(--bg);border-bottom:1px solid var(--th-line);border-left:1px solid var(--th-line)}
+#head{position:sticky;top:0;z-index:3;display:flex;background:var(--bg);border-bottom:1px solid var(--th-line)}
 .th{flex:none;padding:0 9px;height:39px;line-height:39px;font-weight:bold;color:var(--th-fg);
     position:relative;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;user-select:none;border-right:1px solid var(--th-line)}
 .th:hover{background:var(--th-hover)}
@@ -300,29 +302,28 @@ body.more-open .tab.on{background:transparent;color:var(--nav-fg)}    /* only on
 .tr:hover{background:var(--row-hover)}
 .td{flex:none;padding:0 9px;height:29px;line-height:29px;color:var(--fg);
     overflow:hidden;white-space:nowrap;text-overflow:ellipsis;border-right:1px solid var(--row-line)}
-.td:first-child{border-left:1px solid var(--row-line)}
 .td:last-child{border-right:1px solid var(--th-line)}
 .td.null{color:var(--null);text-transform:uppercase}
 /* ==== row panel: one row's fields beside the grid ==== */
-#v-rows.rp-open #vp{margin-right:calc(var(--rp-w,min(520px,50%)) + 48px)}    /* a clear gap between the grid and the panel, also when the columns fill the grid */
+#v-rows.rp-open #vp{margin-right:calc(var(--rp-w,min(520px,50%)) + 58px)}    /* the panel's width and right margin (10px) plus a clear 48px gap between the two cards */
 .tr.rp-sel,.tr.rp-sel:nth-child(odd){background:var(--row-hover)}    /* the panel's row stays lit in the hover colour */
 #rows .td{cursor:pointer}
 #rowpanel .iconbtn svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #rowpanel[hidden]{display:none}
-#rowpanel{position:absolute;right:0;bottom:0;width:var(--rp-w,min(520px,50%));z-index:5;display:flex;flex-direction:column;min-height:0;
-  background:var(--bg);border-left:1px solid var(--th-line);box-shadow:-6px 0 18px rgba(0,0,0,.08)}
+#rowpanel{position:absolute;right:10px;bottom:10px;width:var(--rp-w,min(520px,50%));z-index:5;display:flex;flex-direction:column;min-height:0;
+  background:var(--bg);border:1px solid var(--line);border-radius:6px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)}
 #rp-resize{position:absolute;left:-3px;top:0;bottom:0;width:6px;cursor:col-resize;z-index:1}
 #rp-resize:hover,#rp-resize.dragging{background:var(--nav)}
 .rp-head{display:flex;align-items:center;gap:4px;padding:8px 8px 8px 14px;border-bottom:1px solid var(--th-line);background:var(--rp-head)}    /* purple tint, like the top bar */
-.rp-title{flex:1 0 auto;min-width:72px;max-width:55%}    /* the title keeps room; the filter box gives way first */
-.rp-title b{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rp-title{flex:1 1 auto;min-width:72px;max-width:62%}    /* the title keeps room; the filter box gives way first */
+.rp-title b{display:block;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #rp-key{display:flex;align-items:center;gap:4px;min-width:0;margin-top:1px}#rp-key[hidden]{display:none}    /* the row's key under table.key, with its own copy */
 #rp-keyval{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:11.5px Menlo,Monaco,Consolas,"Courier New",monospace;color:var(--dim)}
 #rowpanel #rp-keycopy{width:20px;height:20px;flex:none;border-color:transparent;background:transparent}#rowpanel #rp-keycopy:hover{border-color:var(--line)}
 #rowpanel #rp-keycopy svg{width:12px;height:12px}
 #rowpanel .iconbtn{width:26px;height:26px;flex:none}    /* never squeezed by a long title */
 #rp-delete:not(:disabled):hover{color:var(--err);border-color:var(--err)}
-#rp-search{width:180px;flex:0 1 180px;min-width:70px;margin-right:4px;padding:4px 8px;font-size:12px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--fg)}
+#rp-search{width:120px;flex:0 1 120px;min-width:60px;margin-right:4px;padding:4px 8px;font-size:11.5px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--fg)}
 .rp-body{flex:1;min-height:0;overflow:auto;padding-bottom:12px}
 .rp-edit textarea{box-sizing:border-box;width:100%;min-height:72px;max-height:40vh;resize:vertical;margin-top:4px;padding:6px 8px;border:1px solid var(--line);border-radius:4px;
   background:var(--bg);color:var(--fg);font:12px/1.5 Menlo,Monaco,Consolas,"Courier New",monospace}
@@ -363,7 +364,8 @@ body.more-open .tab.on{background:transparent;color:var(--nav-fg)}    /* only on
 .rp-table th{position:sticky;top:0;z-index:1;height:28px;padding:0 10px;text-align:left;font-size:11px;font-weight:700;color:var(--th-fg);background:var(--hl);border-bottom:1px solid var(--th-line)}
 .rp-table td{height:28px;padding:0 10px;border-bottom:1px solid var(--row-line);vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rp-table tbody tr:hover{background:var(--row-hover)}
-.rp-table .rp-col{width:30%;font-weight:600;color:var(--fg)}.rp-table .rp-ty{width:24%;color:var(--dim);font-size:11px}
+.rp-table .rp-col{width:var(--rp-colw,30%);font-weight:600;font-size:11.5px;color:var(--fg)}    /* as wide as the longest name (rowPanelDraw), at most 45% */
+.rp-table .rp-ty{width:24%;color:var(--dim);font-size:11px}
 .rp-table tbody tr{cursor:pointer}
 .rp-table td.rp-val{position:relative;font:12px Menlo,Monaco,Consolas,"Courier New",monospace;color:var(--fg)}
 .rp-table td.rp-val.null{color:var(--null)}
@@ -2047,6 +2049,8 @@ function rowPanelDraw(){
     tbody.appendChild(field);
   });
   const thead=el('thead'); thead.appendChild(head); table.append(thead,tbody); body.appendChild(table);
+  const longest=Math.max(6,...S.cols.map(name=>name.length));    // 11.5px bold ≈ 7px a character, plus the cell's padding
+  table.style.setProperty('--rp-colw', Math.min(Math.round(body.clientWidth*.45), longest*7+24)+'px');
   if(!shown){ const empty=el('div','rp-empty','No field matches'); body.appendChild(empty); }
 }
 // one field's modal (from the row panel): the name with its type as subtext, Edit and Copy in the header, and the value drawn for its kind: JSON highlighted,
