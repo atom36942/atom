@@ -97,16 +97,15 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
 #dlg-b .db-url-row{display:flex;align-items:center;gap:8px}
 #dlg-b .db-url{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--dim);overflow-wrap:anywhere;user-select:all}
 
-#sidetabs{display:flex;padding:8px 8px 5px;gap:4px;background:var(--side);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+#sidetabs{display:flex;gap:2px;margin:8px;padding:3px;background:var(--hl);border:1px solid var(--line);border-radius:7px}    /* a segmented control: the kinds in one track */
 #sidetabs[hidden]{display:none!important}
-.side-tab{flex:1 0 auto;text-align:center;padding:4px 7px;font-size:11.5px;font-weight:500;border-radius:4px;
-  border:1px solid transparent;background:transparent;color:var(--dim);cursor:pointer;white-space:nowrap;
-  user-select:none;transition:background .15s ease,color .15s ease,border-color .15s ease}
-.side-tab:hover{color:var(--fg);background:var(--hl)}
-.side-tab .side-count{margin-left:3px;font-weight:400;color:var(--dim)}
-.side-tab.on{background:var(--bg);color:var(--fg);font-weight:600;border-color:var(--line);
-  box-shadow:0 1px 2px rgba(0,0,0,.04)}
-:root[data-theme=dark] .side-tab.on{background:#22222a;color:#fff;border-color:var(--line)}
+.side-tab{flex:1 0 auto;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:5px 8px;font-size:11.5px;font-weight:500;border-radius:5px;
+  border:0;background:transparent;color:var(--fg);cursor:pointer;white-space:nowrap;
+  user-select:none;transition:background .15s ease,color .15s ease}
+.side-tab:hover:not(.on){background:var(--bg)}
+.side-tab .side-count{min-width:18px;padding:0 5px;border-radius:9px;font-size:10.5px;font-weight:600;line-height:16px;background:var(--bg);color:var(--dim)}
+.side-tab.on{background:var(--sel);color:var(--sel-fg);font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.18)}    /* the open kind: a solid pill in the selection colour, as the open table is marked */
+.side-tab.on .side-count{background:rgba(255,255,255,.25);color:var(--sel-fg)}
 
 #side .search{height:40px;padding:0 12px;position:relative;background:var(--bg);border-bottom:1px solid var(--line)}
 #side .search:focus-within{background:var(--hl)}
@@ -673,6 +672,7 @@ dialog.fm .ft{box-sizing:border-box;min-height:54px;align-items:center;flex-wrap
     <div id="dbline">
       <div id="brand"><span id="productname">PgWeb<span class="atom-ver"></span></span><span id="dbname" role="button" tabindex="0" aria-haspopup="dialog" hidden></span></div>
     </div>
+    <button type="button" id="queryrunner" class="side-runner" title="Query runner (SQL Editor)" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 8 4 4-4 4M12 17h7"/></svg>Query runner</button>
     <div id="sidetabs" role="tablist" aria-label="Object types" hidden>
       <button type="button" class="side-tab on" data-kind="table">Tables</button>
       <button type="button" class="side-tab" data-kind="view">Views</button>
@@ -682,7 +682,6 @@ dialog.fm .ft{box-sizing:border-box;min-height:54px;align-items:center;flex-wrap
       <input id="q" placeholder="Search tables" autocomplete="off" spellcheck="false"/>
       <button id="qclr" title="Clear" hidden>×</button>
     </div>
-    <button type="button" id="queryrunner" class="side-runner" title="Query runner (SQL Editor)" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 8 4 4-4 4M12 17h7"/></svg>Query runner</button>
     <div id="tree" hidden></div>
   </aside>
 
@@ -1326,13 +1325,13 @@ function getKindMeta(kind){
   return { singular: 'table', plural: 'tables', label: 'Tables' };
 }
 
-// each side tab shows how many objects it has, e.g. Tables (12); the sidebar is kept wide enough for them on one line
+// each side tab shows how many objects it has as a badge, e.g. Tables 12; the sidebar is kept wide enough for them on one line
 function drawSideTabCounts(){
   for(const btn of document.querySelectorAll('#sidetabs .side-tab')){
     btn.dataset.label ||= btn.textContent.trim();
     const count=((S.tree.public||{})[btn.dataset.kind]||[]).length;
     const label=el('span',null,btn.dataset.label);
-    const badge=el('span','side-count',`(${count})`);
+    const badge=el('span','side-count',String(count));
     btn.replaceChildren(label,badge);
   }
   fitSidebarToTabs();
@@ -1341,8 +1340,8 @@ function sideTabsWidth(){
   const tabs=$('sidetabs'); if(!tabs||tabs.hidden) return 0;
   const style=getComputedStyle(tabs);
   // the text's own width (spans do not stretch with the tab), plus each tab's padding and border
-  const tab=b=>[...b.children].reduce((w,span)=>w+span.getBoundingClientRect().width+parseFloat(getComputedStyle(span).marginLeft||0),0)+parseFloat(getComputedStyle(b).paddingLeft)*2+2;
-  return Math.ceil([...tabs.children].reduce((sum,b)=>sum+tab(b),0) + (tabs.children.length-1)*parseFloat(style.columnGap||4) + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight));
+  const tab=b=>[...b.children].reduce((w,span)=>w+span.getBoundingClientRect().width,0)+parseFloat(getComputedStyle(b).columnGap||0)*(b.children.length-1)+parseFloat(getComputedStyle(b).paddingLeft)*2;
+  return Math.ceil([...tabs.children].reduce((sum,b)=>sum+tab(b),0) + (tabs.children.length-1)*parseFloat(style.columnGap||2) + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + parseFloat(style.marginLeft) + parseFloat(style.marginRight) + 2);    // + the track's border
 }
 function fitSidebarToTabs(){
   const need=sideTabsWidth(), side=$('side');
