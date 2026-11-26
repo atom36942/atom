@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [19.5.1] - 2026-11-26
+
+- **Docs: `users.permissions` holds only route and `config_permission_table` ids.** Any other access a project needs, such as which rows a user may see (countries, companies, branches), goes in its own admin-only `users` column read on each request, never as made-up ids in `permissions`, whose numbering it shares with the routes ([docs/auth-permission.md](docs/auth-permission.md), AGENTS.md Rules).
+
 ## [19.5.0] - 2026-11-26
 
 - **Writes on any database:** every generic write route (object create, update, delete and delete-all) checks its columns against, and writes to, the database `?connection=` names once the route has `"is_connection_param": True`; before, the checks read master's schema. Atom flags `/admin/object-create`, `/admin/object-update` and `/admin/object-delete`; a project flags the others in `config_extend.py`. The route's flag and the database user's own rights decide where a write may go, so give replicas and reporting databases a read-only user ([docs/database.md](docs/database.md#picking-a-database-per-request-connectionname)).

@@ -49,6 +49,7 @@ Rules:
 - Rows only through `func_check_table_permission` and `func_postgres_create/read/update/delete`; hand-written SQL only for what they can't express, values bound as `$1`, Postgres only through asyncpg.
 - Reuse Atom's `func_*` helpers (search `function/` first); never edit `main.py` (startup hook: `func_extend`).
 - Users go through Atom's routes (`/admin/user-*`, `/my/user-*`, `/permission/user-*`): never a project user API ([auth.md](docs/auth.md)).
+- `users.permissions` holds only route and `config_permission_table` ids; any other access (which rows a user sees: countries, companies) is its own admin-only `users` column read on each request ([auth-permission.md](docs/auth-permission.md)).
 - Scripts and other systems call the API with an API key (`Authorization: Bearer atk_...`, a service account's key, on routes whose `auth` has `"api_key"`), never a person's password or a shared login ([auth.md](docs/auth-api-key.md)).
 - Another system that must know when something happens gets a webhook (`func_webhook_send` in the change's transaction, [webhook.md](docs/webhook.md)), never a loop of its own calling it. A route another service calls takes `webhook_verify` (its scheme in `config_webhook_verify_scheme`), never signature code in the route.
 - Lists page after a cursor, never a total count; every CSV export goes through `func_<db>_export` ([crud.md](docs/crud.md)).
