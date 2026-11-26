@@ -4,7 +4,9 @@ import csv
 import io
 import re
 import time
+from contextlib import nullcontext
 from contextlib import suppress
+from decimal import Decimal
 from typing import Any
 from urllib.parse import urlsplit
 from urllib.parse import urlunsplit
@@ -61,7 +63,8 @@ def func_pgweb_cut_python(rows: list) -> list:
     return cut
 
 def func_pgweb_jsonable(value):
-    """Convert PostgreSQL values unsupported by the JSON encoder."""
+    """Convert PostgreSQL values unsupported by the JSON encoder; numeric (Decimal, the commonest) is checked first."""
+    if type(value) is Decimal: return str(value)
     if value is None or isinstance(value, (bool, float, str)): return value
     if isinstance(value, int): return value if abs(value) <= 9007199254740991 else str(value)
     if isinstance(value, (bytes, bytearray, memoryview)): return "\\x" + bytes(value).hex()
@@ -124,6 +127,15 @@ def func_pgweb_write_check(*, sql: str, is_confirmed: bool = False, is_read_only
         writes = statement.startswith(("update ", "delete ")) or (statement.startswith("with ") and re.search(r"\b(update|delete)\b", statement))
         if statement.startswith(("truncate", "drop ")) or (writes and " where " not in statement): raise Exception("unbounded_write")
 
+def func_pgweb_select_body(sql: str) -> str | None:
+    """The SQL without trailing semicolons when it reads rows (SELECT, WITH, VALUES, TABLE, or one in parentheses), so it can run inside SELECT * FROM (...) or COPY (...); None for anything else."""
+    body = str(sql or "").strip()
+    while body.endswith(";"): body = body[:-1].rstrip()
+    lead = re.sub(r"^(?:\s+|--[^\n]*(?:\n|$)|/\*.*?\*/|\()*", "", body, flags=re.S)
+    return body if re.match(r"(select|with|values|table)\b", lead[:8], re.I) else None
+
+PGWEB_WRAP_ERRORS = (asyncpg.PostgresSyntaxError, asyncpg.FeatureNotSupportedError)    # SQL that reads rows but cannot be wrapped (SELECT INTO, a WITH that writes, a script): it runs as typed instead
+
 async def func_pgweb_column_type(*, pool: asyncpg.Pool, table: str, column: str, timeout_sec: int = 30) -> str:
     """Full type of a public table's column (e.g. numeric(10,2)), or None when the column does not exist."""
     return await pool.fetchval("SELECT format_type(atttypid, atttypmod) FROM pg_attribute WHERE attrelid = $1::regclass AND attname = $2 AND attnum > 0 AND NOT attisdropped", func_pgweb_regclass(table), column, timeout=timeout_sec)
@@ -162,35 +174,51 @@ async def func_pgweb_schema(*, pool: asyncpg.Pool, cache_table: dict = None, tim
     return {"tree": tree, "database": records[0]["database"], "version": records[0]["version"].split(" on ")[0]}
 
 async def func_pgweb_connect(*, client_postgres_pgweb: dict, dsn: str = None, timeout_sec: int = 30) -> dict:
-    """Create and register the pgweb connection pool; two connections are kept open, so a table's columns and rows are read at the same time."""
+    """Create and register the pgweb connection pools: pool keeps two connections open, so a table's columns and rows are read at the same time; pool_read has every transaction read-only,
+    so read-only queries and downloads need no BEGIN READ ONLY and COMMIT (two round trips less). Both pools open at the same time as the table list is read."""
     if not dsn: raise Exception("dsn is required")
-    pool = await func_client_postgres(dsn=dsn, min_size=2, max_size=4)
-    if not pool: raise Exception("could not connect")
+    opened = await asyncio.gather(func_client_postgres(dsn=dsn, min_size=2, max_size=4), func_client_postgres(dsn=dsn, min_size=1, max_size=4, is_read_only=True), return_exceptions=True)
+    async def close_opened():
+        for item in opened:
+            if item and not isinstance(item, BaseException):
+                with suppress(Exception): await item.close()
+    failed = next((item for item in opened if isinstance(item, BaseException)), None)
+    if failed or not all(opened):
+        await close_opened()
+        raise failed or Exception("could not connect")
+    pool, pool_read = opened
     cache_table = {}
     try:
         schema = await func_pgweb_schema(pool=pool, cache_table=cache_table, timeout_sec=timeout_sec)
     except Exception:
-        with suppress(Exception): await pool.close()
+        await close_opened()
         raise
-    previous = client_postgres_pgweb.pop("pool", None)
-    if previous:
-        with suppress(Exception): await previous.close()
+    for key in ("pool", "pool_read"):
+        previous = client_postgres_pgweb.pop(key, None)
+        if previous:
+            with suppress(Exception): await previous.close()
     client_postgres_pgweb["pool"] = pool
+    client_postgres_pgweb["pool_read"] = pool_read
     client_postgres_pgweb["dsn"] = dsn    # kept in this process only, to cancel a query when every pool connection is busy
     client_postgres_pgweb["connection_url"] = func_pgweb_dsn_safe(dsn)
     client_postgres_pgweb["cache_table"] = cache_table
     return {**schema, "connection_url": client_postgres_pgweb["connection_url"]}
 
 async def func_pgweb_disconnect(*, client_postgres_pgweb: dict) -> dict:
-    """Close and remove the pgweb connection pool."""
-    pool = client_postgres_pgweb.pop("pool", None)
+    """Close and remove the pgweb connection pools."""
+    pools = [client_postgres_pgweb.pop(key, None) for key in ("pool", "pool_read")]
     client_postgres_pgweb.pop("connection_url", None)
     client_postgres_pgweb.pop("dsn", None)
     client_postgres_pgweb.pop("active_queries", None)
     client_postgres_pgweb.pop("cache_table", None)
-    if pool:
-        with suppress(Exception): await pool.close()
+    for pool in pools:
+        if pool:
+            with suppress(Exception): await pool.close()
     return {}
+
+def func_pgweb_pool(*, client_postgres_pgweb: dict, is_read_only: bool = False):
+    """The pool a query or download runs on: the read-only pool in read-only mode (when there is one), else the main pool; None when not connected."""
+    return (is_read_only and client_postgres_pgweb.get("pool_read")) or client_postgres_pgweb.get("pool")
 
 async def func_pgweb_info(*, pool: asyncpg.Pool, connection_url: str, timeout_sec: int = 30) -> dict:
     """Return database properties plus user-owned and extension-owned public object counts, in one round trip."""
@@ -468,41 +496,91 @@ async def func_pgweb_row(*, pool: asyncpg.Pool, table: str, pk: str, pk_value: A
 async def func_pgweb_query(*, pool: asyncpg.Pool, sql: str, is_confirmed: bool = False, is_read_only: bool = False, is_explain: bool = False,
                            query_id: str = None, active_queries: dict = None, timeout_sec: int = 30) -> dict:
     """Execute query-runner SQL with write guards and optional read-only mode. is_explain: the page's Explain, which must stay one statement
-    (a script would run its other statements, which Explain promises not to)."""
+    (a script would run its other statements, which Explain promises not to).
+    SQL that reads rows runs as SELECT * FROM (<sql>) LIMIT 10001 in one cached statement: no cursor, so PostgreSQL may use parallel workers (it never does for a cursor:
+    count(*) of 1M rows 17 vs 37 ms), no transaction, and a query run again takes one round trip. Read-only mode on the read-only pool (pool.atom_read_only) needs no transaction either;
+    on another pool it runs in a read-only transaction. Other SQL (writes, DDL, scripts, EXPLAIN, SHOW) is prepared and run as typed."""
     func_pgweb_write_check(sql=sql, is_confirmed=is_confirmed, is_read_only=is_read_only)
     result_limit = 10000
+    body = None if is_explain else func_pgweb_select_body(sql)
+    read_only_tx = bool(is_read_only) and not getattr(pool, "atom_read_only", False)
+    def rows(records):
+        out = func_pgweb_pack(records[:result_limit])
+        out["truncated"] = len(records) > result_limit
+        return out
     async with func_postgres_acquire_clean(client_postgres=pool) as conn:
         backend_pid = conn.get_server_pid()    # known since the connection opened: no round trip
         if query_id and active_queries is not None: active_queries[query_id] = backend_pid
         try:
-            # prepared before the transaction (preparing runs nothing), so a script of several statements needs no savepoint to try it
+            if body is not None:
+                try:
+                    async with conn.transaction(readonly=True) if read_only_tx else nullcontext():
+                        return rows(await conn.fetch(f"SELECT * FROM ({body}\n) AS pgweb_query LIMIT {result_limit + 1}", timeout=timeout_sec))  # noqa: S608 - SQL console by design
+                except PGWEB_WRAP_ERRORS: pass
+            # prepared outside any transaction (preparing runs nothing), so a script of several statements needs no savepoint to try it
             try: statement = await conn.prepare(sql, timeout=timeout_sec)
             except Exception as exc:
                 if "multiple commands" not in str(exc).lower(): raise
                 if is_explain: raise Exception("Explain takes one statement; run the script with Execute") from exc
                 statement = None
-            async with conn.transaction(readonly=bool(is_read_only)):
+            is_cursor = statement is not None and bool(statement.get_attributes())
+            async with conn.transaction(readonly=bool(is_read_only)) if read_only_tx or is_cursor else nullcontext():    # a cursor needs a transaction; a script is one transaction anyway
                 if statement is None:
                     status = await conn.execute(sql, timeout=timeout_sec)
                     return {"cols": ["status"], "rows": [[status]], "truncated": False}
-                if not statement.get_attributes():    # a write without RETURNING, DDL: its status (e.g. UPDATE 500), not "0 rows"
+                if not is_cursor:    # a write without RETURNING, DDL: its status (e.g. UPDATE 500), not "0 rows"
                     await statement.fetch(timeout=timeout_sec)
                     return {"cols": ["status"], "rows": [[statement.get_statusmsg()]], "truncated": False}
-                cursor = await statement.cursor(timeout=timeout_sec)
-                records = await cursor.fetch(result_limit + 1)
-                out = func_pgweb_pack(records[:result_limit])
-                out["truncated"] = len(records) > result_limit
-                return out
+                cursor = await statement.cursor(timeout=timeout_sec)    # INSERT ... RETURNING, EXPLAIN, SHOW: read only the rows shown
+                return rows(await cursor.fetch(result_limit + 1))
         finally:
             if query_id and active_queries is not None and active_queries.get(query_id) == backend_pid:
                 active_queries.pop(query_id, None)
 
+async def func_pgweb_copy_chunks(*, conn, body: str, timeout_sec: int, chunk_bytes: int = 65536):
+    """PostgreSQL's own CSV of a query that reads rows (COPY (<body>) TO STDOUT CSV HEADER), in chunks of about chunk_bytes; the server writes it in C, while a bounded queue keeps a slow download from buffering the result."""
+    queue = asyncio.Queue(maxsize=16)
+    buffer = bytearray()
+    async def sink(data):
+        buffer.extend(data)
+        if len(buffer) >= chunk_bytes:
+            await queue.put(bytes(buffer))
+            buffer.clear()
+    async def run():
+        try:
+            await conn.copy_from_query(f"{body}\n", output=sink, format="csv", header=True, timeout=timeout_sec)
+            if buffer: await queue.put(bytes(buffer))
+            await queue.put(None)
+        except Exception as exc: await queue.put(exc)
+    task = asyncio.create_task(run())
+    try:
+        while (item := await queue.get()) is not None:
+            if isinstance(item, Exception): raise item
+            yield item
+    finally:
+        task.cancel()
+        with suppress(BaseException): await task
+
 async def func_pgweb_stream(*, pool: asyncpg.Pool, sql: str, is_confirmed: bool = False, is_read_only: bool = False, timeout_sec: int = 300) -> Any:
-    """Stream every row returned by one query as CSV without buffering the result set: one connection, the statement prepared once, and its errors raised before the download starts."""
+    """Stream every row returned by one query as CSV without buffering the result set, its errors raised before the download starts.
+    SQL that reads rows goes through COPY (func_pgweb_copy_chunks; 1M rows 1.7 vs 10.2 s through Python), values in PostgreSQL's text format (arrays {a,b}, booleans t/f, NULL empty, an empty string "");
+    other row-returning SQL (INSERT ... RETURNING, SHOW, EXPLAIN) is prepared and read through a cursor into Python's csv. Read-only mode as in func_pgweb_query."""
     func_pgweb_write_check(sql=sql, is_confirmed=is_confirmed, is_read_only=is_read_only)
+    body = func_pgweb_select_body(sql)
+    read_only_tx = bool(is_read_only) and not getattr(pool, "atom_read_only", False)
 
     async def _iter():
         async with func_postgres_acquire_clean(client_postgres=pool) as conn:
+            if body is not None:
+                is_started = False
+                try:
+                    async with conn.transaction(readonly=True) if read_only_tx else nullcontext():
+                        async for chunk in func_pgweb_copy_chunks(conn=conn, body=body, timeout_sec=timeout_sec):
+                            is_started = True
+                            yield chunk
+                    return
+                except PGWEB_WRAP_ERRORS:
+                    if is_started: raise
             async with conn.transaction(readonly=bool(is_read_only)):
                 await conn.execute(f"SET LOCAL statement_timeout = '{int(timeout_sec) * 1000}ms'")
                 try: statement = await conn.prepare(sql, timeout=timeout_sec)
@@ -514,19 +592,15 @@ async def func_pgweb_stream(*, pool: asyncpg.Pool, sql: str, is_confirmed: bool 
                 buffer = io.StringIO()
                 writer = csv.writer(buffer)
                 writer.writerow(columns)
-                yield buffer.getvalue().encode("utf-8")
-                buffer.seek(0); buffer.truncate(0)
-                pending = 0
-                async for record in statement.cursor(prefetch=500, timeout=timeout_sec):
+                async for record in statement.cursor(prefetch=1000, timeout=timeout_sec):
                     writer.writerow([func_pgweb_jsonable(value) for value in record.values()])
-                    pending += 1
-                    if pending >= 250:
+                    if buffer.tell() >= 65536:
                         yield buffer.getvalue().encode("utf-8")
-                        buffer.seek(0); buffer.truncate(0); pending = 0
-                if pending: yield buffer.getvalue().encode("utf-8")
+                        buffer.seek(0); buffer.truncate(0)
+                if buffer.tell(): yield buffer.getvalue().encode("utf-8")
 
     generator = _iter()
-    header = await generator.__anext__()    # prepares the statement: a bad query is answered as an error, not as a broken download
+    header = await generator.__anext__()    # the first rows: a bad query is answered as an error, not as a broken download
 
     async def _all():
         try:
@@ -842,7 +916,7 @@ async def func_pgweb(*, app_state: State, action: str, **params) -> dict:
     client_postgres_pgweb = app_state.client_postgres_pgweb
     if action == "connect": return await app_state.func_pgweb_connect(client_postgres_pgweb=client_postgres_pgweb, **params)
     if action == "disconnect": return await app_state.func_pgweb_disconnect(client_postgres_pgweb=client_postgres_pgweb)
-    pool = client_postgres_pgweb.get("pool")
+    pool = func_pgweb_pool(client_postgres_pgweb=client_postgres_pgweb, is_read_only=action == "query" and bool(params.get("is_read_only")))
     if not pool: raise Exception("not_connected")
     active_queries = client_postgres_pgweb.setdefault("active_queries", {})
     if action == "cancel":
@@ -868,14 +942,16 @@ async def func_pgweb(*, app_state: State, action: str, **params) -> dict:
     return result
 
 async def func_pgweb_response(*, app_state: State, ob: dict) -> Response:
-    """Run a /pgweb action and build its response; errors keep their status (400 by default) and the raw Postgres message, which a SQL console needs."""
-    def error(exc: Exception) -> Response: return Response(content=func_pgweb_orjson_dumps({"status": 0, "message": str(exc)}), status_code=getattr(exc, "status_code", 400), media_type="application/json")
+    """Run a /pgweb action and build its response; errors keep their status (400 by default) and the raw Postgres message, which a SQL console needs.
+    Responses are sent uncompressed (Content-Encoding: identity, which Atom's gzip passes through): pgweb answers only this machine, where gzip costs time and saves nothing (10,000 rows: 47 vs 31 ms)."""
+    identity = {"Content-Encoding": "identity"}
+    def error(exc: Exception) -> Response: return Response(content=func_pgweb_orjson_dumps({"status": 0, "message": str(exc)}), status_code=getattr(exc, "status_code", 400), media_type="application/json", headers=identity)
     try:
         if ob.get("action") == "stream":
-            pool = app_state.client_postgres_pgweb.get("pool")
+            pool = func_pgweb_pool(client_postgres_pgweb=app_state.client_postgres_pgweb, is_read_only=bool(ob.get("is_read_only")))
             if not pool: return error(Exception("not_connected"))
             generator = await func_pgweb_stream(pool=pool, **{key: value for key, value in ob.items() if key != "action"})
-            return StreamingResponse(generator, media_type="text/csv; charset=utf-8", headers={"Content-Disposition": 'attachment; filename="query-result-all.csv"', "Cache-Control": "no-store"})
-        return Response(content=func_pgweb_orjson_dumps({"status": 1, "message": await func_pgweb(app_state=app_state, **ob)}), media_type="application/json")
+            return StreamingResponse(generator, media_type="text/csv; charset=utf-8", headers={"Content-Disposition": 'attachment; filename="query-result-all.csv"', "Cache-Control": "no-store", **identity})
+        return Response(content=func_pgweb_orjson_dumps({"status": 1, "message": await func_pgweb(app_state=app_state, **ob)}), media_type="application/json", headers=identity)
     except Exception as exc:
         return error(exc)

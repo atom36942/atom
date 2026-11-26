@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [21.0.1] - 2026-11-26
+
+- **pgweb is faster.** It now runs a query in one round trip, where it used to take about seven, and PostgreSQL can use parallel workers again. Read-only mode runs on a second pool, read-only by default. The CSV download comes from PostgreSQL's `COPY`, with values in PostgreSQL's text format: arrays `{a,b}`, booleans `t`/`f`. On an Azure database a query takes 75 ms instead of 516 ms. Locally, a CSV of 1,000,000 rows takes 1.5 s instead of 11.1 s. The session reset after typed SQL (pgweb, the admin query runners, exports) now runs after the response is sent ([docs/performance.md](docs/performance.md)).
+
 ## [21.0.0] - 2026-11-26
 
 **Upgrade (projects must change):** the retention settings are renamed; rename them in `config_extend.py` and `.env` (an old name stops startup with its new name).

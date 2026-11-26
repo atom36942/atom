@@ -32,11 +32,12 @@ async def func_client_dict_open(*, client_dict: dict, url_dict: dict, client_ope
 
 class _FairPool(Pool):
     """asyncpg pool that hands connections to waiting requests in the order they asked: a request first takes a place at a first-come-first-served gate (asyncio.Semaphore, one place per connection), so a request that just arrived never takes a freed connection ahead of one already waiting. Without it, a connection released without a reset query goes back so fast that new requests overtake waiting ones: about the same throughput, but a slow tail (p95 at 50 users on 10 connections: 46 vs 18 ms; at 200 users: 242 vs 91 ms)."""
-    __slots__ = ("_gate",)
+    __slots__ = ("_gate", "atom_read_only")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._gate = asyncio.Semaphore(kwargs["max_size"])
+        self.atom_read_only = (kwargs.get("server_settings") or {}).get("default_transaction_read_only") == "on"    # every transaction on it is read-only: callers skip BEGIN READ ONLY
 
     async def _acquire(self, timeout):  # noqa: ASYNC109 - asyncpg's own signature, overridden
         async with asyncio.timeout(timeout):
@@ -62,14 +63,25 @@ async def func_client_postgres(*, dsn: str, min_size: int = 5, max_size: int = 2
     # the same arguments asyncpg.create_pool passes, with its defaults
     return await _FairPool(dsn, connection_class=asyncpg.Connection, record_class=asyncpg.Record, max_queries=50000, max_inactive_connection_lifetime=300.0, loop=None, **pool_kwargs)
 
+POSTGRES_RESET_TASKS = set()    # resets running after their request answered; kept so they are not garbage collected
+
+async def func_postgres_reset_release(*, acquire_context, conn) -> None:
+    """Reset a borrowed connection's session (rolls back an open transaction, RESET ALL, UNLISTEN, unlocks), close it when that fails, then give it back to the pool (leaving its acquire context)."""
+    try: await conn.reset(timeout=5)
+    except Exception: conn.terminate()
+    finally: await acquire_context.__aexit__(None, None, None)
+
 @asynccontextmanager
 async def func_postgres_acquire_clean(*, client_postgres: asyncpg.Pool):
-    """Borrow a pool connection for SQL someone typed (query runners, pgweb): its session (SET, SET ROLE, advisory locks, LISTEN) is reset before it goes back, and a connection that cannot be reset is closed."""
-    async with client_postgres.acquire() as conn:
-        try: yield conn
-        finally:
-            try: await conn.reset(timeout=5)
-            except Exception: conn.terminate()
+    """Borrow a pool connection for SQL someone typed (query runners, pgweb): its session (SET, SET ROLE, advisory locks, LISTEN) is reset before it goes back, and a connection that cannot be reset is closed.
+    The reset runs in the background once the caller is done, so the response does not wait for its round trip; the pool gets the connection back only when it is clean."""
+    acquire_context = client_postgres.acquire()
+    conn = await acquire_context.__aenter__()
+    try: yield conn
+    finally:
+        task = asyncio.create_task(func_postgres_reset_release(acquire_context=acquire_context, conn=conn))
+        POSTGRES_RESET_TASKS.add(task)
+        task.add_done_callback(POSTGRES_RESET_TASKS.discard)
 
 def func_client_redis(*, url: str, max_connections: int = 100, timeout_sec: float = 5, key_prefix: str = ""):
     """Initialize a single Redis connection pool: when all max_connections are busy, a command waits up to timeout_sec for one instead of failing at once. key_prefix (kept on the client as atom_key_prefix) starts every cache, user-state and rate-limit key, so apps sharing one Redis never read each other's keys."""
