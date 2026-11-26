@@ -108,7 +108,7 @@ async def func_lifespan(app: FastAPI):
     yield
     try:
         await app.state.func_app_tasks_stop(app_state=app.state)
-        if not app.state.config_is_read_only:await app.state.func_postgres_buffer_flush_all(app_state=app.state, client_postgres=postgres_master, buffer_postgres_create=buffer_postgres_create, client_postgres_log_api=client_postgres_log_api, buffer_postgres_log_api=buffer_postgres_log_api)
+        if not app.state.config_is_read_only: await app.state.func_postgres_buffer_flush_all(app_state=app.state)
         # project shutdown runs before Atom's clients close; its errors never block that
         try: await app.state.func_app_extend_run(app_state=app.state, name="func_extend_shutdown")
         except Exception as e: print(f"❌ func_extend_shutdown error: {e}")
@@ -163,6 +163,9 @@ def middleware(asgi_app):
             is_connection_param = api_cfg.get("is_connection_param", False)
             # active check
             await app_state.func_middleware_check_active(is_active=is_active)
+            # caller ip and shared token: for a caller that can't sign (some device and IoT clouds), set per route; checked before the body is read
+            if (ip_allow := api_cfg.get("ip_allow")) is not None: app_state.func_middleware_check_ip_allow(client_ip=app_state.func_middleware_client_ip(request=request), ip_allow=ip_allow)
+            if token_verify := api_cfg.get("token_verify"): app_state.func_middleware_check_token_verify(request=request, token_verify=token_verify, secret=getattr(app_state, token_verify["secret"], None))
             # webhook signature: the route's caller is another service, proven by the HMAC of the raw body
             if webhook_verify := api_cfg.get("webhook_verify"): receive = await app_state.func_webhook_verify_request(request=request, receive=receive, webhook_verify=webhook_verify, config_webhook_verify_scheme=app_state.config_webhook_verify_scheme, config_webhook_verify_tolerance_sec=app_state.config_webhook_verify_tolerance_sec, secret=getattr(app_state, webhook_verify["secret"], None))
             # token
@@ -178,6 +181,7 @@ def middleware(asgi_app):
             await app_state.func_middleware_check_ratelimiter(client_redis=app_state.client_redis_dict.get("ratelimiter"), rate_limit=rate_limit, url_path=path, identifier=request.state.user.get("id") if request.state.user else app_state.func_middleware_client_ip(request=request), cache_ratelimiter=app_state.cache_ratelimiter)
             # postgres select
             request.state.client_postgres, request.state.cache_postgres_schema = app_state.func_middleware_postgres_select(client_postgres_dict=app_state.client_postgres_dict, cache_postgres_schema_dict=app_state.cache_postgres_schema_dict, is_connection_param=is_connection_param, connection=request.query_params.get("connection"))
+            request.state.connection = request.query_params.get("connection") or "master"    # the database's name: buffered rows and queued jobs keep it
             # cache
             user_id, query_params = (request.state.user.get("id") if request.state.user else 0), dict(request.query_params)
             response = await app_state.func_middleware_api_cache(mode="get", path=path, query_params=query_params, cache=cache, client_redis=app_state.client_redis_dict.get("api_response"), user_id=user_id, cache_api_response=app_state.cache_api_response, is_gzip_accepted="gzip" in request.headers.get("accept-encoding", ""))

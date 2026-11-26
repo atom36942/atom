@@ -24,25 +24,35 @@ def func_runtime_error_record(*, runtime_error_count: dict, key: str, error: Exc
     if runtime_error_count[key] == 1 or runtime_error_count[key] % print_every == 0: print(f"❌ {key} error #{runtime_error_count[key]}: {error!r}")
     return
 
-async def func_postgres_buffer_flush_all(*, app_state: State, client_postgres: asyncpg.Pool | None = None, buffer_postgres_create: dict = None, client_postgres_log_api: Any = None, buffer_postgres_log_api: dict = None) -> None:
-    """Flush all PostgreSQL create buffers through their respective client pools."""
-    if client_postgres and buffer_postgres_create:
-        try:
-            async with app_state.runtime_lock_postgres_buffer_flush:
-                await app_state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=None, cache_postgres_schema=app_state.cache_postgres_schema_dict.get("master", {}), buffer_postgres=buffer_postgres_create, config_column_regex=None, buffer_limit=None, mode="flush", table=None, obj_list=None)
-        except Exception as e: func_runtime_error_record(runtime_error_count=app_state.runtime_error_count, key="buffer_flush", error=e)
-    if client_postgres_log_api and buffer_postgres_log_api:
-        try:
-            async with app_state.runtime_lock_postgres_buffer_flush:
-                await app_state.func_postgres_create(client_postgres=client_postgres_log_api, client_postgres_conn=None, client_password_hasher=None, cache_postgres_schema=app_state.cache_postgres_schema_dict.get(app_state.config_postgres_db_log_api, {}), buffer_postgres=buffer_postgres_log_api, config_column_regex=None, buffer_limit=None, mode="flush", table=None, obj_list=None)
-        except Exception as e: func_runtime_error_record(runtime_error_count=app_state.runtime_error_count, key="buffer_flush", error=e)
+def func_postgres_buffer_flush_interval(*, app_state: State, connection: str) -> int:
+    """Seconds between periodic flushes of one database's buffered rows: config_postgres_buffer_flush_auto_sec_<name>, else config_postgres_buffer_flush_auto_sec."""
+    return int(getattr(app_state, f"config_postgres_buffer_flush_auto_sec_{connection}", None) or app_state.config_postgres_buffer_flush_auto_sec)
 
-async def func_postgres_buffer_flush_periodic_task(*, app_state: State, client_postgres: asyncpg.Pool | None, buffer_postgres_create: dict, client_postgres_log_api: Any, buffer_postgres_log_api: dict, interval_sec: int = 60) -> None:
-    """Periodically flush all PostgreSQL buffers in a background task loop."""
+async def func_postgres_buffer_flush_all(*, app_state: State, connections: set = None) -> None:
+    """Flush the create buffer and the log_api buffer, each database's rows through its own pool (the key's connection); connections limits it to those databases.
+    A database without a pool, or a failed insert, keeps its rows for the next flush and is counted under buffer_flush; the other databases are still flushed."""
+    for buffer in (app_state.buffer_postgres_create, app_state.buffer_postgres_log_api):
+        for name in sorted({app_state.func_postgres_buffer_key_read(key=key)["connection"] for key in list(buffer)}):
+            if connections is not None and name not in connections: continue
+            try:
+                client_postgres = app_state.client_postgres_dict.get(name)
+                if not client_postgres: raise Exception(f"buffered rows for '{name}' wait: no pool (config_postgres_url_{name} is not set)")
+                async with app_state.runtime_lock_postgres_buffer_flush:
+                    await app_state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=None, cache_postgres_schema=app_state.cache_postgres_schema_dict.get(name, {}), buffer_postgres=buffer, config_column_regex=None, buffer_limit=None, mode="flush", table=None, obj_list=None, connection=name)
+            except Exception as e: func_runtime_error_record(runtime_error_count=app_state.runtime_error_count, key="buffer_flush", error=e)
+
+async def func_postgres_buffer_flush_periodic_task(*, app_state: State) -> None:
+    """Flush buffered rows in a background loop, each database every func_postgres_buffer_flush_interval seconds (config_postgres_buffer_flush_auto_sec_<name>, else config_postgres_buffer_flush_auto_sec)."""
+    names = set(app_state.client_postgres_dict)
+    tick = min(func_postgres_buffer_flush_interval(app_state=app_state, connection=name) for name in names | {"master"})
+    flushed_at = {name: time.monotonic() for name in names}
     while True:
         try:
-            await asyncio.sleep(interval_sec)
-            await app_state.func_postgres_buffer_flush_all(app_state=app_state, client_postgres=client_postgres, buffer_postgres_create=buffer_postgres_create, client_postgres_log_api=client_postgres_log_api, buffer_postgres_log_api=buffer_postgres_log_api)
+            await asyncio.sleep(tick)
+            now = time.monotonic()
+            due = {name for name in names if now - flushed_at[name] >= func_postgres_buffer_flush_interval(app_state=app_state, connection=name) - tick / 2}    # half a tick early, so sleep's drift never skips a round
+            if due: await app_state.func_postgres_buffer_flush_all(app_state=app_state, connections=due)
+            for name in due: flushed_at[name] = now
         except asyncio.CancelledError: break
         except Exception as e: func_runtime_error_record(runtime_error_count=app_state.runtime_error_count, key="buffer_flush", error=e)
     return
@@ -93,9 +103,9 @@ async def func_async_tasks_cancel(*, task_list: list, timeout_sec: int = 5) -> N
 def func_app_tasks_start(*, app_state: State) -> None:
     """Start the periodic system tasks that func_app_tasks_stop cancels; call after clients and caches are on app_state."""
     app_state.runtime_lock_postgres_buffer_flush = asyncio.Lock()
-    postgres_master, client_postgres_log_api = app_state.client_postgres_dict.get("master"), app_state.client_postgres_log_api
+    postgres_master = app_state.client_postgres_dict.get("master")
     if not app_state.config_is_read_only:
-        app_state.runtime_task_postgres_buffer_flush = asyncio.create_task(app_state.func_postgres_buffer_flush_periodic_task(app_state=app_state, client_postgres=postgres_master, buffer_postgres_create=app_state.buffer_postgres_create, client_postgres_log_api=client_postgres_log_api, buffer_postgres_log_api=app_state.buffer_postgres_log_api, interval_sec=app_state.config_postgres_buffer_flush_auto_sec))
+        app_state.runtime_task_postgres_buffer_flush = asyncio.create_task(app_state.func_postgres_buffer_flush_periodic_task(app_state=app_state))
         schedules = app_state.func_schedule_read(values=getattr(app_state, "_state", None) or vars(app_state))
         if postgres_master is not None and schedules:
             app_state.runtime_task_schedule = asyncio.create_task(app_state.func_schedule_periodic_task(client_postgres=postgres_master, schedules=schedules, timezone=app_state.func_schedule_timezone(name=app_state.config_schedule_timezone), check_sec=app_state.config_schedule_check_sec, runtime_error_count=app_state.runtime_error_count))

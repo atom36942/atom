@@ -1,4 +1,5 @@
 # import
+import ipaddress
 import re
 import sys
 from fastapi import FastAPI
@@ -58,6 +59,12 @@ def func_check_database_config(*, app_state: State) -> None:
             if values.get(f"config_{db}_pool_min_size_{name}") is None and values.get(f"config_{db}_pool_max_size_{name}") is None: continue
             size_min, size_max = (int(values.get(f"config_{db}_pool_{size}_size_{name}") or values.get(f"config_{db}_pool_{size}_size")) for size in ("min", "max"))
             if size_max < size_min: raise Exception(f"config_{db}_pool_max_size_{name} ({size_max}) must be at least its min size ({size_min})")
+    # per-database buffer flush interval: config_postgres_buffer_flush_auto_sec_<name> must name a database that has a URL
+    for key in sorted(values):
+        match = re.fullmatch(r"config_postgres_buffer_flush_auto_sec_(\w+)", key)
+        if not match: continue
+        if match.group(1) not in set(getattr(app_state, "config_postgres_url_dict", None) or {}): raise Exception(f"{key}: no database named {match.group(1)} (config_postgres_url_{match.group(1)} is not set)")
+        int_check(values[key], key)
     return
 
 def func_check_runtime_config(*, app_state: State) -> None:
@@ -153,7 +160,7 @@ def func_check_api_config(*, app: FastAPI) -> None:
         column = key.removeprefix("config_api_global_user_check_") + "_at"
         if value == "token" and column not in (getattr(app.state, "config_column_token_encode", None) or []): raise Exception(f"{key} is token: add {column} to config_column_token_encode")
     api_mode_allowed = ("redis", "inmemory")
-    api_keys_allowed = ("id", "is_active", "auth", "is_connection_param", "user_check_role", "user_check_permission", "user_check_deactivated", "user_check_deleted", "cache", "rate_limit", "api_cache_sec", "api_ratelimiting_times_sec", "is_log_api", "webhook_verify")
+    api_keys_allowed = ("id", "is_active", "auth", "is_connection_param", "user_check_role", "user_check_permission", "user_check_deactivated", "user_check_deleted", "cache", "rate_limit", "api_cache_sec", "api_ratelimiting_times_sec", "is_log_api", "webhook_verify", "ip_allow", "token_verify")
     def flag_check(value, key):
         if not isinstance(value, bool): raise Exception(f"invalid {key}: expected bool")
     def int_check(value, key, min_value=0):
@@ -212,6 +219,19 @@ def func_check_api_config(*, app: FastAPI) -> None:
             if verify["scheme"] not in (getattr(app.state, "config_webhook_verify_scheme", None) or {}): raise Exception(f"{path} webhook_verify: unknown scheme {verify['scheme']!r}; add it to config_webhook_verify_scheme")
             if not isinstance(verify["secret"], str) or not verify["secret"].startswith("config_"): raise Exception(f"{path} webhook_verify: secret must name a config_ setting (the secret itself goes in .env), such as config_webhook_secret_stripe")
             if auth: raise Exception(f"{path} webhook_verify: auth must be [] (the signature is the credential)")
+        if "ip_allow" in cfg:
+            ip_allow = cfg["ip_allow"]
+            if not isinstance(ip_allow, list) or not ip_allow or not all(isinstance(item, str) for item in ip_allow): raise Exception(f'{path} invalid ip_allow: expected a non-empty list of IP addresses or CIDR ranges, such as ["203.0.113.0/24"]')
+            for item in ip_allow:
+                try: ipaddress.ip_network(item, strict=False)
+                except ValueError: raise Exception(f"{path} invalid ip_allow entry: {item!r}") from None
+        if "token_verify" in cfg:
+            token_verify = cfg["token_verify"]
+            if not isinstance(token_verify, dict) or "secret" not in token_verify or set(token_verify) - {"secret", "in", "name"}: raise Exception(f'{path} invalid token_verify: expected {{"secret": <config_ setting holding the token>, "in": "header" or "query", "name": <header or query name>}}')
+            if not isinstance(token_verify["secret"], str) or not token_verify["secret"].startswith("config_"): raise Exception(f"{path} token_verify: secret must name a config_ setting (the token itself goes in .env), such as config_webhook_token_devices")
+            if token_verify.get("in", "header") not in ("header", "query"): raise Exception(f"{path} token_verify: in must be header or query")
+            if "name" in token_verify and not (isinstance(token_verify["name"], str) and re.fullmatch(r"[A-Za-z0-9_-]+", token_verify["name"])): raise Exception(f"{path} token_verify: invalid name {token_verify['name']!r}")
+            if token_verify.get("in") == "query" and "token" not in str(token_verify.get("name") or "token").lower(): raise Exception(f"{path} token_verify: a query name must contain 'token', so request logs hide its value")
         if not auth and any(cfg.get(key) for key in ("user_check_role", "user_check_permission", "user_check_deactivated", "user_check_deleted")): raise Exception(f"{path}: a role, permission, deactivated or deleted check needs a credential (a non-empty auth)")
         if "user_check_permission" in cfg:
             permission_val = cfg["user_check_permission"]

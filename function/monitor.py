@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 import asyncpg
 import orjson
 from starlette.datastructures import State
+from .postgres_crud import func_postgres_buffer_key_read
 
 # function
 async def func_monitor_requests(*, client_postgres: asyncpg.Pool | None, hours: int, top: int = 20, timeout_sec: int = 15) -> dict:
@@ -189,7 +190,7 @@ def func_monitor_background(*, app_state: State) -> dict:
         task = getattr(app_state, name, None)
         status = "off" if task is None else "running" if not task.done() else "cancelled" if task.cancelled() else "failed" if task.exception() else "finished"
         tasks.append({"name": label, "status": status})
-    buffers = [{"buffer": buffer, "table": table, "rows": len(rows)} for buffer, cache in (("create", getattr(app_state, "buffer_postgres_create", {})), ("log_api", getattr(app_state, "buffer_postgres_log_api", {}))) for table, rows in list(cache.items())]
+    buffers = [{"buffer": buffer, "connection": key_info["connection"], "table": key_info["table"], "rows": len(rows)} for buffer, cache in (("create", getattr(app_state, "buffer_postgres_create", {})), ("log_api", getattr(app_state, "buffer_postgres_log_api", {}))) for key, rows in list(cache.items()) for key_info in [func_postgres_buffer_key_read(key=key)]]
     sockets = getattr(app_state, "runtime_message_socket", {})
     return {
         "tasks": tasks,

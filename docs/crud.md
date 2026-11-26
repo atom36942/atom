@@ -56,7 +56,7 @@ Inserts single records or bulk batches into PostgreSQL.
 - **Single or Bulk Payload**: Automatically accepts either a single JSON dictionary or a list under `obj_list`.
 - **Batch Limit Protection**: Enforces `config_batch_item_limit` (default 1,000 items) to prevent memory exhaustion.
 - **Audit Stamping**: In `/my/object-create`, automatically stamps `created_by_id = current_user.id` and `created_at = now()`.
-- **Buffered Writes (`mode=buffer`)**: When `mode=buffer` is supplied, writes append to in-memory `buffer_postgres_create` and flush asynchronously in bulk.
+- **Buffered Writes (`mode=buffer`)**: When `mode=buffer` is supplied, writes append to in-memory `buffer_postgres_create` and flush asynchronously in bulk, to the request's database (`?connection=` on a flagged route, else master; [database.md](database.md#4-in-memory-write-buffering)).
 
 ### Request Example:
 ```bash

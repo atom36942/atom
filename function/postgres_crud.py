@@ -18,9 +18,22 @@ from .postgres_page import func_page_offset
 from .postgres_page import func_page_order_sql
 
 # function
-async def func_postgres_create(*, client_postgres: asyncpg.Pool | None, client_postgres_conn: asyncpg.Connection | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, buffer_postgres: dict, config_column_regex: dict, buffer_limit: int, mode: str, table: str, obj_list: list, buffer_rows_max: int = None, buffer_full_mode: str = "reject", runtime_error_count: dict = None, is_trusted: bool = False) -> Any:
+def func_postgres_buffer_key(*, connection: str, table: str, columns: list, on_conflict: str | None) -> str:
+    """The create buffer's key: rows of one database, table, column set and conflict rule are inserted together."""
+    return f"{connection}|{table}|{','.join(sorted(columns))}|{on_conflict or ''}"
+
+def func_postgres_buffer_key_read(*, key: str) -> dict:
+    """{"connection", "table", "on_conflict"} of a create buffer key (func_postgres_buffer_key)."""
+    connection, table, _, on_conflict = key.split("|")
+    return {"connection": connection, "table": table, "on_conflict": on_conflict or None}
+
+async def func_postgres_create(*, client_postgres: asyncpg.Pool | None, client_postgres_conn: asyncpg.Connection | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, buffer_postgres: dict, config_column_regex: dict, buffer_limit: int, mode: str, table: str, obj_list: list, buffer_rows_max: int = None, buffer_full_mode: str = "reject", runtime_error_count: dict = None, is_trusted: bool = False, connection: str = "master", on_conflict: str | None = None) -> Any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization.
 
+    connection is the database name (config_postgres_url_<name>) client_postgres and cache_postgres_schema belong to:
+    buffered rows keep it, and mode "flush" writes only that database's rows, so each buffer is flushed to its own database.
+    on_conflict "nothing" adds ON CONFLICT DO NOTHING: rows that hit a primary or unique key are skipped, not an error.
+    RETURNING id only when the table has an id column (a TimescaleDB hypertable often has none): then the result is "created".
     buffer_rows_max caps the rows pending in buffer_postgres (None: no cap), so a long outage cannot exhaust memory.
     When full, buffer_full_mode "reject" raises 503 (user data is never dropped silently) and "drop_oldest" drops the
     oldest rows of that buffer key, counted as runtime_error_count["buffer_dropped"] (for best-effort logs).
@@ -30,13 +43,20 @@ async def func_postgres_create(*, client_postgres: asyncpg.Pool | None, client_p
     request data: table and column names are still validated, but values reach Postgres unchecked.
     """
     if not client_postgres and not client_postgres_conn: raise func_api_error(message="postgres client not initialized", status_code=500)
+    if on_conflict not in (None, "nothing"): raise Exception(f"invalid on_conflict: {on_conflict}, allowed: nothing")
+    if not re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", str(connection)): raise Exception(f"invalid connection {connection}")
     limit_chunk = 5000
-    async def insert_serialized(tbl, serialized_list, connection=None):
+    def insert_tail(tbl, rule):
+        """ON CONFLICT and RETURNING of one insert: RETURNING id only when the table has an id column (unknown table: assume it has)."""
+        schema_table = (cache_postgres_schema or {}).get(tbl)
+        return (" ON CONFLICT DO NOTHING" if rule == "nothing" else "") + (" RETURNING id" if schema_table is None or "id" in schema_table else "")
+    async def insert_serialized(tbl, serialized_list, connection=None, rule=None):
         columns = [c for c in serialized_list[0] if re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(c)) or (_ for _ in ()).throw(Exception(f"invalid identifier {c}"))]
         cols_sql = ",".join([f'"{c}"' for c in columns])
+        tail = insert_tail(tbl, rule)
         if len(serialized_list) == 1:
             placeholders = ",".join([f"${i+1}" for i in range(len(columns))])
-            sql = f'INSERT INTO "{tbl}" ({cols_sql}) VALUES ({placeholders}) RETURNING id;'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
+            sql = f'INSERT INTO "{tbl}" ({cols_sql}) VALUES ({placeholders}){tail};'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
             args = [serialized_list[0][c] for c in columns]
             if connection: ids = await connection.fetch(sql, *args)
             elif client_postgres_conn: ids = await client_postgres_conn.fetch(sql, *args)
@@ -61,7 +81,7 @@ async def func_postgres_create(*, client_postgres: asyncpg.Pool | None, client_p
                 async def insert_chunks():
                     for i in range(0, len(serialized_list), limit_chunk):
                         batch = serialized_list[i : i + limit_chunk]
-                        sql = f'INSERT INTO "{tbl}" ({col_list}) SELECT {cast_list} FROM jsonb_to_recordset($1::jsonb) AS x({def_list}) RETURNING id'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
+                        sql = f'INSERT INTO "{tbl}" ({col_list}) SELECT {cast_list} FROM jsonb_to_recordset($1::jsonb) AS x({def_list}){tail}'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
                         ids_batch = await connection.fetch(sql, orjson.dumps(batch, default=str).decode('utf-8'))
                         all_ids.extend([dict(r) for r in ids_batch])
                 # one INSERT is all-or-nothing by itself; a transaction only when several chunks must succeed together and none is open yet
@@ -89,13 +109,17 @@ async def func_postgres_create(*, client_postgres: asyncpg.Pool | None, client_p
             yield await func_postgres_serialize(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=batch, is_base=False if len(batch) > 1 else 1)
     if mode not in ("now", "buffer", "flush"): raise Exception(f"invalid mode: {mode}")
     if mode == "flush":
+        error = None
         for key in list(buffer_postgres.keys()):
+            key_info = func_postgres_buffer_key_read(key=key)
+            if key_info["connection"] != connection: continue    # another database's rows: flushed through its own pool
             items = buffer_postgres.pop(key, None)
             if not items: continue
-            try: await insert_serialized(key.split("|")[0], items)
-            except Exception:
+            try: await insert_serialized(key_info["table"], items, rule=key_info["on_conflict"])
+            except Exception as e:
                 buffer_restore(key, items)
-                raise
+                error = error or e    # the other keys are still flushed; the first error is raised after them
+        if error: raise error
         return "flushed"
     if not obj_list: raise Exception("object list required")
     if len(obj_list) == 1 and not obj_list[0]: raise Exception("object data required")
@@ -112,7 +136,7 @@ async def func_postgres_create(*, client_postgres: asyncpg.Pool | None, client_p
     if mode == "buffer":
         result = "buffered"
         async for serialized_list in serialize_batches():
-            key = f"{table}|{','.join(sorted(serialized_list[0].keys()))}"
+            key = func_postgres_buffer_key(connection=connection, table=table, columns=list(serialized_list[0].keys()), on_conflict=on_conflict)
             if buffer_full_mode not in ("reject", "drop_oldest"): raise Exception(f"invalid buffer_full_mode: {buffer_full_mode}")
             excess = sum(len(rows) for rows in buffer_postgres.values()) + len(serialized_list) - buffer_rows_max if buffer_rows_max is not None else 0
             if excess > 0 and buffer_full_mode == "reject": raise func_api_error(message="buffer full, retry later", status_code=503)
@@ -123,7 +147,7 @@ async def func_postgres_create(*, client_postgres: asyncpg.Pool | None, client_p
                 if runtime_error_count is not None: runtime_error_count["buffer_dropped"] = runtime_error_count.get("buffer_dropped", 0) + dropped
             if len(buffer_postgres[key]) >= buffer_limit:
                 items = buffer_postgres.pop(key)
-                try: await insert_serialized(table, items)
+                try: await insert_serialized(table, items, rule=on_conflict)
                 except Exception:
                     buffer_restore(key, items)
                     raise
@@ -134,7 +158,7 @@ async def func_postgres_create(*, client_postgres: asyncpg.Pool | None, client_p
         async def _execute_now(connection):
             async def insert_batches():
                 async for serialized_list in serialize_batches():
-                    ids = await insert_serialized(table, serialized_list, connection=connection)
+                    ids = await insert_serialized(table, serialized_list, connection=connection, rule=on_conflict)
                     if isinstance(ids, list): all_ids.extend(ids)
             # up to limit_chunk rows is one INSERT, all-or-nothing by itself: no BEGIN/COMMIT round trips
             if len(obj_list) > limit_chunk and not connection.is_in_transaction():

@@ -45,7 +45,7 @@ For lighter asynchronous tasks that don't need external queue broker infrastruct
 Standalone consumer scripts reside in [`script/`](../script). They run as independent OS processes outside of the web server.
 
 ### Built-in Consumers:
-Atom's `script/` has one consumer per broker: `consumer_postgres`, `consumer_redis`, `consumer_rabbitmq`, `consumer_kafka`, `consumer_celery`. Each reads only its own broker's `.env` keys plus `config_postgres_url_master`, and takes the channel to listen on from the command.
+Atom's `script/` has one consumer per broker: `consumer_postgres`, `consumer_redis`, `consumer_rabbitmq`, `consumer_kafka`, `consumer_celery`. Each reads only its own broker's `.env` keys plus the `config_postgres_url_<name>` databases, and takes the channel to listen on from the command. A job sent by a request on another database (`?connection=` on a flagged route) carries that database's name in its payload (`connection`); the consumer opens that database's pool on its first such job and writes there.
 
 ### Channels:
 `func_consumer_channels` (`function/queues.py`) is the only place a channel name maps to the function that handles it. Channel names start with `channel_` and say what the message does:
@@ -125,4 +125,4 @@ FOR UPDATE SKIP LOCKED;
 
 ## 5. Buffer Flushes
 
-Buffered writes (`mode="buffer"` creates and `log_api` rows) live in the web process's memory, so no separate worker can flush them. Each process flushes its own buffers every `config_postgres_buffer_flush_auto_sec` seconds, when a buffer reaches its limit, and once more on shutdown; `/admin/sync` also flushes the create buffer.
+Buffered writes (`mode="buffer"` creates and `log_api` rows) live in the web process's memory, so no separate worker can flush them. Each process flushes its own buffers, each database's rows through its own pool, every `config_postgres_buffer_flush_auto_sec` seconds (`config_postgres_buffer_flush_auto_sec_<name>` for one database), when a buffer reaches its limit, and once more on shutdown; `/admin/sync` also flushes them.

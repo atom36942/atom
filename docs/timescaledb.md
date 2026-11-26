@@ -6,7 +6,7 @@ For high-volume time-series data: GPS, IoT sensors, metrics, events. TimescaleDB
 
 A guideline, not a fixed recipe: adapt it to the feature. Examples use the connection name `timescale` and the feature `gps`.
 
-1. **Server.** PostgreSQL with the TimescaleDB **Community** edition (the Apache-only build, as on some managed services, has no compression, retention or rollups). `shared_preload_libraries = 'timescaledb'`, then `timescaledb-tune`. Check: `SHOW timescaledb.license;` returns `timescale`.
+1. **Server.** PostgreSQL with the TimescaleDB **Community** edition. `shared_preload_libraries = 'timescaledb'`, then `timescaledb-tune`. Check: `SHOW timescaledb.license;` returns `timescale`. Some managed services ship only the **Apache** edition (`apache`): hypertables work, compression, policies and rollups don't; see [Apache edition](#apache-edition-managed-services) for what to use instead.
 2. **Extension**, once, by a database admin: `CREATE EXTENSION IF NOT EXISTS timescaledb;` (plus `postgis` for locations).
 3. **Connect.** TimescaleDB is plain Postgres, so its URL is a normal Postgres URL: one `.env` line, no code.
    ```
@@ -44,10 +44,10 @@ async def func_api_gps_route(*, request: Request):
 | Every statement safe to run again ([forms below](#safe-to-run-again)) | After a change, run the whole file again; what is already there is skipped |
 | Hypertables stay out of `config_postgres["table"]` | Atom's tables have `id` as the only primary key; a hypertable's primary and unique keys must include its time column |
 | The feature's own routes and functions | Atom's generic object routes expect `id` and `created_by_id`, which a hypertable doesn't have |
-| Compression and retention from the first day | Raw points grow fast; old chunks shrink about 90% and expire without a slow `DELETE` |
+| Compression and retention from the first day | Raw points grow fast; old chunks shrink about 90% and expire without a slow `DELETE` (Apache edition: retention by a scheduled `drop_chunks`, disk sized for uncompressed data) |
 | Every read filters on the time column | Only the chunks in range are read |
 | Rollups for reports, a `<table>_latest` table for live views | Long ranges and live maps without scanning raw points |
-| Batched writes with `ON CONFLICT DO NOTHING` | One round trip per batch; a retried batch is not written twice |
+| Batched writes with `ON CONFLICT DO NOTHING` | One round trip per batch; a retried batch is not written twice ([from a webhook](#points-from-a-device-webhook): `mode="buffer"`, `on_conflict="nothing"`) |
 
 **On `master` instead** (no separate database): skip steps 3 to 5 and put the statements in `config_postgres["sql"]` in `config_extend.py`; Atom runs them at every startup.
 
@@ -156,6 +156,55 @@ SELECT job_id, proc_name, hypertable_name, schedule_interval FROM timescaledb_in
 SELECT * FROM timescaledb_information.job_stats;                                                 -- last runs, failures
 SELECT pg_size_pretty(hypertable_size('gps_point')), * FROM hypertable_compression_stats('gps_point');
 ```
+
+## Points from a device webhook
+
+Many device clouds push each point to a URL you give them, one HTTP request per point, without a signature and without retrying a failed push. The route takes the point, puts it in Atom's create buffer for the time-series database, and replies at once; the buffer writes many points in one insert.
+
+```python
+# .env
+config_postgres_url_telemetry=postgresql://<user>:<password>@<host>:5432/telemetry?sslmode=require
+config_postgres_buffer_flush_auto_sec_telemetry=2    # write device points every 2 s; master keeps its own interval
+config_webhook_token_devices=<long random value>
+
+# config_extend.py: the sender can't log in or sign, so it is checked by IP and a shared token
+"/gps/point-push": {"id": 300, "auth": [], "ip_allow": ["203.0.113.0/24"], "token_verify": {"secret": "config_webhook_token_devices"}},
+
+# function_extend/gps.py
+async def func_gps_point_push(*, app_state, point: dict) -> str:
+    if point.get("lat") is None or point.get("lng") is None: return "skipped"    # nothing to store; still a success for the sender
+    row = {"time": datetime.fromtimestamp(point["time_ms"] / 1000, UTC), "device_id": point["device_id"], "lat": point["lat"], "lng": point["lng"], "speed": point.get("speed")}
+    return await app_state.func_postgres_create(client_postgres=app_state.client_postgres_dict["telemetry"], client_postgres_conn=None, client_password_hasher=None,
+        cache_postgres_schema=app_state.cache_postgres_schema_dict["telemetry"], buffer_postgres=app_state.buffer_postgres_create,
+        buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="reject", config_column_regex=app_state.config_column_regex,
+        buffer_limit=app_state.func_buffer_limit(app_state=app_state, table="gps_point"), mode="buffer", table="gps_point", obj_list=[row],
+        connection="telemetry", on_conflict="nothing")
+```
+
+| Part | Why |
+|---|---|
+| `connection="telemetry"` | Buffered points keep their database and are flushed through its pool ([database.md](database.md#4-in-memory-write-buffering)) |
+| `on_conflict="nothing"` | The key `(device_id, time)` skips a point sent twice; a batch never fails on a duplicate |
+| No `id` column | Fine: the insert asks for `RETURNING id` only when the table has one |
+| `config_postgres_buffer_flush_auto_sec_telemetry` | A short interval keeps the points that only live in memory few; a crash loses at most that many seconds |
+| `buffer_limit` (`config_buffer_limit_gps_point`) | A busy table is written as soon as that many points wait, before the timer |
+| Reply in the sender's format | Many senders treat any other body or a slow reply as a failure and drop the point |
+| A backfill job | The sender doesn't retry: a scheduled script reads the sender's history API for the last hours and writes it with the same `on_conflict="nothing"`, so only the gaps are added |
+
+`gps_point_latest` (the live map) is updated by the backfill job or a short scheduled `INSERT … SELECT DISTINCT ON (device_id) … ON CONFLICT (device_id) DO UPDATE` from the newest points, not per push, so the push route stays one buffered append.
+
+## Apache edition (managed services)
+
+Where `SHOW timescaledb.license;` returns `apache` (for example Azure Database for PostgreSQL), the edition can't be changed by a setting.
+
+| Works | Doesn't: use instead |
+|---|---|
+| Hypertables, chunks, `time_bucket`, `drop_chunks`, `show_chunks`, `set_chunk_time_interval` | Compression: size the disk for raw data, keep only the columns reports need, and a shorter retention |
+| Every read sample above except gapfill | `add_retention_policy`: a scheduled script (`script_extend/`, [schedule.md](schedule.md)) running `SELECT drop_chunks('gps_point', older_than => INTERVAL '90 days')` |
+| `ON CONFLICT`, PostGIS, indexes | Continuous aggregates: a normal rollup table (`bucket`, `device_id`, totals, primary key on both), refreshed by a scheduled `INSERT … SELECT time_bucket(…) … WHERE time >= now() - INTERVAL '3 hours' GROUP BY … ON CONFLICT (bucket, device_id) DO UPDATE` |
+| | `time_bucket_gapfill`: `generate_series` of buckets `LEFT JOIN`ed to the grouped points |
+
+Code written this way also runs on the Community edition; moving there later adds compression and policies without changing the routes.
 
 ## What Atom does with these tables (on `master`)
 

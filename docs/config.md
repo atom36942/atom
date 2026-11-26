@@ -246,6 +246,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_buffer_limit_<table>` | One table's buffer size, e.g. `config_buffer_limit_log_api` (`1000`); 10 to 5000. A name with no table in `config_postgres` stops startup |
 | `config_buffer_rows_max` | Max rows pending in each in-memory buffer during an outage (`100000`, at least `1000`). When full, `mode=buffer` creates return `503 buffer full, retry later` and API-log rows drop the oldest (counted as `buffer_dropped` on the Monitor page's Background tab) |
 | `config_postgres_buffer_flush_auto_sec` | Timer interval in seconds to auto-flush write buffers (`60`) |
+| `config_postgres_buffer_flush_auto_sec_<name>` | The same for one database's buffered rows (`config_postgres_url_<name>` must exist), e.g. `2` for device data while master keeps `60` ([database.md](database.md#periodic-background-flush-loop)) |
 | `config_api_cache_inmemory_max_kb` | Largest total size, in KB, of the `inmemory` API response cache per worker, counting the stored (gzipped) bodies (`102400`, 100 MB); over it, the oldest entries are dropped and read from the route again on their next request |
 | `config_inmemory_cache_cleanup_auto_sec` | Timer interval in seconds to purge expired cache entries (`300`) |
 | `config_batch_item_limit` | Maximum objects allowed per batch CRUD request, `/admin/user-update` included (`1000`) |
@@ -349,8 +350,10 @@ Keys are route paths as declared. A route with path parameters (`/page/{name}`) 
 | `id` | `int` | Unique numeric identifier for the endpoint |
 | `is_active` | `bool` | Toggles endpoint availability (`False` disables the endpoint via middleware) |
 | `auth` | `list` | Required. The credentials the route accepts: `[]` public, `["jwt"]` a JWT access token, `["api_key"]` an API key, `["jwt", "api_key"]` either; both are sent as `Authorization: Bearer` ([auth.md](auth-api-key.md)) |
-| `is_connection_param` | `bool` | `True` lets `?connection=<name>` pick the database for this route (default master; unknown name is 404). Without it the route always uses master and `?connection=` is 400 |
+| `is_connection_param` | `bool` | `True` lets `?connection=<name>` pick the database for this route (default master; unknown name is 404). Without it the route always uses master and `?connection=` is 400. On a write route, rows are checked against and written to that database, also when buffered or queued ([database.md](database.md#picking-a-database-per-request-connectionname)) |
 | `webhook_verify` | `dict` | `{"scheme": <name in config_webhook_verify_scheme>, "secret": <config_ setting holding the secret>}`: the route is called by another service and runs only with a valid signature of its raw body; `auth` must be `[]` ([webhook.md](webhook.md#incoming)) |
+| `ip_allow` | `list` | IP addresses or CIDR ranges (`["203.0.113.0/24"]`): any other caller gets 403, checked before the body is read; for senders that can't sign ([webhook.md](webhook.md#senders-that-cant-sign)) |
+| `token_verify` | `dict` | `{"secret": <config_ setting holding the token>, "in": "header" or "query", "name": <its name>}`: the header (default `x-webhook-token`) or query value (its name must contain `token`) must equal the secret, else 403 ([webhook.md](webhook.md#senders-that-cant-sign)) |
 | `is_log_api` | `bool` | `False` keeps this route's requests out of `log_api` (default `True`). Atom sets it for `/pgweb` (every click would add a row) and the health checks (probed every few seconds). |
 | `user_check_role` | `{"mode": "...", "roles": [...]}` | Restricts access to users with listed role numbers |
 | `user_check_permission` | `{"mode": "token"}` | Only users whose `permissions` hold this route's `id` ([Per-User Permissions](auth-permission.md)) |

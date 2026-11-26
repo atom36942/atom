@@ -64,7 +64,7 @@ SHUTDOWN → stop background tasks → final buffer flush → close every client
 ```
 
 ### Startup Sequence:
-1. **Validation (`func_check`)**: Validates that `config_api` is well-formed: every entry uses allowed keys (`id`, `auth`, `is_connection_param`, `user_check_*`, `cache`, `rate_limit`), flags are booleans, check modes are valid (`redis` / `realtime` / `inmemory` / `token`). Misconfiguration causes fast-fail.
+1. **Validation (`func_check`)**: Validates that `config_api` is well-formed: every entry uses allowed keys (`id`, `auth`, `is_connection_param`, `user_check_*`, `cache`, `rate_limit`, `webhook_verify`, `ip_allow`, `token_verify`), flags are booleans, check modes are valid (`redis` / `realtime` / `inmemory` / `token`). Misconfiguration causes fast-fail.
 2. **Filesystem Prep**: Ensures `tmp/` and `secret/` exist in the project folder (where `main.py` is; `venv/bin/python main.py` switches there first, so starting it from another folder changes nothing); wipes `tmp/` first only when `config_is_tmp_reset` is true (default false).
 3. **Client Initialization**: Initializes clients conditionally based on `.env` settings:
    - `client_password_hasher`: Argon2 password hasher.
@@ -79,11 +79,11 @@ SHUTDOWN → stop background tasks → final buffer flush → close every client
    - `cache_users_role`, `cache_users_deactivated`, `cache_users_deleted`: Backs in-memory auth checks.
    - Write buffers: `buffer_postgres_create` and `buffer_postgres_log_api`.
 6. **Register on `app.state`**: All local `client_*`, `cache_*`, `buffer_*`, `config_*`, and `func_*` are bulk-mounted onto `app.state`, accessible in routes as `request.app.state.<name>`.
-7. **Periodic Tasks (`func_app_tasks_start`)**: Launches the buffer flush loop (`func_postgres_buffer_flush_periodic_task`, every `config_postgres_buffer_flush_auto_sec`), the scheduled-script loop when a `config_schedule_*` is on ([schedule.md](schedule.md); OTP and `log_api` retention run as `script/postgres_cleanup.py`), the webhook delivery loop when `config_webhook_is_active` is on ([webhook.md](webhook.md)), and in-memory cache cleanup; `func_app_tasks_stop` cancels them at shutdown.
+7. **Periodic Tasks (`func_app_tasks_start`)**: Launches the buffer flush loop (`func_postgres_buffer_flush_periodic_task`, each database every `config_postgres_buffer_flush_auto_sec`, or its own `config_postgres_buffer_flush_auto_sec_<name>`), the scheduled-script loop when a `config_schedule_*` is on ([schedule.md](schedule.md); OTP and `log_api` retention run as `script/postgres_cleanup.py`), the webhook delivery loop when `config_webhook_is_active` is on ([webhook.md](webhook.md)), and in-memory cache cleanup; `func_app_tasks_stop` cancels them at shutdown.
 
 ### Shutdown Sequence:
 1. **Stop Tasks (`func_app_tasks_stop`)**: Cancels runtime background tasks and periodic flush loops with a 5-second graceful window.
-2. **Final Buffer Flush (`func_postgres_buffer_flush_all`)**: Acquires `runtime_lock_postgres_buffer_flush` and inserts all remaining pending records in `buffer_postgres_create` and `buffer_postgres_log_api`.
+2. **Final Buffer Flush (`func_postgres_buffer_flush_all`)**: Acquires `runtime_lock_postgres_buffer_flush` and inserts all remaining pending records in `buffer_postgres_create` and `buffer_postgres_log_api`, each database's rows through its own pool.
 3. **Close Connections**: Gracefully disconnects all initialized database pools, Redis connections, HTTP clients, and message brokers.
 
 ---
@@ -98,7 +98,7 @@ Request
   ├── 0. OPTIONS short-circuit (passes to CORSMiddleware)
   ├── 1. Initialize request timer & state (request.state.user = {})
   ├── 2. Look up route policy in config_api (or default public)
-  ├── 3. Active Check (reject if is_active=False)
+  ├── 3. Active Check (reject if is_active=False), then the caller checks a route sets: ip_allow, token_verify (403), webhook_verify (401)
   ├── 4. Read the credential (Authorization: Bearer): a JWT (func_token_decode) or an atk_ API key (func_api_key_decode: owner looked up and cached) -> request.state.user
   ├── 5. Auth & User-State Checks:
   │      ├── Credential check (func_middleware_check_auth: the credential must be in the route's auth list; an API key within its scopes)
@@ -107,7 +107,7 @@ Request
   │      ├── Deactivated check (user_check_deactivated)
   │      └── Deleted check (user_check_deleted)
   ├── 6. Distributed Rate Limiter Check (func_middleware_check_ratelimiter)
-  ├── 7. Postgres Selection (func_middleware_postgres_select -> request.state.client_postgres, request.state.cache_postgres_schema; master, or ?connection= when is_connection_param=True)
+  ├── 7. Postgres Selection (func_middleware_postgres_select -> request.state.client_postgres, request.state.cache_postgres_schema, request.state.connection; master, or ?connection= when is_connection_param=True)
   ├── 8. Response Cache Lookup (func_middleware_api_cache, mode="get")
   │      └── [HIT] ──▶ Return cached response immediately
   │

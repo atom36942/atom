@@ -162,3 +162,25 @@ Every scheme is checked at startup, so a typo fails at boot, not on the first pa
 ## Duplicates
 
 Providers retry, so one event can arrive twice: store the event's id (`request.state.webhook["id"]` for `standard`, the id in the body otherwise) with a unique index, and skip one already handled, as the `paid_at IS NULL` above does.
+
+## Senders that can't sign
+
+Some services push without any signature: many device and IoT clouds post each location or alarm to a URL you give them. Their route is public too, so it needs another proof. Two `config_api` keys, on any route, checked before the body is read:
+
+| Key | Passes when | Else |
+| :--- | :--- | :--- |
+| `"ip_allow": ["203.0.113.0/24", "198.51.100.7"]` | The caller's real IP (the last `X-Forwarded-For` entry behind a private proxy, as for rate limits) is in one of the addresses or CIDR ranges | 403 |
+| `"token_verify": {"secret": "config_webhook_token_<name>", "in": "header", "name": "x-webhook-token"}` | The header (or query value, `"in": "query"`) equals the secret in `.env`, compared in constant time | 403; 500 when the secret is not set |
+
+```python
+# .env
+config_webhook_token_devices=<long random value>
+
+# config_extend.py
+"/device/location-push": {"id": 300, "auth": [], "ip_allow": ["203.0.113.0/24"], "token_verify": {"secret": "config_webhook_token_devices"}},
+```
+
+- Prefer both: the sender's published IP ranges, and a token in a header. `in` defaults to `header`, `name` to `x-webhook-token` (`token` for a query).
+- A query token is for a sender that only takes a URL: its name must contain `token`, so the request log hides its value. It is weaker than a header (a URL is copied into proxy and browser logs), so add `ip_allow` with it.
+- Neither proves the body wasn't changed, as a signature does: use `webhook_verify` whenever the sender can sign.
+- Such senders often don't retry: reply fast (write with `mode="buffer"`, [database.md](database.md#4-in-memory-write-buffering)) and fill gaps from the sender's history API.

@@ -36,7 +36,7 @@ class QueueChannelTests(unittest.TestCase):
 
 class QueueChannelDispatchTests(unittest.IsolatedAsyncioTestCase):
     async def test_update_message_reaches_func_postgres_update_with_its_owner(self):
-        context = {"client_postgres": object(), "client_password_hasher": None, "cache_postgres_schema": {}, "config_column_regex": {}}
+        context = {"client_postgres_dict": {"master": object()}, "cache_postgres_schema_dict": {"master": {}}, "client_password_hasher": None, "config_column_regex": {}}
         with patch("function.queues.func_postgres_update", new=AsyncMock(return_value="ok")) as update:
             result = await func_consumer_object_update(payload={"table": "post", "obj_list": [{"id": 1}], "created_by_id": 7}, context=context)
         self.assertEqual(result, "ok")
@@ -45,3 +45,24 @@ class QueueChannelDispatchTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class QueueChannelConnectionTests(unittest.IsolatedAsyncioTestCase):
+    def context(self):
+        import asyncio
+        return {"client_postgres_dict": {"master": "master-pool"}, "cache_postgres_schema_dict": {"master": {}}, "postgres_url_dict": {"master": "postgresql://m", "telemetry": "postgresql://t"},
+                "lock_postgres_open": asyncio.Lock(), "client_password_hasher": None, "config_column_regex": {}, "buffer_postgres_create": {}, "config_buffer_rows_max": 10, "config_buffer_limit_default": 10}
+
+    async def test_a_job_writes_to_the_database_its_request_used(self):
+        from function import func_consumer_object_create
+        context = self.context()
+        with patch("function.queues.func_client_postgres", new=AsyncMock(return_value="telemetry-pool")) as open_pool, patch("function.queues.func_postgres_schema_read", new=AsyncMock(return_value={"reading": {}})), patch("function.queues.func_postgres_create", new=AsyncMock(return_value="created")) as create:
+            for _ in range(2): await func_consumer_object_create(payload={"table": "reading", "obj_list": [{"value": 1}], "connection": "telemetry"}, context=context)
+            await func_consumer_object_create(payload={"table": "post", "obj_list": [{"title": "x"}]}, context=context)
+        open_pool.assert_awaited_once_with(dsn="postgresql://t", min_size=1, max_size=5)    # opened on the first job, reused after
+        self.assertEqual([(c.kwargs["client_postgres"], c.kwargs["connection"]) for c in create.await_args_list], [("telemetry-pool", "telemetry"), ("telemetry-pool", "telemetry"), ("master-pool", "master")])
+
+    async def test_an_unknown_database_fails_the_job(self):
+        from function import func_consumer_object_create
+        with self.assertRaisesRegex(Exception, "connection 'gone' not found: set config_postgres_url_gone"):
+            await func_consumer_object_create(payload={"table": "reading", "obj_list": [{"value": 1}], "connection": "gone"}, context=self.context())

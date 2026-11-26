@@ -33,8 +33,7 @@ from starlette.routing import Match
 async def func_admin_sync(*, app_state: State, app_routes: list = None) -> str:
     """Synchronize and refresh all application state caches, schemas, OpenAPI spec, and config maps."""
     postgres_master = app_state.client_postgres_dict.get("master")
-    if postgres_master:
-        await app_state.func_postgres_create(client_postgres=postgres_master, client_postgres_conn=None, client_password_hasher=None, cache_postgres_schema=app_state.cache_postgres_schema_dict.get("master", {}), mode="flush", table=None, obj_list=None, buffer_limit=None, buffer_postgres=app_state.buffer_postgres_create, config_column_regex=None)
+    if not app_state.config_is_read_only: await app_state.func_postgres_buffer_flush_all(app_state=app_state)    # buffered rows are written with the schema they were checked against, before it is read again
     app_state.cache_postgres_schema_dict = {name: await app_state.func_postgres_schema_read(client_postgres=pool) for name, pool in app_state.client_postgres_dict.items()}
     app_state.cache_clickhouse_schema_dict = {name: await app_state.func_clickhouse_schema_read(client_clickhouse=client) for name, client in (getattr(app_state, "client_clickhouse_dict", None) or {}).items()}
     if app_routes is not None:
@@ -144,6 +143,8 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: State) -> dict:
             op["x-auth-required"] = is_auth_required
             op["x-auth"] = auth
             op["x-webhook-verify"] = (api_cfg.get("webhook_verify") or {}).get("scheme")
+            op["x-ip-allow"] = bool(api_cfg.get("ip_allow"))
+            op["x-token-verify"] = (api_cfg.get("token_verify") or {}).get("in", "header") if api_cfg.get("token_verify") else None
             op["x-roles-allowed"] = api_cfg.get("user_check_role", None)
             op["x-permission"] = (api_cfg["user_check_permission"].get("action") or api_cfg.get("id")) if api_cfg.get("user_check_permission") else None    # an action route's id comes from config_permission_table
             op["x-check-deactivated"] = "user_check_deactivated" in api_cfg

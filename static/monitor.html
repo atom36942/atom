@@ -1062,8 +1062,8 @@ const renderBackground = report => {
   ])
   + `<div class="two">${table("Periodic tasks", [["Task"], ["Status"]], report.tasks, t => `<tr><td>${he(t.name)}</td><td><span class="pill ${statusClass[t.status] ?? ""}">${he(t.status)}</span></td></tr>`, "No tasks.")}`
   + `${table("Error counters", [["Counter"], ["Count", "num"]], report.errors, e => `<tr><td class="mono">${he(e.name)}</td><td class="num${e.count ? " bad" : ""}">${formatNumber(e.count)}</td></tr>`, "No counters.")}</div>`
-  + table("Write buffers", [["Buffer"], ["Table"], ["Rows", "num"], ["Of limit", "share"]], report.buffers,
-    b => `<tr><td>${he(b.buffer)}</td><td class="mono">${he(b.table)}</td><td class="num">${formatNumber(b.rows)}</td><td class="share">${shareBar(b.rows, report.buffer_rows_max)}</td></tr>`, "Empty: nothing waiting to be written.", report.buffer_rows_max ? `limit ${formatNumber(report.buffer_rows_max)} rows each` : "")
+  + table("Write buffers", [["Buffer"], ["Database"], ["Table"], ["Rows", "num"], ["Of limit", "share"]], report.buffers,
+    b => `<tr><td>${he(b.buffer)}</td><td class="mono">${he(b.connection)}</td><td class="mono">${he(b.table)}</td><td class="num">${formatNumber(b.rows)}</td><td class="share">${shareBar(b.rows, report.buffer_rows_max)}</td></tr>`, "Empty: nothing waiting to be written.", report.buffer_rows_max ? `limit ${formatNumber(report.buffer_rows_max)} rows each` : "")
   + (report.queues.is_enabled ? table("Redis queues", [["Channel"], ["Consumer"], ["Waiting", "num"], ["Running", "num"], ["Failed", "num"]], report.queues.channels,
     q => `<tr><td class="mono">${he(q.channel)}</td><td>${q.is_consumer ? '<span class="pill ok">running</span>' : `<span class="pill${q.waiting ? " bad" : ""}">none</span>`}</td><td class="num">${formatNumber(q.waiting)}</td><td class="num">${formatNumber(q.running)}</td><td class="num${q.failed ? " bad" : ""}">${formatNumber(q.failed)}</td></tr>`, "No channels yet.") : "");
 };

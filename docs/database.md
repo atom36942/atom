@@ -32,9 +32,13 @@ Each name becomes a pool in `app.state.client_postgres_dict` (for example `clien
 | `connection=<name>` where `<name>` has no `config_postgres_url_<name>` | 404 |
 | `connection=...` on a route without the flag | 400 `connection not allowed on this route`; the route always uses master |
 
-Routes Atom flags (all reads): `/my/profile`, `/my/object-read`, `/my/object-read-export`, `/my/message-inbox`, `/my/message-thread`, `/private/object-read`, `/private/object-read-export`, `/private/user-read`, `/private/table-column-groupby`, `/private/table-column-distinct`, `/public/object-read`, `/public/object-read-export`, `/public/table-column-groupby`, `/public/table-column-distinct`, `/admin/object-read`, `/admin/object-read-export`, `/admin/table-column-groupby`, `/admin/table-column-distinct`, `/admin/postgres-schema`, `/admin/postgres-info`, `/admin/postgres-slow-queries`, `/admin/postgres-slow-queries-reset`, `/admin/postgres-query-runner-read`, `/admin/postgres-query-runner-read-export`, `/admin/postgres-query-ai`, `/admin/postgres-import` and `/admin/monitor` (its Database tab). The list in `config_api` is the source of truth; a project flags its own routes the same way.
+Routes Atom flags: the reads `/my/profile`, `/my/object-read`, `/my/object-read-export`, `/my/message-inbox`, `/my/message-thread`, `/private/object-read`, `/private/object-read-export`, `/private/user-read`, `/private/table-column-groupby`, `/private/table-column-distinct`, `/public/object-read`, `/public/object-read-export`, `/public/table-column-groupby`, `/public/table-column-distinct`, `/admin/object-read`, `/admin/object-read-export`, `/admin/table-column-groupby`, `/admin/table-column-distinct`, `/admin/postgres-schema`, `/admin/postgres-info`, `/admin/postgres-slow-queries`, `/admin/postgres-slow-queries-reset`, `/admin/postgres-query-runner-read`, `/admin/postgres-query-runner-read-export`, `/admin/postgres-query-ai`, `/admin/postgres-import`, `/admin/monitor` (its Database tab), `/permission/object-read` and `/permission/object-read-export`; the writes `/admin/object-create`, `/admin/object-update` and `/admin/object-delete` (role 1). The list in `config_api` is the source of truth; a project flags its own routes the same way.
 
-Writes (`object-create`, `object-update`, `object-delete`, the `user-*` routes, `/admin/postgres-query-runner-write`) are not flagged, so they always go to master. SQL Server and ClickHouse routes pick their server with a body field also named `connection` (see section 3).
+**Writes on another database.** Every generic write route (`object-create`, `object-update`, `object-delete` and `object-delete-all` under `/my`, `/permission` and `/admin`, and `/public/object-create`) checks its columns (`created_by_id`, `updated_by_id`, the ownership column) against the chosen database's schema and writes there; buffered rows (`mode=buffer`) are flushed to that database and queued jobs (`queue=`) carry its name to the consumer. Atom flags only the `/admin` writes; a project turns the others on by adding `"is_connection_param": True` to their entry in `config_extend.py`.
+
+Two controls decide where a write can go, and no extra setting: the route's flag, and what the database user in `config_postgres_url_<name>` may do. Once a write route is flagged, its callers can write to every database whose user has write rights, so give each URL only the rights it needs: a read-only user for replicas and reporting databases, and leave `/public/object-create` unflagged. A write the database refuses (a read-only replica) is an error, never redirected to master. `/my/object-read` marks messages read on the database it read them from: read messages on master, not on a read-only replica.
+
+The user routes (`user-*`), `/my/object-create-mongodb` and `/admin/postgres-query-runner-write` (which takes a `connection` body field) stay as they are. SQL Server and ClickHouse routes pick their server with a body field also named `connection` (see section 3).
 ```bash
 curl "http://localhost:8000/public/object-read?table=products&connection=replica1"    # replica1
 curl "http://localhost:8000/public/object-read?table=products"                        # master
@@ -89,8 +93,25 @@ Atom can buffer high-volume write requests in application memory and insert them
 
 ### The Two Runtime Buffers:
 Lifespan initializes two independent buffer dictionaries on `app.state`:
-1. **`buffer_postgres_create`**: Holds records submitted via object-create APIs with `mode=buffer`. Flushes to master.
-2. **`buffer_postgres_log_api`**: Holds request audit records produced by the HTTP middleware. Flushes to `client_postgres_log_api`.
+1. **`buffer_postgres_create`**: Holds records submitted via object-create APIs with `mode=buffer`, and by project code calling `func_postgres_create(mode="buffer")`.
+2. **`buffer_postgres_log_api`**: Holds request audit records produced by the HTTP middleware, for the `config_postgres_db_log_api` database.
+
+Each buffered row keeps its database: the buffer key is `<connection>|<table>|<columns>|<on_conflict>`, and a flush writes each database's rows through that database's pool (`client_postgres_dict[<connection>]`). A database whose pool is missing, or whose insert fails, keeps its rows for the next flush (counted under `buffer_flush` on the Monitor page's Background tab, which lists each buffer with its database); the other databases are still written.
+
+### Writing to another database from project code
+A route that takes rows from another system (a device webhook, a feed) calls `func_postgres_create` with that database's pool, schema and name:
+```python
+await app_state.func_postgres_create(client_postgres=app_state.client_postgres_dict["telemetry"], client_postgres_conn=None, client_password_hasher=None,
+    cache_postgres_schema=app_state.cache_postgres_schema_dict["telemetry"], buffer_postgres=app_state.buffer_postgres_create,
+    buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="reject", config_column_regex=app_state.config_column_regex,
+    buffer_limit=app_state.func_buffer_limit(app_state=app_state, table="gps_point"), mode="buffer", table="gps_point", obj_list=points,
+    connection="telemetry", on_conflict="nothing")
+```
+| Argument | Effect |
+| :--- | :--- |
+| `connection` | The database name the pool and schema belong to (default `master`); buffered rows are flushed there |
+| `on_conflict="nothing"` | `ON CONFLICT DO NOTHING`: a row that hits a primary or unique key is skipped, so a sender's retry or an overlapping backfill never fails a batch |
+| (automatic) | `RETURNING id` only when the table has an `id` column: a TimescaleDB hypertable keyed on device and time has none, and returns `"created"` |
 
 ### Flush Modes:
 | Mode | Description |
@@ -102,7 +123,9 @@ Lifespan initializes two independent buffer dictionaries on `app.state`:
 Rows are taken out of the buffer before each insert, so concurrent requests never insert the same rows twice or lose rows added meanwhile. A failed insert puts its rows back at the front for the next flush.
 
 ### Periodic Background Flush Loop:
-Atom runs a periodic background task (`func_postgres_buffer_flush_periodic_task`) draining both buffers every `config_postgres_buffer_flush_auto_sec` (default 60s). It acquires `runtime_lock_postgres_buffer_flush` to serialize flushes and ensure no lost writes.
+Atom runs a periodic background task (`func_postgres_buffer_flush_periodic_task`) draining both buffers, each database every `config_postgres_buffer_flush_auto_sec_<name>` seconds when set, else every `config_postgres_buffer_flush_auto_sec` (default 60s): for example `config_postgres_buffer_flush_auto_sec_telemetry=2` writes device points every 2 seconds while master keeps its minute. A name without a `config_postgres_url_<name>` stops startup. Each flush acquires `runtime_lock_postgres_buffer_flush` to serialize flushes and ensure no lost writes. A buffer is also written when one key reaches its row limit (`config_buffer_limit_<table>`, else `config_buffer_limit_default`), on `GET /admin/sync` and once more at shutdown.
+
+Buffered rows live in the process's memory: rows not yet flushed are lost if the process crashes. Keep the interval short for data a sender won't send again, and fill gaps from the sender's history API with `on_conflict="nothing"`.
 
 ---
 

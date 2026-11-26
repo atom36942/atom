@@ -1,6 +1,7 @@
 # import
 import asyncio
 import gzip
+import hmac
 import ipaddress
 import re
 import secrets
@@ -352,6 +353,20 @@ def func_middleware_client_ip(*, request: Request) -> Any:
     except ValueError:
         return connection_ip
 
+def func_middleware_check_ip_allow(*, client_ip: str | None, ip_allow: list) -> None:
+    """Route key ip_allow: refuse a caller whose real IP (func_middleware_client_ip) is in none of the listed addresses or CIDR ranges: 403."""
+    try: ip = ipaddress.ip_address(client_ip or "")
+    except ValueError: raise func_api_error(message="caller ip not allowed", status_code=403) from None
+    if not any(ip in ipaddress.ip_network(item, strict=False) for item in ip_allow): raise func_api_error(message="caller ip not allowed", status_code=403)
+
+def func_middleware_check_token_verify(*, request: Request, token_verify: dict, secret: str | None) -> None:
+    """Route key token_verify: refuse a request whose header or query value (token_verify in, name) is not the secret (a config_ setting set in .env): 403, compared in constant time; 500 when the secret is not set."""
+    if not secret: raise func_api_error(message=f"token secret not set: {token_verify['secret']}", status_code=500)
+    where = token_verify.get("in", "header")
+    name = token_verify.get("name") or ("x-webhook-token" if where == "header" else "token")
+    value = request.headers.get(name) if where == "header" else request.query_params.get(name)
+    if not value or not hmac.compare_digest(str(value).encode(), str(secret).encode()): raise func_api_error(message="invalid token", status_code=403)
+
 def func_middleware_log_query_params(*, query_params: Any) -> str:
     """Keep routine query metadata while redacting credentials and opaque payloads."""
     items = query_params.multi_items() if hasattr(query_params, "multi_items") else parse_qsl(str(query_params), keep_blank_values=True)
@@ -516,7 +531,7 @@ def func_middleware_api_config(*, config_api: dict, path: str, cache_config_api_
 async def func_middleware_log_api_write(*, app_state: Any, request: Request, response_type: str, status_code: int | None, start: float, error: str | None, detail: dict | None = None) -> None:
     """Buffer one log_api row for a finished request; skipped when read-only or no log_api database, and write errors are counted, never raised."""
     if app_state.config_is_read_only or not getattr(app_state, "client_postgres_log_api", None): return
-    try: await app_state.func_postgres_create(client_postgres=app_state.client_postgres_log_api, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema_dict.get(app_state.config_postgres_db_log_api, {}), buffer_postgres=app_state.buffer_postgres_log_api, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="drop_oldest", runtime_error_count=app_state.runtime_error_count, is_trusted=True, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.func_buffer_limit(app_state=app_state, table="log_api"), mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": func_middleware_client_ip(request=request), "path": request.scope["path"], "method": request.method, "query_param": func_middleware_log_query_params(query_params=request.query_params), "status_code": status_code, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error, "request_id": getattr(request.state, "request_id", None)} | (func_middleware_log_detail_row(request=request, detail=detail) if detail is not None else {})])
+    try: await app_state.func_postgres_create(client_postgres=app_state.client_postgres_log_api, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema_dict.get(app_state.config_postgres_db_log_api, {}), buffer_postgres=app_state.buffer_postgres_log_api, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="drop_oldest", runtime_error_count=app_state.runtime_error_count, is_trusted=True, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.func_buffer_limit(app_state=app_state, table="log_api"), mode="buffer", table="log_api", connection=app_state.config_postgres_db_log_api, obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": func_middleware_client_ip(request=request), "path": request.scope["path"], "method": request.method, "query_param": func_middleware_log_query_params(query_params=request.query_params), "status_code": status_code, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error, "request_id": getattr(request.state, "request_id", None)} | (func_middleware_log_detail_row(request=request, detail=detail) if detail is not None else {})])
     except Exception as e: func_runtime_error_record(runtime_error_count=app_state.runtime_error_count, key="log_api_write", error=e, print_every=100)
     return
 

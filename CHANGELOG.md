@@ -4,6 +4,18 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [19.5.0] - 2026-11-26
+
+- **Writes on any database:** every generic write route (object create, update, delete and delete-all) checks its columns against, and writes to, the database `?connection=` names once the route has `"is_connection_param": True`; before, the checks read master's schema. Atom flags `/admin/object-create`, `/admin/object-update` and `/admin/object-delete`; a project flags the others in `config_extend.py`. The route's flag and the database user's own rights decide where a write may go, so give replicas and reporting databases a read-only user ([docs/database.md](docs/database.md#picking-a-database-per-request-connectionname)).
+- **The create buffer works on any database:** buffered rows keep their database and every flush (the timer, a full buffer, `/admin/sync`, shutdown) writes each database's rows through its own pool; before, they were always written to master. A database without a pool, or a failed insert, keeps its rows and the others are still written. `config_postgres_buffer_flush_auto_sec_<name>` sets one database's interval (for example 2 s for device data). The Monitor page lists each buffer with its database.
+- **`func_postgres_create` for time-series and webhooks:** `connection` (the database name its pool belongs to, kept by buffered rows), `on_conflict="nothing"` (`ON CONFLICT DO NOTHING`: a duplicate is skipped, never fails a batch), and `RETURNING id` only when the table has an `id` column, so a hypertable keyed on device and time can be written and buffered.
+- **Queued jobs on any database:** a create or update sent with `queue=` carries its database; consumers open that database's pool (any `config_postgres_url_<name>` in their environment) on its first job.
+- **Callers that can't sign:** route keys `ip_allow` (addresses or CIDR ranges) and `token_verify` (a shared secret in a header, or in a query value whose name contains `token`), checked before the body is read: 403 otherwise. For device and IoT clouds that push without a signature; `webhook_verify` stays the choice for senders that sign ([docs/webhook.md](docs/webhook.md#senders-that-cant-sign)).
+- **`/permission/object-read` and `/permission/object-read-export` take `?connection=`,** like the other read routes.
+- **Fix:** `/my/object-read` on another database marked the messages it returned as read on master; it now marks them on the database it read.
+- **TimescaleDB guide:** taking points from a device webhook (buffered, per-database interval, duplicates, backfill) and what to use on the Apache edition some managed services ship (scheduled `drop_chunks`, rollup tables refreshed on a schedule) ([docs/timescaledb.md](docs/timescaledb.md)).
+- Internal: `func_postgres_buffer_flush_all(app_state, connections=None)` and `func_postgres_buffer_flush_periodic_task(app_state)` take no pools any more (they use `client_postgres_dict`); `func_consumer_run` takes `postgres_url_dict`.
+
 ## [19.4.2] - 2026-11-23
 
 - **`/page/atom` rebuilt as a universe:** the page scrolls naturally while one sky of particles behind it travels from shape to shape: a newborn star ("Every app begins with an atom"), an atom, a galaxy of features, a warp of speed, a world inside five rings of checks, five ways to sign in joined to one account, one Atom feeding many apps, and the star again. Only the words of each idea, no buttons, dots or icons; one GitHub link, on the first screen. Always dark; still and complete when the visitor asks for reduced motion.
