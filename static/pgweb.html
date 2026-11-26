@@ -215,7 +215,7 @@ body.more-open .tab.on{background:transparent;color:var(--nav-fg)}    /* only on
   background-repeat:no-repeat;background-position:right 10px center;background-size:11px 11px}
 :root[data-theme=dark] #tools #fop,:root[data-theme=dark] #tools #pagesize{
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23aaaaaa' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");}
-.fcol-menu{position:absolute;top:calc(100% + 4px);left:0;z-index:100;width:240px;
+.fcol-menu{position:absolute;top:calc(100% + 4px);left:0;z-index:100;width:max-content;min-width:100%;max-width:320px;
   background:var(--bg);border:1px solid var(--line);border-radius:4px;
   box-shadow:0 6px 22px rgba(0,0,0,.2);overflow:hidden;display:flex;flex-direction:column}
 .fcol-menu[hidden]{display:none}
@@ -223,7 +223,7 @@ body.more-open .tab.on{background:transparent;color:var(--nav-fg)}    /* only on
 .fcol-search{width:100%!important;height:28px!important;padding:2px 8px!important;font-size:12px;
   border:1px solid var(--line);border-radius:3px;background:var(--bg);outline:none}
 .fcol-search:focus{border-color:var(--sel)}
-.fcol-list{max-height:240px;overflow-y:auto;overflow-x:hidden;padding:4px 0}
+.fcol-list{max-height:240px;overflow-y:auto;overflow-x:hidden;padding:4px 0;scrollbar-gutter:stable}
 .fcol-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px;
   font-size:12px;cursor:pointer;user-select:none}
 .fcol-item:hover,.fcol-item.active{background:var(--hl);color:var(--fg)}
