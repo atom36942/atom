@@ -196,8 +196,6 @@ body.more-open .tab.on{background:transparent;color:var(--nav-fg)}    /* only on
 
 #tools{display:flex;align-items:center;gap:7px;padding:8px 10px;border-top:1px solid var(--line);
   border-bottom:1px solid var(--line);background:var(--filter-bg);box-shadow:0 1px 0 rgba(0,0,0,.03)}
-#tools .filterlabel{flex:none;color:var(--dim);font-size:11px;font-weight:700;letter-spacing:.02em;
-  text-transform:uppercase;margin-right:3px;white-space:nowrap}
 #tools select,#tools input,#tools button{height:32px;padding:4px 9px;font-size:12px}
 .fcol-picker{position:relative;display:inline-flex}
 .fcol-btn{height:32px;padding:4px 12px 4px 10px;min-width:160px;max-width:260px;background:var(--bg);
@@ -306,7 +304,7 @@ body.more-open .tab.on{background:transparent;color:var(--nav-fg)}    /* only on
 .td:last-child{border-right:1px solid var(--th-line)}
 .td.null{color:var(--null);text-transform:uppercase}
 /* ==== row panel: one row's fields beside the grid ==== */
-#v-rows.rp-open #vp{margin-right:var(--rp-w,min(520px,50%))}
+#v-rows.rp-open #vp{margin-right:calc(var(--rp-w,min(520px,50%)) + 48px)}    /* a clear gap between the grid and the panel, also when the columns fill the grid */
 .tr.rp-sel,.tr.rp-sel:nth-child(odd){background:var(--row-hover)}    /* the panel's row stays lit in the hover colour */
 #rows .td{cursor:pointer}
 #rowpanel .iconbtn svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -776,7 +774,6 @@ dialog.fm .ft{box-sizing:border-box;min-height:54px;align-items:center;flex-wrap
       <div class="view" id="v-health"><div id="health-summary"></div></div>
       <div class="view" id="v-rows">
         <div id="tools">
-          <span class="filterlabel">Filter rows</span>
           <div class="fcol-picker" id="fcol-picker">
             <button type="button" class="fcol-btn" id="fcol-btn" aria-haspopup="listbox" aria-expanded="false" title="Choose column to filter">
               <span class="fcol-btn-text" id="fcol-btn-text">Select column</span>
@@ -1673,6 +1670,7 @@ async function openObject(table, kind, initialTab = 'rows', first = null){    /*
   $('st-size').textContent = m.meta.stats.total_size || '';
   drawBatchNav(); buildGrid(); vp.scrollTop=0; render(true);
   show(initialTab || 'rows');
+  rowPanelAuto();    // after the view shows: the panel sits below the toolbar, measured from the grid's place
   return true;
 }
 
@@ -1791,7 +1789,7 @@ async function changeBatch(direction){
     if(seq!==rowsSeq) return;
     S.pageIndex=index; S.cursors.length=index+1;
     S.rows=page.rows; markCut(page); S.total=page.rows.length; S.after=page.after; drawSlowFilterHint(page.ms);
-    drawBatchNav(); buildGrid(); vp.scrollTop=0; lastFirst=-1; render(true);
+    drawBatchNav(); buildGrid(); vp.scrollTop=0; lastFirst=-1; render(true); rowPanelAuto();
   }catch(err){ if(seq!==rowsSeq) return; drawBatchNav(); alertBox('Batch navigation failed',err.message); }
 }
 $('prevbatch').onclick=()=>changeBatch('previous');
@@ -1951,6 +1949,7 @@ rowsEl.addEventListener('click', e=>{
   const td=e.target.closest('.td'); if(!td||!S.cols.length) return;
   if(String(window.getSelection()||'')) return;
   const tr=td.parentElement; if(tr.hidden) return;
+  setStored('rowPanelClosed', undefined);    // clicking a row brings the panel back for every table
   rowPanelOpen(+tr.dataset.i);
 });
 // drag the panel's left edge to widen it for long values; the width is remembered, double-click resets it
@@ -1979,8 +1978,27 @@ function rowPanelOpen(index){
   if(isNew) $('rp-body').scrollTop=0;
   if(cutRows.has(row)) fullRow(index).then(full=>{ if(full && RP.index===index) rowPanelDraw(); }).catch(err=>{ if(RP.index===index) alertBox('Could not read the row',err.message); });    // a fresh panel starts at the first field; moving between rows keeps the place
 }
+// a table's rows (not a query result) open with the first row in the panel, so every table has the same layout; not when the panel was closed with × or Esc
+// (until a row is clicked again) or the window is under 1100 px wide; a table without rows keeps the panel with "No rows"
+function rowPanelAuto(){
+  if(S.local||!S.table||getStored('rowPanelClosed')==='1'||innerWidth<1100) return;
+  if(!S.total){ rowPanelEmpty(); return; }
+  rowPanelOpen(0);
+}
+function rowPanelEmpty(){
+  Object.assign(RP,{index:-1,row:null,table:''});
+  $('rowpanel').style.top=vp.offsetTop+'px';
+  $('rowpanel').hidden=false; $('v-rows').classList.add('rp-open');
+  $('rp-title').textContent=$('rp-title').title=S.table; $('rp-key').hidden=true;
+  for(const id of ['rp-prev','rp-next','rp-download','rp-delete']) $(id).disabled=true;
+  $('rp-body').textContent=''; $('rp-body').appendChild(el('div','rp-empty','No rows'));
+}
+function rowPanelDismiss(){
+  setStored('rowPanelClosed','1');    // closed on purpose: tables open without it until a row is clicked
+  rowPanelClose();
+}
 function rowPanelClose(){
-  if(RP.index<0) return;
+  if(RP.index<0&&$('rowpanel').hidden) return;
   Object.assign(RP,{index:-1,row:null,table:''});
   $('rowpanel').hidden=true; $('v-rows').classList.remove('rp-open');
   $('rp-body').textContent='';
@@ -2003,7 +2021,7 @@ function rowPanelDraw(){
   const key=pkAt>=0?compactCellValue(row[pkAt]):'';
   $('rp-key').hidden=pkAt<0; $('rp-keyval').textContent=key; $('rp-keyval').title=key;
   $('rp-keycopy').onclick=()=>copyText(key,`${S.pk} copied`);
-  $('rp-prev').disabled=index<=0; $('rp-next').disabled=index>=S.total-1;
+  $('rp-prev').disabled=index<=0; $('rp-next').disabled=index>=S.total-1; $('rp-download').disabled=false;
   const blocked=rowDeleteBlock(row);
   $('rp-delete').disabled=!!blocked; $('rp-delete').title=blocked||'Delete this row';
   const query=$('rp-search').value.trim().toLowerCase();
@@ -2360,7 +2378,7 @@ function openField(column,colIndex,row){
   view();
   $('dlg').showModal();
 }
-$('rp-close').onclick=rowPanelClose;
+$('rp-close').onclick=rowPanelDismiss;
 $('rp-prev').onclick=()=>rowPanelOpen(RP.index-1);
 $('rp-next').onclick=()=>rowPanelOpen(RP.index+1);
 $('rp-search').oninput=rowPanelDraw;
@@ -2388,17 +2406,10 @@ $('rp-delete').onclick=()=>{
     }
   };
 };
-document.addEventListener('pointerdown', e=>{
-  if(RP.index<0||$('dlg').open) return;
-  const t=e.target;
-  if($('rowpanel').contains(t)||$('dlg').contains(t)||t.closest?.('#rows .td,.grip,#toast')) return;    // a cell switches rows, a grip resizes a column
-  if(t===vp&&(e.offsetX>=vp.clientWidth||e.offsetY>=vp.clientHeight)) return;    // the grid's scrollbars scroll
-  rowPanelClose();
-});
 document.addEventListener('keydown', e=>{
   if(RP.index<0||$('dlg').open||!$('moremenu').hidden||!$('v-rows').classList.contains('on')) return;    // Esc closes an open More menu first
   if(e.target.closest('input,textarea,select,[contenteditable]')) return;
-  if(e.key==='Escape'){ rowPanelClose(); e.preventDefault(); }
+  if(e.key==='Escape'){ rowPanelDismiss(); e.preventDefault(); }
   else if(e.key==='ArrowDown'){ rowPanelOpen(RP.index+1); e.preventDefault(); }
   else if(e.key==='ArrowUp'){ rowPanelOpen(RP.index-1); e.preventDefault(); }
 });
@@ -2583,7 +2594,7 @@ async function applyFilter(){
     S.rows=first.rows; lastFirst=-1; markCut(first);
     S.total=first.rows.length; S.after=first.after; S.cursors=[null]; S.pageIndex=0;
     drawSlowFilterHint(first.ms);
-    drawBatchNav(); buildGrid(); vp.scrollTop=0; render(true);
+    drawBatchNav(); buildGrid(); vp.scrollTop=0; render(true); rowPanelAuto();
     return true;
   }catch(err){ if(seq!==rowsSeq) return false; alertBox('Filter failed', err.message); return false; }
 }
@@ -2632,7 +2643,7 @@ async function refreshTableData(){
     drawStObj(S.table);
     $('st-rows').textContent = `${m.rows.length} rows loaded`;
     $('st-size').textContent = m.meta?.stats?.total_size || '';
-    drawBatchNav(); buildGrid(); vp.scrollTop=0; render(true);
+    drawBatchNav(); buildGrid(); vp.scrollTop=0; render(true); rowPanelAuto();
     S.loaded = {};
     const activeTab = document.querySelector('.tab.on')?.dataset?.v;
     if(activeTab === 'struct'){
