@@ -111,10 +111,10 @@ config_schedule_script_postgres_cleanup = "every 1h"
 config_schedule_script_postgres_backup = "off"
 
 # retention
-config_retention_day_otp = 1
-config_retention_day_log_api = 7
-config_retention_day_users_delete = 30
-config_retention_day_script_run = 90
+config_retention_day_table_otp = 1
+config_retention_day_table_log_api = 7
+config_retention_day_user_soft_deleted = 30
+config_retention_day_table_script_run = 90
 
 # queue
 config_queue_services = ["postgres", "redis", "rabbitmq", "kafka", "celery"]

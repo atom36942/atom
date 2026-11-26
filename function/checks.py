@@ -135,15 +135,15 @@ def func_check_runtime_config(*, app_state: State) -> None:
     for key in ("config_cache_row_limit_config", "config_cache_row_limit_users_role", "config_cache_row_limit_users_deactivated", "config_cache_row_limit_users_deleted"):
         limit = values.get(key)
         if limit is not None and (isinstance(limit, bool) or not isinstance(limit, int) or limit < 0): raise ValueError(f"{key} must be an integer, 0 or more")
-    for old_key, new_key in (("config_otp_retention_day", "config_retention_day_otp"), ("config_log_api_retention_day", "config_retention_day_log_api"), ("config_users_delete_retention_day", "config_retention_day_users_delete")):
-        if old_key in values: raise ValueError(f"{old_key} was renamed to {new_key} in Atom 7.0.0; rename it in config_extend.py or .env")
-    for key in ("config_retention_day_otp", "config_retention_day_log_api", "config_retention_day_users_delete", "config_retention_day_script_run"):
+    for old_key, new_key in (("config_otp_retention_day", "config_retention_day_table_otp"), ("config_log_api_retention_day", "config_retention_day_table_log_api"), ("config_users_delete_retention_day", "config_retention_day_user_soft_deleted"), ("config_retention_day_otp", "config_retention_day_table_otp"), ("config_retention_day_log_api", "config_retention_day_table_log_api"), ("config_retention_day_script_run", "config_retention_day_table_script_run"), ("config_retention_day_users_delete", "config_retention_day_user_soft_deleted")):
+        if old_key in values: raise ValueError(f"{old_key} was renamed to {new_key}; rename it in config_extend.py or .env")
+    for key in ("config_retention_day_table_otp", "config_retention_day_table_log_api", "config_retention_day_user_soft_deleted", "config_retention_day_table_script_run"):
         retention = getattr(app_state, key, None)
         if retention is None: continue
         if isinstance(retention, bool) or not isinstance(retention, int) or not 1 <= retention <= 36500:
             raise ValueError(f"{key} must be an integer from 1 to 36500, or None")
-        if key == "config_retention_day_otp" and retention * 86400 <= app_state.config_otp_expiry_sec:
-            raise ValueError("config_retention_day_otp must exceed the OTP expiry window")
+        if key == "config_retention_day_table_otp" and retention * 86400 <= app_state.config_otp_expiry_sec:
+            raise ValueError("config_retention_day_table_otp must exceed the OTP expiry window")
     keep_alive = getattr(app_state, "config_uvicorn_timeout_keep_alive_sec", 250)
     if isinstance(keep_alive, bool) or not isinstance(keep_alive, int) or keep_alive < 1: raise Exception("config_uvicorn_timeout_keep_alive_sec must be an integer, 1 or more")
     query_timeout = getattr(app_state, "config_postgres_query_timeout_sec", 0)

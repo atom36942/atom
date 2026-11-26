@@ -2,7 +2,7 @@
 
 # command: venv/bin/python -m script.postgres_cleanup
 
-# info: Deletes OTP, API-log and script-run rows older than their retention (config_retention_day_otp, config_retention_day_log_api, config_retention_day_script_run; None skips one); runs on config_schedule_script_postgres_cleanup (every hour by default).
+# info: Deletes OTP, API-log and script-run rows older than their retention (config_retention_day_table_otp, config_retention_day_table_log_api, config_retention_day_table_script_run; None skips one); runs on config_schedule_script_postgres_cleanup (every hour by default).
 # - step: otp, deletes old codes from the master database
 # - step: log_api, deletes old request logs from the database config_postgres_db_log_api names
 # - step: script_run, deletes old finished runs of scheduled and hand-run scripts from the master database
@@ -45,14 +45,14 @@ async def cleanup_run(*, config) -> None:
     async with func_script_run(postgres_url=url_dict["master"], script="postgres_cleanup"):
         result = []
         print("step: otp", flush=True)
-        if config.get("config_retention_day_otp") is not None:
-            result.append(f"otp {await rows_delete(postgres_url=url_dict['master'], cleanup=func_otp_cleanup, retention_day=config['config_retention_day_otp'])}")
+        if config.get("config_retention_day_table_otp") is not None:
+            result.append(f"otp {await rows_delete(postgres_url=url_dict['master'], cleanup=func_otp_cleanup, retention_day=config['config_retention_day_table_otp'])}")
         print("step: log_api", flush=True)
-        if log_db and url_dict.get(log_db) and config.get("config_retention_day_log_api") is not None:
-            result.append(f"log_api {await rows_delete(postgres_url=url_dict[log_db], cleanup=func_log_api_cleanup, retention_day=config['config_retention_day_log_api'])}")
+        if log_db and url_dict.get(log_db) and config.get("config_retention_day_table_log_api") is not None:
+            result.append(f"log_api {await rows_delete(postgres_url=url_dict[log_db], cleanup=func_log_api_cleanup, retention_day=config['config_retention_day_table_log_api'])}")
         print("step: script_run", flush=True)
-        if config.get("config_retention_day_script_run") is not None:
-            result.append(f"script_run {await rows_delete(postgres_url=url_dict['master'], cleanup=func_script_run_cleanup, retention_day=config['config_retention_day_script_run'])}")
+        if config.get("config_retention_day_table_script_run") is not None:
+            result.append(f"script_run {await rows_delete(postgres_url=url_dict['master'], cleanup=func_script_run_cleanup, retention_day=config['config_retention_day_table_script_run'])}")
         print(f"deleted rows: {', '.join(result) or 'none (every cleanup is off)'}", flush=True)
 
 def main():

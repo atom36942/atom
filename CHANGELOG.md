@@ -4,6 +4,19 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [21.0.0] - 2026-11-26
+
+**Upgrade (projects must change):** the retention settings are renamed; rename them in `config_extend.py` and `.env` (an old name stops startup with its new name).
+
+| Before | After |
+|---|---|
+| `config_retention_day_otp` | `config_retention_day_table_otp` |
+| `config_retention_day_log_api` | `config_retention_day_table_log_api` |
+| `config_retention_day_script_run` | `config_retention_day_table_script_run` |
+| `config_retention_day_users_delete` | `config_retention_day_user_soft_deleted` |
+
+- **Explicit names:** `config_retention_day_table_<table>` deletes that table's rows older than N days; `config_retention_day_user_soft_deleted` is the days before a soft-deleted user's data is purged from every table.
+
 ## [20.0.0] - 2026-11-26
 
 **Upgrade (projects must change):** `config_postgres` is now `config_postgres_schema_master`. In `config_extend.py`, rename the import (`from config import config_postgres_schema_master as base_config_postgres_schema_master`), the variable and every `base_config_postgres` use; code that read `app_state.config_postgres` reads `app_state.config_postgres_schema_master`. `.env` `config_postgres_schema_lock_timeout_sec` becomes `config_postgres_lock_timeout_sec`. A project with `config_postgres_db_log_api` other than `master` moves `log_api` into that database's schema ([docs/database.md](docs/database.md#5-api-logging--telemetry-log_api)).
