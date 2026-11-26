@@ -100,10 +100,10 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
 #sidetabs{display:flex;gap:2px;margin:8px;padding:3px;background:var(--hl);border:1px solid var(--line);border-radius:7px}    /* a segmented control: the kinds in one track */
 #sidetabs[hidden]{display:none!important}
 .side-tab{flex:1 0 auto;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:5px 8px;font-size:11.5px;font-weight:500;border-radius:5px;
-  border:0;background:transparent;color:var(--fg);cursor:pointer;white-space:nowrap;user-select:none;transition:none}    /* no fade (the general button one included): a switch shows at once */
-.side-tab:hover:not(.on){background:var(--bg)}
+  border:0;background:transparent;color:var(--fg);cursor:pointer;white-space:nowrap;user-select:none;transition:background-color .1s ease-out,color .1s ease-out,box-shadow .1s ease-out}    /* a quick fade: smooth, never sluggish */
+#sidetabs .side-tab:hover:not(.on){background:color-mix(in srgb,var(--sel) 12%,transparent);border-color:transparent}    /* a faint tint of the selection colour, never white; the id outranks the general button:hover */
 .side-tab .side-count{min-width:18px;padding:0 5px;border-radius:9px;font-size:10.5px;font-weight:600;line-height:16px;background:var(--bg);color:var(--dim)}
-.side-tab.on{background:var(--sel);color:var(--sel-fg);font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.18)}    /* the open kind: a solid pill in the selection colour, as the open table is marked */
+#sidetabs .side-tab.on,#sidetabs .side-tab.on:hover{background:var(--sel);color:var(--sel-fg);font-weight:700;border-color:transparent;box-shadow:0 1px 3px rgba(0,0,0,.18)}    /* the open kind: a solid pill in the selection colour, as the open table is marked */
 .side-tab.on .side-count{background:rgba(255,255,255,.25);color:var(--sel-fg)}
 
 #side .search{height:40px;padding:0 12px;position:relative;background:var(--bg);border-bottom:1px solid var(--line)}
