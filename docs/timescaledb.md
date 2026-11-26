@@ -1,23 +1,46 @@
 # TimescaleDB
 
-For high-volume time-series data: GPS, IoT sensors, metrics, events. TimescaleDB is a PostgreSQL extension, so Atom connects to it like any Postgres database: no new client, driver or setting. Everything below is general: create as many hypertables, rollups and policies as a feature needs. The examples use a `gps_point` table (one location per device per timestamp).
+For high-volume time-series data: GPS, IoT sensors, metrics, events. TimescaleDB is a PostgreSQL extension, so Atom connects to it like any Postgres database: no new client or driver. The schema lives in `config_extend.py` as `config_postgres_schema_<name>`, and Atom applies it at every startup, like master's. Everything below is general: create as many hypertables, rollups and policies as a feature needs. The examples use the database `telematics` and a `gps_point` table (one location per device per timestamp).
 
 ## Main steps
 
-A guideline, not a fixed recipe: adapt it to the feature. Examples use the connection name `timescale` and the feature `gps`.
+A guideline, not a fixed recipe: adapt it to the feature.
 
 1. **Server.** PostgreSQL with the TimescaleDB **Community** edition. `shared_preload_libraries = 'timescaledb'`, then `timescaledb-tune`. Check: `SHOW timescaledb.license;` returns `timescale`. Some managed services ship only the **Apache** edition (`apache`): hypertables work, compression, policies and rollups don't; see [Apache edition](#apache-edition-managed-services) for what to use instead.
-2. **Extension**, once, by a database admin: `CREATE EXTENSION IF NOT EXISTS timescaledb;` (plus `postgis` for locations).
-3. **Connect.** TimescaleDB is plain Postgres, so its URL is a normal Postgres URL: one `.env` line, no code.
+2. **Database and user.** An empty database, and a user that owns its `public` schema (Atom creates the tables). Extensions the user may not create (managed services: allow-list them first) are created once by an admin: `CREATE EXTENSION IF NOT EXISTS timescaledb;` (plus `postgis` for locations); Atom skips one it can't create, with a warning.
+3. **Connect.** One `.env` line; the name after `config_postgres_url_` is the database's name everywhere in Atom.
    ```
-   config_postgres_url_timescale=postgresql://<user>:<password>@<host>:5432/<db>?sslmode=require
+   config_postgres_url_telematics=postgresql://<user>:<password>@<host>:5432/<db>?sslmode=require
    ```
-   Atom opens the pool at startup and the app gets it as `app_state.client_postgres_dict["timescale"]`, like any other database ([database.md](database.md)).
-4. **Schema file.** Create `files_extend/<feature>_schema.sql` (here `files_extend/gps_schema.sql`) with the tables, hypertables, indexes, policies and rollups, built from the [samples](#samples).
-5. **Run it** in that database with any Postgres client, e.g. `psql "<url>" -v ON_ERROR_STOP=1 -f files_extend/gps_schema.sql`. Atom never runs this file and never changes this database's schema; it manages `master` only.
-6. **Reload** the schema cache: restart Atom or call `GET /admin/sync`.
-7. **APIs.** The feature's own `function_extend/gps.py` (`func_gps_*` with the SQL), `router_extend/gps.py` (reads params, calls one function) and a `config_api` entry per route in `config_extend.py`, as for any feature ([extend.md](extend.md)).
-8. **UI.** A page in `static_extend/gps/` that calls those APIs (map, charts, reports), built to [frontend.md](frontend.md); business rules in `docs_extend/gps.md`, tests in `tests_extend/test_gps.py`.
+   Atom opens the pool at startup and the app gets it as `app_state.client_postgres_dict["telematics"]` ([database.md](database.md)).
+4. **Schema.** In `config_extend.py`, `config_postgres_schema_telematics` with the same name: tables in `table` (Atom creates them, adds new columns, indexes and checks), hypertables, compression, policies and rollups in `sql` (run after the tables, at every startup), built from the [samples](#samples). Nothing of Atom's goes there: `users`, logs and the rest stay on master.
+   ```python
+   config_postgres_schema_telematics = {
+   "extension": ["timescaledb", "postgis"],
+   "table": {
+   "gps_point": [
+   {"name": "device_id", "datatype": "bigint", "is_primary": True},
+   {"name": "time", "datatype": "timestamptz", "is_primary": True},    # no id: a point is device + time; the key must include time
+   {"name": "lat", "datatype": "float8", "is_mandatory": True},
+   {"name": "lng", "datatype": "float8", "is_mandatory": True},    # plain numbers compress far better than a geography column
+   {"name": "speed", "datatype": "real"},
+   ],
+   "gps_point_latest": [
+   {"name": "device_id", "datatype": "bigint", "is_primary": True},
+   {"name": "time", "datatype": "timestamptz", "is_mandatory": True},
+   {"name": "location", "datatype": "geography(Point,4326)", "is_mandatory": True, "index": "gist(location)"},
+   {"name": "speed", "datatype": "real"},
+   ],
+   },
+   "sql": {"gps": [
+   "SELECT create_hypertable('gps_point', by_range('time', INTERVAL '7 days'), if_not_exists => true)",
+   "SELECT add_retention_policy('gps_point', INTERVAL '1 year', if_not_exists => true)",
+   ]},
+   }
+   ```
+5. **Start Atom.** It applies the schema to that database (master first), then reads it into the schema cache. Before a deploy, `venv/bin/python -m script.postgres_schema_plan --db telematics` shows what the next start would change.
+6. **APIs.** The feature's own `function_extend/gps.py` (`func_gps_*` with the SQL), `router_extend/gps.py` (reads params, calls one function) and a `config_api` entry per route in `config_extend.py`, as for any feature ([extend.md](extend.md)).
+7. **UI.** A page in `static_extend/gps/` that calls those APIs (map, charts, reports), built to [frontend.md](frontend.md); business rules in `docs_extend/gps.md`, tests in `tests_extend/test_gps.py`.
 
 A route on the new pool, for example:
 ```python
@@ -31,7 +54,7 @@ async def func_gps_route_read(*, client_postgres, device_id: int, start, end) ->
 async def func_api_gps_route(*, request: Request):
     app_state = request.app.state
     p = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "device_id", "type": "int", "required": True}, {"name": "start", "type": "str", "required": True}, {"name": "end", "type": "str", "required": True}], strict=True, strict_types=True, reject_unknown=True)
-    rows = await app_state.func_gps_route_read(client_postgres=app_state.client_postgres_dict["timescale"], device_id=p["device_id"], start=datetime.fromisoformat(p["start"]), end=datetime.fromisoformat(p["end"]))
+    rows = await app_state.func_gps_route_read(client_postgres=app_state.client_postgres_dict["telematics"], device_id=p["device_id"], start=datetime.fromisoformat(p["start"]), end=datetime.fromisoformat(p["end"]))
     return {"status": 1, "message": rows}
 ```
 
@@ -40,34 +63,35 @@ async def func_api_gps_route(*, request: Request):
 | Practice | Why |
 |---|---|
 | A separate database, `config_postgres_url_<name>`, named for what it holds | Heavy time-series load stays off `master`; the pool can be sized alone (`config_postgres_pool_max_size_<name>`) |
-| Schema only in `files_extend/<feature>_schema.sql`, committed, one file per feature | One source of the schema, reviewed with the code; never change the database by hand |
-| Every statement safe to run again ([forms below](#safe-to-run-again)) | After a change, run the whole file again; what is already there is skipped |
-| Hypertables stay out of `config_postgres["table"]` | Atom's tables have `id` as the only primary key; a hypertable's primary and unique keys must include its time column |
-| The feature's own routes and functions | Atom's generic object routes expect `id` and `created_by_id`, which a hypertable doesn't have |
+| Its schema only in `config_postgres_schema_<name>` | One source of the schema, reviewed with the code, applied at every start; never change the database by hand |
+| Tables in `table`, TimescaleDB objects in `sql` | Atom manages columns, indexes and checks; hypertables, compression, policies and rollups are TimescaleDB calls |
+| A key that includes the time column, no `id` | A hypertable's primary and unique keys must include its time column; `id` is optional in Atom |
+| Every `sql` statement safe to run again ([forms below](#safe-to-run-again)) | `sql` runs at every startup; what is already there is skipped |
+| The feature's own routes for reports and maps | Atom's generic routes read and create on a table without `id` (read with an `order`) but can't update, delete or relation-fetch it |
 | Compression and retention from the first day | Raw points grow fast; old chunks shrink about 90% and expire without a slow `DELETE` (Apache edition: retention by a scheduled `drop_chunks`, disk sized for uncompressed data) |
 | Every read filters on the time column | Only the chunks in range are read |
 | Rollups for reports, a `<table>_latest` table for live views | Long ranges and live maps without scanning raw points |
 | Batched writes with `ON CONFLICT DO NOTHING` | One round trip per batch; a retried batch is not written twice ([from a webhook](#points-from-a-device-webhook): `mode="buffer"`, `on_conflict="nothing"`) |
 
-**On `master` instead** (no separate database): skip steps 3 to 5 and put the statements in `config_postgres["sql"]` in `config_extend.py`; Atom runs them at every startup.
+**On `master` instead** (no separate database): skip steps 2 and 3, and put the tables and statements in `config_postgres_schema_master` in `config_extend.py`.
 
 ## Safe to run again
 
-The schema file is run again after every change, and `config_postgres["sql"]` on `master` runs at every startup, so each statement must do nothing when its object is already there. On `master`, put one statement per list item: `"sql": {**base_config_postgres["sql"], "<feature>": ["<statement 1>", "<statement 2>", …]}`. Each runs on its own, and a continuous aggregate can't be created inside a multi-statement string.
+`sql` runs at every startup, after the tables, so each statement must do nothing when its object is already there. Put one statement per list item: `"sql": {"<feature>": ["<statement 1>", "<statement 2>", …]}` (on master: `{**base_config_postgres_schema_master["sql"], "<feature>": [...]}`). Each runs on its own, and a continuous aggregate can't be created inside a multi-statement string.
 
 | Object | Safe form |
 |---|---|
-| Table | `CREATE TABLE IF NOT EXISTS …` |
-| New column later | `ALTER TABLE … ADD COLUMN IF NOT EXISTS …` (a `CREATE TABLE IF NOT EXISTS` never adds it) |
-| Index | `CREATE INDEX IF NOT EXISTS <name> ON …` (name it) |
+| Table, column, index | in `table`: Atom creates what is missing (a new column is added on the next start) |
 | Hypertable | `create_hypertable(…, if_not_exists => true)` |
 | Compression settings | inside `DO $$ … IF NOT EXISTS (… compression_enabled) …` (sample below) |
 | Policies | `add_compression_policy / add_retention_policy / add_continuous_aggregate_policy(…, if_not_exists => true)` |
 | Rollup | `CREATE MATERIALIZED VIEW IF NOT EXISTS … WITH NO DATA` |
 
-`if_not_exists` keeps what is there: a changed interval in the config is not applied. To change a policy or chunk size, run `remove_<kind>_policy(…)` or `set_chunk_time_interval(…)` once by hand, then update the config.
+`if_not_exists` keeps what is there: a changed interval in the config is not applied. To change a policy or chunk size, run `remove_<kind>_policy(…)` or `set_chunk_time_interval(…)` once by hand, then update the config. A column type change on a compressed hypertable fails: decompress first, or add a new column.
 
 ## Samples
+
+The SQL behind each part. Tables go in `table` (the `CREATE TABLE` below shows what Atom creates from it); the other statements go in `sql`, one per list item.
 
 **Table, then hypertable.** A normal table, then split into chunks by time. Chunk size: about a week of data for a few thousand rows a minute; smaller (1 day) when a chunk with its indexes would pass a quarter of the server's memory.
 ```sql
@@ -163,8 +187,8 @@ Many device clouds push each point to a URL you give them, one HTTP request per 
 
 ```python
 # .env
-config_postgres_url_telemetry=postgresql://<user>:<password>@<host>:5432/telemetry?sslmode=require
-config_postgres_buffer_flush_auto_sec_telemetry=2    # write device points every 2 s; master keeps its own interval
+config_postgres_url_telematics=postgresql://<user>:<password>@<host>:5432/telematics?sslmode=require
+config_postgres_buffer_flush_auto_sec_telematics=2    # write device points every 2 s; master keeps its own interval
 config_webhook_token_devices=<long random value>
 
 # config_extend.py: the sender can't log in or sign, so it is checked by IP and a shared token
@@ -174,19 +198,19 @@ config_webhook_token_devices=<long random value>
 async def func_gps_point_push(*, app_state, point: dict) -> str:
     if point.get("lat") is None or point.get("lng") is None: return "skipped"    # nothing to store; still a success for the sender
     row = {"time": datetime.fromtimestamp(point["time_ms"] / 1000, UTC), "device_id": point["device_id"], "lat": point["lat"], "lng": point["lng"], "speed": point.get("speed")}
-    return await app_state.func_postgres_create(client_postgres=app_state.client_postgres_dict["telemetry"], client_postgres_conn=None, client_password_hasher=None,
-        cache_postgres_schema=app_state.cache_postgres_schema_dict["telemetry"], buffer_postgres=app_state.buffer_postgres_create,
+    return await app_state.func_postgres_create(client_postgres=app_state.client_postgres_dict["telematics"], client_postgres_conn=None, client_password_hasher=None,
+        cache_postgres_schema=app_state.cache_postgres_schema_dict["telematics"], buffer_postgres=app_state.buffer_postgres_create,
         buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="reject", config_column_regex=app_state.config_column_regex,
         buffer_limit=app_state.func_buffer_limit(app_state=app_state, table="gps_point"), mode="buffer", table="gps_point", obj_list=[row],
-        connection="telemetry", on_conflict="nothing")
+        connection="telematics", on_conflict="nothing")
 ```
 
 | Part | Why |
 |---|---|
-| `connection="telemetry"` | Buffered points keep their database and are flushed through its pool ([database.md](database.md#4-in-memory-write-buffering)) |
+| `connection="telematics"` | Buffered points keep their database and are flushed through its pool ([database.md](database.md#4-in-memory-write-buffering)) |
 | `on_conflict="nothing"` | The key `(device_id, time)` skips a point sent twice; a batch never fails on a duplicate |
 | No `id` column | Fine: the insert asks for `RETURNING id` only when the table has one |
-| `config_postgres_buffer_flush_auto_sec_telemetry` | A short interval keeps the points that only live in memory few; a crash loses at most that many seconds |
+| `config_postgres_buffer_flush_auto_sec_telematics` | A short interval keeps the points that only live in memory few; a crash loses at most that many seconds |
 | `buffer_limit` (`config_buffer_limit_gps_point`) | A busy table is written as soon as that many points wait, before the timer |
 | Reply in the sender's format | Many senders treat any other body or a slow reply as a failure and drop the point |
 | A backfill job | The sender doesn't retry: a scheduled script reads the sender's history API for the last hours and writes it with the same `on_conflict="nothing"`, so only the gaps are added |
@@ -206,17 +230,16 @@ Where `SHOW timescaledb.license;` returns `apache` (for example Azure Database f
 
 Code written this way also runs on the Community edition; moving there later adds compression and policies without changing the routes.
 
-## What Atom does with these tables (on `master`)
+## What Atom does with these tables
 
-A table Atom doesn't manage (not in `config_postgres["table"]`) is never dropped or altered: column, index and constraint cleanup touches managed tables only. On every public table, managed or not, startup does add:
+Atom manages the tables in the database's schema: it creates them, adds columns, indexes and checks, and removes the indexes and checks it made that the schema no longer lists. A table not in the schema is never dropped or altered. Triggers follow that schema's `control` (none set: none added, except the `updated_at` and `is_protected` triggers on a table with those columns):
 
-| What | Effect on a hypertable |
+| `control` key | Effect on a hypertable |
 |---|---|
-| `trigger_truncate_disable_<table>` (unless `config_postgres["control"]["is_truncate_table"]`) | `TRUNCATE` is refused; retention and `drop_chunks` still work |
-| `updated_at` and `is_protected` triggers | only when the table has those columns |
+| `"is_truncate_table": False` | `TRUNCATE` is refused; retention and `drop_chunks` still work |
 | `"*"` in `table_row_delete_disable` or `table_row_delete_disable_bulk` | adds delete triggers to every table; the bulk one uses a transition table, which hypertables refuse, so name tables instead of `"*"` |
 
 Also:
-- With `config_is_postgres_schema_init` off, a new table's triggers count as changes, so startup stops until `script.postgres_schema_plan --apply` adds them.
-- The schema cache lists the table after a restart or `GET /admin/sync`; admin routes (role 1) can read and write it; `/my/object-create` refuses it (no `created_by_id`); public and private reads only reach tables listed in `config_table_public_read_allowed` / `config_table_private_read_allowed`.
-- `script.postgres_backup` copies every public table to CSV: with large hypertables, leave it off or back the database up with database tools.
+- With `config_is_postgres_schema_init` off, startup changes nothing and stops when the database differs from its schema, until `script.postgres_schema_plan --apply` runs the changes.
+- The schema cache lists the tables after the start; admin routes (role 1) read (`order=time desc`) and create with `?connection=telematics`; update, delete and relation fetch answer 400 `table 'gps_point' has no id`; `/my/object-create` refuses it (no `created_by_id`); public and private reads only reach tables listed in `config_table_public_read_allowed` / `config_table_private_read_allowed`.
+- `script.postgres_backup` copies the master database only: back the time-series database up with database tools.

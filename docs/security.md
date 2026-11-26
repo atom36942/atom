@@ -45,7 +45,7 @@ Atom attaches standard baseline security headers to every HTTP response before r
 - **Limits Even Admins Have**:
   - Every `/admin/*` route that writes or grants access (object create, update, delete; user create, update, delete; imports; the SQL write runners; blob operations; slow-query reset) checks the role, deactivation and any permission against the database on each call (`realtime`), so a demoted, deactivated or revoked admin stops at once, whatever the token says; and it is rate limited.
   - Audit columns (`config_column_audit_blocked`: `created_*`, `updated_*`, `deleted_*`) are set only by Atom: admin create, update and CSV import refuse them, and imported rows get the importing admin as `created_by_id`.
-  - `/admin/postgres-query-runner-write` takes one `INSERT`, `UPDATE` or `DELETE`; `UPDATE` and `DELETE` need a `WHERE`; no `DROP`, `TRUNCATE`, `ALTER`, `CREATE`, `GRANT`, `DO` or other commands (the schema comes from `config_postgres`; PgWeb, with its own database login, stays the full SQL tool).
+  - `/admin/postgres-query-runner-write` takes one `INSERT`, `UPDATE` or `DELETE`; `UPDATE` and `DELETE` need a `WHERE`; no `DROP`, `TRUNCATE`, `ALTER`, `CREATE`, `GRANT`, `DO` or other commands (the schema comes from `config_postgres_schema_master`; PgWeb, with its own database login, stays the full SQL tool).
   - No user changes their own `role`, `permissions` or `deactivated_at` through the admin or permission user routes: another admin must.
 
 ---

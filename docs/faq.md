@@ -10,18 +10,18 @@ User deletion is **off by default** and needs **two switches**, because Atom gua
 | Switch | Where | Default | To enable deletion |
 |---|---|---|---|
 | `config_is_user_delete` | `.env` | `false` | `config_is_user_delete=true` |
-| `users` in `table_row_delete_disable` | `config_postgres["control"]` | listed (trigger blocks every `DELETE` on `users`) | remove `users` from the list in `config_extend.py` (below), then restart |
+| `users` in `table_row_delete_disable` | `config_postgres_schema_master["control"]` | listed (trigger blocks every `DELETE` on `users`) | remove `users` from the list in `config_extend.py` (below), then restart |
 
 ```python
 # config_extend.py, under # atom
-config_postgres = {
-**base_config_postgres,
-"table": {**base_config_postgres["table"]},
-"control": {**base_config_postgres["control"], "table_row_delete_disable": [t for t in base_config_postgres["control"]["table_row_delete_disable"] if t != "users"]},
+config_postgres_schema_master = {
+**base_config_postgres_schema_master,
+"table": {**base_config_postgres_schema_master["table"]},
+"control": {**base_config_postgres_schema_master["control"], "table_row_delete_disable": [t for t in base_config_postgres_schema_master["control"]["table_row_delete_disable"] if t != "users"]},
 }
 ```
 
-With only the first switch on, the delete APIs answer `users delete blocked in the database: remove users from config_postgres control table_row_delete_disable`. Leave either switch off to keep users undeletable; other tables are unaffected.
+With only the first switch on, the delete APIs answer `users delete blocked in the database: remove users from config_postgres_schema_master control table_row_delete_disable`. Leave either switch off to keep users undeletable; other tables are unaffected.
 
 Users are deleted only through `DELETE /my/user-delete` (own account, token only) and `DELETE /admin/user-delete?id=7` (one user). The root user (`id` 1) is never deleted. The generic `/my/object-delete` and `/admin/object-delete` always refuse `table=users`.
 
@@ -306,10 +306,10 @@ Do not commit secrets to `config.py`. Use `.env` for environment-specific creden
 <details>
 <summary><strong>How do I add a new table?</strong></summary>
 
-Define the table under `config_postgres["table"]`, preferably from `config_extend.py` so framework updates do not overwrite your customization. The first column must be Atom's standard primary key:
+Define the table under `config_postgres_schema_master["table"]` (or `config_postgres_schema_<name>["table"]` for another database), from `config_extend.py` so framework updates do not overwrite your customization. Start it with Atom's standard key `id` when Atom's routes should update, delete or page it by id; a table without id (time-series rows keyed by device and time) works too, see [timescaledb.md](timescaledb.md):
 
 ```python
-config_postgres["table"]["project"] = [
+config_postgres_schema_master["table"]["project"] = [
     {"name": "id", "datatype": "bigint", "identity": "always", "is_primary": True},
     {"name": "title", "datatype": "varchar(200)", "is_mandatory": True},
     {"name": "created_at", "datatype": "timestamptz", "default": "CURRENT_TIMESTAMP"},
@@ -717,7 +717,7 @@ curl "http://localhost:8000/public/object-read?connection=read_india&table=produ
 <details>
 <summary><strong>Will automatic schema initialization delete or alter existing database objects?</strong></summary>
 
-It can. When `config_is_postgres_schema_init = True`, startup compares `config_postgres` with the live schema and applies configured tables, columns, constraints, indexes, extensions, and triggers. The `config_postgres["control"]` flags determine whether missing tables or columns may be dropped and whether mismatched column types may be recreated.
+It can. When `config_is_postgres_schema_init = True`, startup compares `config_postgres_schema_master` with the live schema and applies configured tables, columns, constraints, indexes, extensions, and triggers. The `config_postgres_schema_master["control"]` flags determine whether missing tables or columns may be dropped and whether mismatched column types may be recreated.
 
 To make schema changes a deliberate step instead, set `config_is_postgres_schema_init = False`: startup then only compares and stops if the database differs, and `venv/bin/python -m script.postgres_schema_plan --apply` runs the changes. Review those controls carefully before pointing Atom at an existing or production database. Back up the database, test schema changes on a copy, and use a database account with appropriately limited privileges. For a safe column rename, set the column's `old` key instead of removing one name and adding another. See [config.md](config.md#control).
 
@@ -746,7 +746,7 @@ It is a live chat over the `message` table for a single worker: token sent as th
 
 Startup intentionally validates configuration before serving traffic. It rejects duplicate API IDs, unknown `config_api` keys or modes, invalid table definitions, duplicate/reserved column names, incompatible index types, unsafe schema-control combinations, and other inconsistent settings.
 
-Read the first startup exception rather than the later shutdown noise. Check recent edits in `config_extend.py`, `config_api`, and `config_postgres`, then compare them with [config.md](config.md). Common mistakes include forgetting the exact first `id` column definition, referencing a nonexistent index column, using malformed JSON in `.env`, or registering a policy path that does not match a route.
+Read the first startup exception rather than the later shutdown noise. Check recent edits in `config_extend.py`, `config_api`, and `config_postgres_schema_master`, then compare them with [config.md](config.md). Common mistakes include forgetting the exact first `id` column definition, referencing a nonexistent index column, using malformed JSON in `.env`, or registering a policy path that does not match a route.
 
 </details>
 

@@ -46,7 +46,7 @@ No route or function to write: a table, one map entry, labels and grants.
 
 | Step | Where | What |
 |---|---|---|
-| 1. The table | `config_extend.py`, `config_postgres` | The columns, plus `created_by_id`, `updated_by_id`, `updated_at` (create and update stamp them) and an index for every filter and sort |
+| 1. The table | `config_extend.py`, `config_postgres_schema_master` | The columns, plus `created_by_id`, `updated_by_id`, `updated_at` (create and update stamp them) and an index for every filter and sort |
 | 2. The actions | `config_extend.py`, `config_permission_table` | Only the actions the team needs, each its own id from 200 that no route uses: `"vendor": {"create": 220, "read": 221, "update": 222, "delete": 223}` |
 | 3. The labels | `config_extend.py`, `config_column_int_mapping["users"]["permissions"]` | `220: "Vendor create", 221: "Vendor read", ...`; startup refuses an unlabelled id |
 | 4. The grants | `PUT /admin/user-update` `{"id": <user>, "permissions": [221, 222]}` | Who may do what: a viewer 221, an editor 221 + 222, a lead all four; a user logs in again to get them (token mode); root holds them all |

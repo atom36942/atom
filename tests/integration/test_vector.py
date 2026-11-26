@@ -1,4 +1,4 @@
-"""Vector search (pgvector) end to end: the extension installed from config_postgres, a vector column with its hnsw index, writes from lists, the <=> filter with order by distance and cursor paging, the column returned only when named, export, and the clear error when the extension is missing.
+"""Vector search (pgvector) end to end: the extension installed from config_postgres_schema_master, a vector column with its hnsw index, writes from lists, the <=> filter with order by distance and cursor paging, the column returned only when named, export, and the clear error when the extension is missing.
 
 Same real-app boot as test_http.py (support.app_start), against a throwaway database; skipped where the Postgres server has no pgvector.
 """
@@ -57,7 +57,7 @@ class VectorTests(unittest.TestCase):
         return [row["title"] for row in self.read(filter=[f"embedding <=> {json.dumps(vector)}"], order="embedding", **params)["obj_list"]]
 
     def test_the_extension_column_and_index_are_there(self):
-        self.assertEqual(fetch(self.url, "SELECT count(*) AS n FROM pg_extension WHERE extname = 'vector'"), [{"n": 1}], "installed at startup from config_postgres extension")
+        self.assertEqual(fetch(self.url, "SELECT count(*) AS n FROM pg_extension WHERE extname = 'vector'"), [{"n": 1}], "installed at startup from config_postgres_schema_master extension")
         [index] = fetch(self.url, "SELECT indexdef FROM pg_indexes WHERE tablename = 'doc' AND indexname = 'idx_doc_embedding_hnsw'")
         self.assertIn("hnsw (embedding vector_cosine_ops)", index["indexdef"])
 

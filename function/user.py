@@ -79,8 +79,8 @@ async def func_user_delete(*, client_postgres: asyncpg.Pool | None, user_id: int
     if int(user_id) == 1: raise func_api_error(message="root user cannot be deleted", status_code=403)
     try: result = await client_postgres.execute("DELETE FROM users WHERE id=$1;", user_id)
     except asyncpg.exceptions.RaiseError as error:
-        # the database's own guard: config_postgres control table_row_delete_disable lists users
-        if "not allowed on users" in str(error): raise func_api_error(message="users delete blocked in the database: remove users from config_postgres control table_row_delete_disable", status_code=403) from None
+        # the database's own guard: config_postgres_schema_master control table_row_delete_disable lists users
+        if "not allowed on users" in str(error): raise func_api_error(message="users delete blocked in the database: remove users from config_postgres_schema_master control table_row_delete_disable", status_code=403) from None
         raise
     if result == "DELETE 0": raise func_api_error(message="user not found", status_code=404)
     return "user deleted"

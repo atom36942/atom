@@ -16,7 +16,7 @@ def func_page_keys(*, order: str, columns: dict, default: str = "id desc", alias
         elif len(words) == 3 and words[1] == "nulls": direction, nulls = "asc", words[2]
         if not words or len(words) > 4 or direction not in ("asc", "desc") or nulls not in (None, "first", "last") or (len(words) == 3 and nulls is None) or (len(words) == 4 and nulls is None): raise func_api_error(message=f"invalid order: {part.strip()}", status_code=400)
         name = part.split()[0]
-        if name not in columns: raise func_api_error(message=f"order column '{name}' not found", status_code=400)
+        if name not in columns: raise func_api_error(message="table has no id: pass order (e.g. order=time desc)" if name == "id" else f"order column '{name}' not found", status_code=400)
         if any(key["name"] == name for key in keys): raise func_api_error(message=f"order column '{name}' given twice", status_code=400)
         datatype = str(columns[name].get("datatype") or "text")
         if datatype.endswith("[]") or datatype.lower() in ("json", "jsonb", "bytea", "array"): raise func_api_error(message=f"cannot order by '{name}' ({datatype})", status_code=400)

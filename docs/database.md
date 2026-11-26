@@ -51,24 +51,39 @@ curl -H "Authorization: Bearer $TOKEN" "http://localhost:8000/admin/postgres-sch
 
 ## 2. Declarative Schema Management
 
-When `config_is_postgres_schema_init = True`, Atom inspects and automatically migrates the database schema on startup:
-- Creates required PostgreSQL extensions (e.g. `uuid-ossp`, `citext`).
-- Creates missing tables declared in `config_postgres["table"]`.
+Each database has its own schema: `config_postgres_schema_<name>` is applied at startup to the database of `config_postgres_url_<name>`, master first. `config_postgres_schema_master` holds Atom's tables; a project adds one for another database in `config_extend.py`, and that database gets exactly what its schema lists (nothing of Atom's, no `users`). A schema naming a database without a URL stops startup.
+
+When `config_is_postgres_schema_init = True`, Atom inspects and automatically migrates each database on startup:
+- Creates the PostgreSQL extensions of its `extension` part.
+- Creates missing tables declared in its `table` part, with their primary key: `id`, several columns (`device`, `time`), or none.
 - Adds missing columns and alters types if necessary.
-- Installs unique constraints and indexes from `config_postgres["index"]`.
-- Seeds the root admin user (`admin` / `role: 1`) and attaches the root protection trigger.
+- Installs unique constraints, checks and indexes from the column specs.
+- Where the `users` table is (master): seeds the root admin user (`admin` / `role: 1`) and attaches the root protection trigger.
+- Runs its `sql` part last (for example `create_hypertable`, [timescaledb.md](timescaledb.md)).
 
-It reads the current tables, columns, indexes, constraints and triggers once (a few catalog queries for all tables), then changes only what differs from `config_postgres`; an unchanged database takes about 14 queries, so a start against a remote database stays near one second. Tables, the root user and triggers change in one transaction: other sessions see the old schema or the new one, and a delete guard is never missing while an instance starts. A trigger is recreated only when its definition differs, so a guard removed or edited by hand is put back on the next start. Extensions run before that transaction (a missing privilege is skipped) and custom `sql` after it.
+```python
+# config_extend.py: a second database, telematics (config_postgres_url_telematics in .env)
+config_postgres_schema_telematics = {
+"extension": ["timescaledb"],
+"table": {"reading": [{"name": "device", "datatype": "text", "is_primary": True}, {"name": "time", "datatype": "timestamptz", "is_primary": True}, {"name": "speed", "datatype": "real"}]},
+"sql": {"reading_hypertable": "SELECT create_hypertable('reading', 'time', if_not_exists => TRUE)"},
+}
+```
 
-**Busy tables and big changes.** In that transaction each table lock is waited for at most `config_postgres_schema_lock_timeout_sec` (10 s): when another session holds a table that long, startup stops with `schema init: a table stayed locked ... nothing was changed` instead of hanging the deploy, and the whole change rolls back. To see what the next start would change before deploying, run the plan with the new code against the target database:
+**`id` is optional.** A table with `id` (an integer) gets every generic route; on a table without it, create and read work (read with an `order`, e.g. `order=time desc`), while update, delete and relation fetch answer 400 `table '<name>' has no id: ... needs one`, before any SQL.
+
+It reads the current tables, columns, indexes, constraints and triggers once (a few catalog queries for all tables), then changes only what differs from `config_postgres_schema_master`; an unchanged database takes about 14 queries, so a start against a remote database stays near one second. Tables, the root user and triggers change in one transaction: other sessions see the old schema or the new one, and a delete guard is never missing while an instance starts. A trigger is recreated only when its definition differs, so a guard removed or edited by hand is put back on the next start. Extensions run before that transaction (a missing privilege is skipped) and custom `sql` after it.
+
+**Busy tables and big changes.** In that transaction each table lock is waited for at most `config_postgres_lock_timeout_sec` (10 s): when another session holds a table that long, startup stops with `schema init: a table stayed locked ... nothing was changed` instead of hanging the deploy, and the whole change rolls back. To see what the next start would change before deploying, run the plan with the new code against the target database:
 
 ```bash
 venv/bin/python -m script.postgres_schema_plan
+venv/bin/python -m script.postgres_schema_plan --db telematics    # one database only
 ```
 
-It reads the catalog on a read-only connection, changes nothing, and prints each change, flagging the ones that lock or rewrite a table (`ALTER COLUMN ... TYPE`, `SET NOT NULL`, `CREATE INDEX` without `CONCURRENTLY`, `DROP`) with the table's estimated rows. A flagged change on a big table is better run by hand when it is quiet; the next start then finds nothing to change. Statements that run on every start (trigger functions, the root user) are only counted.
+It plans every database that has a schema and a URL. It reads the catalog on a read-only connection, changes nothing, and prints each change, flagging the ones that lock or rewrite a table (`ALTER COLUMN ... TYPE`, `SET NOT NULL`, `CREATE INDEX` without `CONCURRENTLY`, `DROP`) with the table's estimated rows. A flagged change on a big table is better run by hand when it is quiet; the next start then finds nothing to change. Statements that run on every start (trigger functions, the root user) are only counted.
 
-`venv/bin/python -m script.postgres_schema_plan --apply` prints the same plan, then runs it exactly as startup does (one transaction, the same advisory lock and lock timeout). With `config_is_postgres_schema_init = False`, startup changes nothing and only compares: if the master database differs from `config_postgres` it stops, listing the changes, so the app never runs against a schema its code does not expect. A production deploy then is: `postgres_schema_plan`, read it, `postgres_schema_plan --apply`, start the app. Only the master database is compared; a separate `log_api` database is not, but startup already stops if it has no `log_api` table.
+`venv/bin/python -m script.postgres_schema_plan --apply` prints the same plan, then runs it exactly as startup does (one transaction, the same advisory lock and lock timeout). With `config_is_postgres_schema_init = False`, startup changes nothing and only compares: if a database differs from its `config_postgres_schema_<name>` it stops, listing the changes, so the app never runs against a schema its code does not expect. A production deploy then is: `postgres_schema_plan`, read it, `postgres_schema_plan --apply`, start the app.
 
 ---
 
@@ -147,4 +162,10 @@ config_postgres_url_master=postgresql://atom:pass@primary-db:5432/atom
 config_postgres_url_logs=postgresql://logger:pass@logs-db:5432/atom_logs
 config_postgres_db_log_api=logs
 ```
-Atom resolves `app.state.client_postgres_log_api = app.state.client_postgres_dict["logs"]` and routes log writes, cleanup and `/my/api-usage` to it. Schema init creates only the `log_api` table there and leaves other tables untouched; with schema init off, startup stops if `log_api` is missing.
+Then move the `log_api` table into that database's schema, explicitly, in `config_extend.py`: out of master's schema, into the logs one (the same definition, not a copy):
+```python
+config_postgres_db_log_api = "logs"
+config_postgres_schema_master = {**base_config_postgres_schema_master, "table": {k: v for k, v in base_config_postgres_schema_master["table"].items() if k != "log_api"}}
+config_postgres_schema_logs = {"table": {"log_api": base_config_postgres_schema_master["table"]["log_api"]}}
+```
+Startup stops while API logging is on and `log_api` is not in the schema of `config_postgres_db_log_api`'s database, or is in another one too. Atom resolves `app.state.client_postgres_log_api = app.state.client_postgres_dict["logs"]` and routes log writes, cleanup and `/my/api-usage` to it.

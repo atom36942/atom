@@ -90,9 +90,9 @@ class SearchTests(unittest.TestCase):
 
     def test_a_changed_expression_rebuilds_the_column_and_an_unchanged_one_changes_nothing(self):
         state = self.app.state
-        plan = lambda config: self.client.portal.call(functools.partial(state.func_postgres_schema_plan, app_state=state, client_postgres=state.client_postgres_dict["master"], config_postgres=config))
-        self.assertEqual([step["sql"] for step in plan(state.config_postgres) if not step["is_routine"]], [], "nothing to change")
-        changed = copy.deepcopy(state.config_postgres)
+        plan = lambda config: self.client.portal.call(functools.partial(state.func_postgres_schema_plan, app_state=state, client_postgres=state.client_postgres_dict["master"], config_postgres_schema=config))
+        self.assertEqual([step["sql"] for step in plan(state.config_postgres_schema_master) if not step["is_routine"]], [], "nothing to change")
+        changed = copy.deepcopy(state.config_postgres_schema_master)
         column = next(c for c in changed["table"]["ticket"] if c["name"] == "search")
         column["generated"] = "to_tsvector('simple', coalesce(title, ''))"
         sql = [step["sql"] for step in plan(changed)]

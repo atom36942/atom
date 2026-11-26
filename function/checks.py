@@ -7,6 +7,7 @@ from starlette.routing import WebSocketRoute
 from starlette.datastructures import State
 from .app import func_app_route_list
 from .postgres_schema import func_postgres_schema_config_validate
+from .postgres_schema import func_postgres_schema_dict
 from .schedule import func_schedule_read
 from .webhook import func_webhook_verify_scheme_check
 
@@ -67,6 +68,25 @@ def func_check_database_config(*, app_state: State) -> None:
         int_check(values[key], key)
     return
 
+def func_check_postgres_schema(*, app_state: State) -> None:
+    """Stop startup on a wrong config_postgres_schema_<name>: master missing, a name without a database (config_postgres_url_<name>), an invalid table,
+    or API logging on while log_api is not in the schema of its database (config_postgres_db_log_api), or is in another one too."""
+    values = getattr(app_state, "_state", None) or vars(app_state)
+    schemas = func_postgres_schema_dict(values=values)
+    if not isinstance(schemas.get("master"), dict): raise Exception("config_postgres_schema_master is required: Atom's tables live there")
+    url_names = set(values.get("config_postgres_url_dict") or {})
+    for name, schema in schemas.items():
+        if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", name): raise Exception(f"invalid config_postgres_schema_ name: {name!r}")
+        if url_names and name not in url_names: raise Exception(f"config_postgres_schema_{name}: no database named {name} (config_postgres_url_{name} is not set)")
+        try: func_postgres_schema_config_validate(config_postgres_schema=schema)
+        except Exception as e: raise Exception(f"config_postgres_schema_{name}: {e}") from None
+    if values.get("config_is_log_api", True):
+        log_db = values.get("config_postgres_db_log_api") or "master"
+        holders = [name for name, schema in schemas.items() if "log_api" in (schema.get("table") or {})]
+        if log_db not in holders: raise Exception(f"config_postgres_db_log_api is '{log_db}': add log_api to config_postgres_schema_{log_db} (\"log_api\": base_config_postgres_schema_master[\"table\"][\"log_api\"])")
+        if others := [name for name in holders if name != log_db]: raise Exception(f"log_api is in config_postgres_schema_{others[0]}, but API logs go to '{log_db}' (config_postgres_db_log_api): remove it there")
+    return
+
 def func_check_runtime_config(*, app_state: State) -> None:
     """Validate query limits, buffer bounds, and background-task intervals."""
     def int_check(value, key):
@@ -79,18 +99,18 @@ def func_check_runtime_config(*, app_state: State) -> None:
     if values["config_sql_read_limit_default"] > values["config_sql_read_limit_max"]: raise Exception("config_sql_read_limit_default must not exceed config_sql_read_limit_max")
     values = getattr(app_state, "_state", None) or vars(app_state)
     if "config_table" in values: raise ValueError("config_table was removed in Atom 9.0.0: set a table's buffer size as config_buffer_limit_<table> (e.g. config_buffer_limit_log_api = 1000)")
-    tables = set((values.get("config_postgres") or {}).get("table", {}))
+    tables = {table for schema in func_postgres_schema_dict(values=values).values() if isinstance(schema, dict) for table in schema.get("table") or {}}
     for key, limit in values.items():
         if not key.startswith("config_buffer_limit_") or key == "config_buffer_limit_default": continue
-        if key.removeprefix("config_buffer_limit_") not in tables: raise ValueError(f"{key}: no table {key.removeprefix('config_buffer_limit_')!r} in config_postgres")
+        if key.removeprefix("config_buffer_limit_") not in tables: raise ValueError(f"{key}: no table {key.removeprefix('config_buffer_limit_')!r} in any config_postgres_schema_<name>")
         if isinstance(limit, bool) or not isinstance(limit, int) or not 10 <= limit <= 5000: raise ValueError(f"{key} must be an integer between 10 and 5000")
     if "config_sql" in values: raise ValueError("config_sql was removed in Atom 9.0.0: its queries are Atom's own; set config_cache_row_limit_config, config_cache_row_limit_users_role, config_cache_row_limit_users_deactivated, config_cache_row_limit_users_deleted and config_profile_metadata_sql instead")
     private_read = values.get("config_column_users_private_read")    # Atom's config.py always sets it
-    users_columns = {column.get("name") for column in ((values.get("config_postgres") or {}).get("table", {}).get("users") or [])}
+    users_columns = {column.get("name") for column in ((values.get("config_postgres_schema_master") or {}).get("table", {}).get("users") or [])}
     if "config_column_users_private_read" in values and (not isinstance(private_read, list) or not private_read or not all(isinstance(column, str) for column in private_read)): raise ValueError("config_column_users_private_read must be a non-empty list of users columns")
     for column in private_read or []:
         if column == "password" or column in (values.get("config_column_read_blocked") or []): raise ValueError(f"config_column_users_private_read: {column} is never readable (config_column_read_blocked)")
-        if users_columns and column not in users_columns: raise ValueError(f"config_column_users_private_read: no users column {column!r} in config_postgres")
+        if users_columns and column not in users_columns: raise ValueError(f"config_column_users_private_read: no users column {column!r} in config_postgres_schema_master")
     private_blocked = values.get("config_column_private_read_blocked")
     if "config_column_private_read_blocked" in values and (not isinstance(private_blocked, dict) or not all(isinstance(columns, list) and all(isinstance(column, str) for column in columns) for columns in private_blocked.values())): raise ValueError("config_column_private_read_blocked must be a dict of table: [columns]")
     if "config_permission_user_create_roles" in values: raise ValueError("config_permission_user_create_roles was renamed in Atom 14.0.0 to config_permission_user_roles (used by /permission/user-create and /permission/user-update)")
@@ -341,10 +361,10 @@ def func_check_config_extend_alias(*, config_module, config_extend_module) -> No
     return
 
 def func_check_config_extend_keeps_atom(*, config_module, config_extend_module) -> None:
-    """Stop startup when config_extend.py defines config_api, config_postgres or config_column_int_mapping without Atom's entries.
+    """Stop startup when config_extend.py defines config_api, config_postgres_schema_master or config_column_int_mapping without Atom's entries.
 
-    config_api: Atom's routes. config_postgres: Atom's parts (extension, table, control, sql) and, inside each, Atom's extensions,
-    tables, switches and SQL entries. config_column_int_mapping: Atom's mapped codes. Values and labels may change and anything may be added.
+    config_api: Atom's routes. config_postgres_schema_master: Atom's parts (extension, table, control, sql) and, inside each, Atom's extensions,
+    tables, switches and SQL entries; one of Atom's tables may live in another database's config_postgres_schema_<name> instead (log_api with config_postgres_db_log_api). config_column_int_mapping: Atom's mapped codes. Values and labels may change and anything may be added.
     What counts as Atom's is read from config.py on every start, so new entries there are covered without changing this check.
     """
     if config_module is None or config_extend_module is None: return
@@ -352,13 +372,14 @@ def func_check_config_extend_keeps_atom(*, config_module, config_extend_module) 
         if isinstance(atom, dict): return [f"{path}{key}" for key in atom if not isinstance(extended, dict) or key not in extended]
         if isinstance(atom, list): return [f"{path}{item}" for item in atom if not isinstance(extended, (list, tuple)) or item not in extended]
         return []
-    fixes = {"config_api": "{**base_config_api, ...}", "config_postgres": "{**base_config_postgres, \"table\": {**base_config_postgres[\"table\"], ...}}", "config_column_int_mapping": "keep Atom's codes, labels may change"}
+    fixes = {"config_api": "{**base_config_api, ...}", "config_postgres_schema_master": "{**base_config_postgres_schema_master, \"table\": {**base_config_postgres_schema_master[\"table\"], ...}}", "config_column_int_mapping": "keep Atom's codes, labels may change"}
     for name, fix in fixes.items():
         if name not in vars(config_extend_module): continue
         atom, extended = getattr(config_module, name), getattr(config_extend_module, name)
-        if name == "config_postgres":    # two levels: each part, then each entry inside it
+        if name == "config_postgres_schema_master":    # two levels: each part, then each entry inside it; a table may be in another database's schema
+            elsewhere = {table for key, schema in vars(config_extend_module).items() if key.startswith("config_postgres_schema_") and key != name and isinstance(schema, dict) for table in schema.get("table") or {}}
             dropped = missing(atom, extended, "")
-            dropped += [item for part, value in atom.items() if isinstance(extended, dict) and part in extended for item in missing(value, extended[part], f"{part}.")]
+            dropped += [item for part, value in atom.items() if isinstance(extended, dict) and part in extended for item in missing(value, extended[part], f"{part}.") if not (part == "table" and item.removeprefix("table.") in elsewhere)]
             label = "entries"
         elif name == "config_column_int_mapping":    # table -> column -> codes: each of Atom's codes must remain
             kept = {(table, column): codes for table, columns in (extended.items() if isinstance(extended, dict) else []) if isinstance(columns, dict) for column, codes in columns.items() if isinstance(codes, dict)}
@@ -371,7 +392,7 @@ def func_check_config_extend_keeps_atom(*, config_module, config_extend_module) 
 
 def func_check(*, app: FastAPI) -> None:
     """Validate database, runtime, and API configuration before client initialization."""
-    func_postgres_schema_config_validate(config_postgres=app.state.config_postgres)    # every table starts with its integer primary key id: caught here, in script.check and CI, before any database
+    func_check_postgres_schema(app_state=app.state)    # every database's schema: caught here, in script.check and CI, before any database
     func_check_config_extend_alias(config_module=sys.modules.get("config"), config_extend_module=sys.modules.get("config_extend"))
     func_check_config_extend_keeps_atom(config_module=sys.modules.get("config"), config_extend_module=sys.modules.get("config_extend"))
     func_check_database_config(app_state=app.state)

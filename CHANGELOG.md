@@ -4,6 +4,14 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [20.0.0] - 2026-11-26
+
+**Upgrade (projects must change):** `config_postgres` is now `config_postgres_schema_master`. In `config_extend.py`, rename the import (`from config import config_postgres_schema_master as base_config_postgres_schema_master`), the variable and every `base_config_postgres` use; code that read `app_state.config_postgres` reads `app_state.config_postgres_schema_master`. `.env` `config_postgres_schema_lock_timeout_sec` becomes `config_postgres_lock_timeout_sec`. A project with `config_postgres_db_log_api` other than `master` moves `log_api` into that database's schema ([docs/database.md](docs/database.md#5-api-logging--telemetry-log_api)).
+
+- **A schema per database:** `config_postgres_schema_<name>` in `config_extend.py` is applied at startup to the database of `config_postgres_url_<name>` (extensions, tables, indexes, checks, triggers, `sql`), master first, with the same lock, lock timeout and check mode as master. That database gets exactly what its schema lists, nothing of Atom's. Startup stops when a schema names a database without a URL, or when API logging is on and `log_api` is not in the schema of `config_postgres_db_log_api`'s database, or is in another one too (before, Atom created `log_api` there on its own). `script.postgres_schema_plan` plans every database (`--db <name>` for one) ([docs/database.md](docs/database.md#2-declarative-schema-management)).
+- **`id` is optional:** a table may have `id`, a primary key over several columns (`is_primary` on each, such as `device` and `time` for a TimescaleDB hypertable) or none; a column named `id` is an integer. On a table without `id`, create and read work (read with an `order`), while update, delete and relation fetch answer 400 `table '<name>' has no id: ... needs one` before any SQL, and a read without `order` answers 400 `table has no id: pass order`.
+- **TimescaleDB in config:** the guide now defines the time-series database as `config_postgres_schema_<name>`: tables in `table`, hypertables, compression, policies and rollups in `sql`; no separate schema file to run by hand ([docs/timescaledb.md](docs/timescaledb.md)).
+
 ## [19.5.1] - 2026-11-26
 
 - **Docs: `users.permissions` holds only route and `config_permission_table` ids.** Any other access a project needs, such as which rows a user may see (countries, companies, branches), goes in its own admin-only `users` column read on each request, never as made-up ids in `permissions`, whose numbering it shares with the routes ([docs/auth-permission.md](docs/auth-permission.md), AGENTS.md Rules).

@@ -11,7 +11,7 @@ Every `config_*` value is read once, at startup, in this order; a later one wins
 | Order | Where | For |
 |---|---|---|
 | 1 | `config.py` | Atom's defaults |
-| 2 | `config_extend.py` | the project's defaults and structure (tables, routes); git-tracked, survives `sync.py`. See [extend.md](extend.md); startup stops if its `config_api`, `config_postgres` or `config_column_int_mapping` drops any of Atom's routes, Postgres entries or mapped codes ([what is checked](extend.md#what-startup-checks-in-config_extendpy)) |
+| 2 | `config_extend.py` | the project's defaults and structure (tables, routes); git-tracked, survives `sync.py`. See [extend.md](extend.md); startup stops if its `config_api`, `config_postgres_schema_master` or `config_column_int_mapping` drops any of Atom's routes, Postgres entries (a table may move to another database's schema) or mapped codes ([what is checked](extend.md#what-startup-checks-in-config_extendpy)) |
 | 3 | `.env` | one machine's values: secrets, URLs, flags (or the file `ATOM_ENV_FILE` names: [local run](#local-run)) |
 | 4 | environment variables | a server's settings (Azure app settings, `docker run -e`, CI); `.env` never overwrites a variable that is already set |
 
@@ -181,9 +181,9 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_token_secret_key` | HMAC secret key for signing/verifying JWT tokens *(Must change)*. With `config_is_prod` on, startup refuses keys shorter than 32 bytes; generate one with `python3 -c "import secrets; print(secrets.token_urlsafe(48))"` |
 | `config_root_html_path` | Path to static HTML file served at `/` (default: Atom's home page, which lists every page in `static/` and `static_extend/`) |
 | `config_is_home_atom_listed` | `true` (default): the home page lists Atom's pages and the project's; `false`: only the project's pages (`static_extend/`). Applied by the server in `GET /static-pages`; Atom's pages still open at `/page/<name>` |
-| `config_is_user_delete` | Enables user hard deletion through `/my/user-delete` and `/admin/user-delete` (default `False`); the database also needs `users` out of `config_postgres` control `table_row_delete_disable` |
-| `config_is_postgres_schema_init` | `True` (default): startup changes the master database to match `config_postgres`. `False`: startup changes nothing, compares instead, and stops if the database differs, listing the changes; run them with `venv/bin/python -m script.postgres_schema_plan --apply` (for production, where schema changes should be a deliberate step). With `config_is_read_only` neither runs |
-| `config_postgres_schema_lock_timeout_sec` | Longest wait for a table lock during schema init (default 10); past it startup stops and changes nothing. See what would change: `venv/bin/python -m script.postgres_schema_plan` |
+| `config_is_user_delete` | Enables user hard deletion through `/my/user-delete` and `/admin/user-delete` (default `False`); the database also needs `users` out of `config_postgres_schema_master` control `table_row_delete_disable` |
+| `config_is_postgres_schema_init` | `True` (default): startup changes each database to match its `config_postgres_schema_<name>`. `False`: startup changes nothing, compares instead, and stops if a database differs, listing the changes; run them with `venv/bin/python -m script.postgres_schema_plan --apply` (for production, where schema changes should be a deliberate step). With `config_is_read_only` neither runs |
+| `config_postgres_lock_timeout_sec` | Longest wait for a table lock during schema init (default 10); past it startup stops and changes nothing. See what would change: `venv/bin/python -m script.postgres_schema_plan` |
 | `config_signup_allowed_roles` | Roles allowed for public signup, including new users created by OTP/OIDC login (default: `[]` disables signup; role `1` is always rejected). See [role settings](auth.md#signup-and-login-role-settings). |
 | `config_login_allowed_roles` | Allowed values for the supplied login `role` parameter (default: roles `1` through `20`; optional for password login) |
 | `config_is_otp_require_users_update` | `/admin/user-update` needs `otp` for `email`/`mobile` (default `False`); `/my/user-update` always does |
@@ -202,7 +202,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_is_log_api_detail` | Also store each logged request's headers, the response headers and both bodies in `log_api` (`request_header`, `response_header`, `request_body`, `response_body`; default `False`). Only text bodies are kept, by their `Content-Type`: JSON (`application/json`, `+json`), XML (`application/xml`, `+xml`), `text/*` and `multipart/mixed`; CSV exports, event streams, forms, uploads, files and compressed bodies are only named (`[skipped: text/csv, 52311 bytes]`), never copied. `query_param` keeps every value. Secret header and query names are always masked (`Authorization`, `Cookie`, `Set-Cookie`, keys, tokens); bodies are stored as sent unless `config_is_log_api_detail_mask` is on. For debugging: rows get much larger, and bodies hold users' data; lower `config_retention_day_log_api` while it is on (it deletes them with the rest). |
 | `config_log_api_detail_max_kb` | The most kept per body with `config_is_log_api_detail` (`64`); a longer body is cut and marked with its full size. |
 | `config_is_log_api_detail_mask` | With `config_is_log_api_detail`, also mask secrets inside the bodies: JSON fields and XML elements named password, token, OTP, secret or key become `[REDACTED]` (`False`, for speed: about 2-5 ms per 64 KB body, after the reply is sent). Turn it on when the bodies carry credentials. |
-| `config_postgres_db_log_api` | Named Postgres database for API logging (default: `master`) |
+| `config_postgres_db_log_api` | Named Postgres database for API logging (default: `master`); its `config_postgres_schema_<name>` holds `log_api` |
 | `config_uvicorn_workers` | Server processes started by `python main.py` (default: `1`). Above `1`, every `inmemory` cache, rate limit and user check in `config_api` must switch to `redis` (user checks may also use `realtime` or `token`), and startup warns if workers x pools x `config_postgres_pool_max_size` can exceed Postgres `max_connections` |
 
 ### Limits, OTP & Auth
@@ -243,7 +243,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_blob_expire_sec_upload` | Presigned upload URL lifetime in seconds (`3600`) |
 | `config_blob_expire_sec_preview` | Presigned preview URL lifetime in seconds (`360000`) |
 | `config_buffer_limit_default` | In-memory buffer size before flushing rows to Postgres (`100`) |
-| `config_buffer_limit_<table>` | One table's buffer size, e.g. `config_buffer_limit_log_api` (`1000`); 10 to 5000. A name with no table in `config_postgres` stops startup |
+| `config_buffer_limit_<table>` | One table's buffer size, e.g. `config_buffer_limit_log_api` (`1000`); 10 to 5000. A name with no table in any `config_postgres_schema_<name>` stops startup |
 | `config_buffer_rows_max` | Max rows pending in each in-memory buffer during an outage (`100000`, at least `1000`). When full, `mode=buffer` creates return `503 buffer full, retry later` and API-log rows drop the oldest (counted as `buffer_dropped` on the Monitor page's Background tab) |
 | `config_postgres_buffer_flush_auto_sec` | Timer interval in seconds to auto-flush write buffers (`60`) |
 | `config_postgres_buffer_flush_auto_sec_<name>` | The same for one database's buffered rows (`config_postgres_url_<name>` must exist), e.g. `2` for device data while master keeps `60` ([database.md](database.md#periodic-background-flush-loop)) |
@@ -376,9 +376,9 @@ The role, deactivated and deleted checks share one `users` query per request (`f
 
 ---
 
-### `config_postgres`
+### `config_postgres_schema_master` and `config_postgres_schema_<name>`
 
-Declarative schema initialization and migration configuration.
+Declarative schema per database: `config_postgres_schema_<name>` is applied at startup to the database of `config_postgres_url_<name>`, master first. `config_postgres_schema_master` (Atom's tables) is required; add one for another database in `config_extend.py` (`config_postgres_schema_telematics = {...}`). A database gets exactly what its schema lists, nothing of Atom's. Startup stops when a schema names a database without a URL, or when API logging is on and `log_api` is not in the schema of `config_postgres_db_log_api`'s database, or is in another one too ([database.md](database.md)).
 
 #### Top-Level Dict Keys
 
@@ -389,14 +389,14 @@ Declarative schema initialization and migration configuration.
 | `control` | `dict` | Safety flags and auto-migration control settings |
 | `sql` | `dict[str, str]` | Raw custom SQL executed during schema startup initialization |
 
-#### Table Column Specification Dict Keys (`config_postgres["table"][<table_name>]`)
+#### Table Column Specification Dict Keys (`config_postgres_schema_master["table"][<table_name>]`)
 
 | Column Spec Key | Type | Usage & Description |
 |---|---|---|
-| `name` | `str` | Column name (first column must be `id`, an integer primary key; `func_check` refuses any other, at startup and in `script.check`) |
+| `name` | `str` | Column name. `id` is optional; when a table has it, it is an integer (Atom's update, delete, relation fetch and default order find rows by it, and answer 400 "table ... has no id" on a table without it) |
 | `datatype` | `str` | PostgreSQL data type (e.g. `bigint`, `timestamptz`, `text`, `jsonb`, `geography`) |
-| `identity` | `str` | Identity column strategy (`"always"` or `"by_default"`) |
-| `is_primary` | `bool` | `True` designates the identity primary-key column |
+| `identity` | `str` | Identity column strategy (`"always"` or `"by_default"`), on an integer primary column only |
+| `is_primary` | `bool` | `True` on each column of the table's primary key: one column (`id`), several (`device`, `time`: one key over both), or none (a table without a key). Set when the table is created; a primary column takes only `name`, `datatype`, `identity` and `is_primary` |
 | `is_mandatory` | `bool` | `True` adds a `NOT NULL` constraint |
 | `default` | `str` / `int` | Default value/expression (e.g. `"now()"`, `1`) |
 | `unique` | `str` | Unique constraint (`"code,type"` for composite; `"code,type\|code,slug"` for multiple) |
@@ -409,7 +409,7 @@ Declarative schema initialization and migration configuration.
 
 #### `control`
 
-Auto-migration and safety guards in `config_postgres["control"]`.
+Auto-migration and safety guards in `config_postgres_schema_master["control"]`.
 
 | Control Key | Default | Usage & Description |
 |---|---|---|
@@ -527,4 +527,4 @@ Atom writes one `log_api` row per request, so the table holds roughly requests p
 
 The default of 7 days covers the Monitor page's longest range and keeps the table small. `/my/api-usage?days=N` reads this table, so users see at most that many days; for audits or problems found weeks later, raise it in `config_extend.py` or `.env` (for example `config_retention_day_log_api=30`). For high traffic, also consider keeping logs off the main database with `config_postgres_db_log_api` pointing at a separate `config_postgres_url_<name>`. Load tests create log rows too; they are removed once they pass the retention cutoff.
 
-Both tables have a `created_at` index in the schema configuration. When `config_postgres_db_log_api` is not `master`, schema init creates or updates only the `log_api` table there (no extensions, users or triggers; other tables are untouched). With schema init off, the log database must already have `log_api`; otherwise startup stops with `config_postgres_db_log_api '<name>' has no log_api table`. A retention of `None` means no cleanup queries for that table. Deleted space can be reused by PostgreSQL after vacuuming; deletion does not necessarily shrink the database files on disk.
+Both tables have a `created_at` index in the schema configuration. When `config_postgres_db_log_api` is not `master`, `log_api` moves into that database's `config_postgres_schema_<name>` and out of master's ([database.md](database.md#5-api-logging--telemetry-log_api)); startup stops while it is missing there or left in another schema. A retention of `None` means no cleanup queries for that table. Deleted space can be reused by PostgreSQL after vacuuming; deletion does not necessarily shrink the database files on disk.

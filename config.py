@@ -29,7 +29,7 @@ config_mongodb_url = None
 
 # postgres
 config_is_postgres_schema_init = True
-config_postgres_schema_lock_timeout_sec = 10
+config_postgres_lock_timeout_sec = 10
 config_postgres_pool_min_size = 1
 config_postgres_pool_max_size = 10
 config_postgres_query_timeout_sec = 0
@@ -270,7 +270,7 @@ config_column_int_mapping = {
 }
 
 # schema
-config_postgres = {
+config_postgres_schema_master = {
 "extension": ["postgis", "pg_trgm", "btree_gin", "vector"],
 "table":{
 "test":[

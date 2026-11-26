@@ -238,14 +238,14 @@ async def func_postgres_query_runner_read(*, client_postgres: asyncpg.Pool | Non
     return [dict(row) for row in records]
 
 def func_postgres_write_sql_check(*, sql: str) -> str:
-    """The admin write runner's rule, admin's included: one INSERT, UPDATE or DELETE (the schema comes only from config_postgres, so no DROP, TRUNCATE, ALTER, CREATE, GRANT, DO or other commands), UPDATE and DELETE with a WHERE, no RETURNING.
+    """The admin write runner's rule, admin's included: one INSERT, UPDATE or DELETE (the schema comes only from config_postgres_schema_<name>, so no DROP, TRUNCATE, ALTER, CREATE, GRANT, DO or other commands), UPDATE and DELETE with a WHERE, no RETURNING.
     Quoted text, dollar-quoted text and comments are stripped first, so a value never trips the check. Returns the SQL to run (a trailing ; dropped)."""
     bare = re.sub(r"--[^\n]*|/\*.*?\*/|\$(\w*)\$.*?\$\1\$|'(?:[^']|'')*'|\"(?:[^\"]|\"\")*\"", " ", str(sql or ""), flags=re.S).strip().rstrip(";").strip()
     if not bare: raise Exception("SQL required")
     if ";" in bare: raise Exception("one statement only")
     first = bare.lstrip("(").split(None, 1)[0].lower()
     if first in ("select", "with", "explain", "show", "describe", "table", "values"): raise Exception("read SQL must use /admin/postgres-query-runner-read")
-    if first not in ("insert", "update", "delete"): raise Exception(f"{first.upper()} is not allowed: the write runner takes INSERT, UPDATE or DELETE only (the schema comes from config_postgres)")
+    if first not in ("insert", "update", "delete"): raise Exception(f"{first.upper()} is not allowed: the write runner takes INSERT, UPDATE or DELETE only (the schema comes from config_postgres_schema_<name>)")
     if re.search(r"\breturning\b", bare, re.I): raise Exception("RETURNING is not allowed in write mode")
     if first in ("update", "delete") and not re.search(r"\bwhere\b", bare, re.I): raise Exception(f"{first.upper()} needs a WHERE")
     return str(sql).strip().rstrip(";").strip()

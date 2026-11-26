@@ -8,7 +8,7 @@ import asyncpg
 import function
 from function import func_postgres_schema_init
 from function import func_user_last_active_update
-from tests.integration.support import config_postgres
+from tests.integration.support import config_postgres_schema_master
 from tests.integration.support import create_database
 from tests.integration.support import drop_database
 from tests.integration.support import requires_postgres
@@ -22,7 +22,7 @@ class LastActiveTests(unittest.IsolatedAsyncioTestCase):
         self.db_name, self.url = await asyncio.to_thread(create_database)
         self.pool = await asyncpg.create_pool(self.url, min_size=1, max_size=2)
         app_state = SimpleNamespace(**{name: getattr(function, name) for name in function.__all__})
-        await func_postgres_schema_init(app_state=app_state, client_postgres=self.pool, config_postgres=config_postgres(), root_user_password_hash=PASSWORD_HASH)
+        await func_postgres_schema_init(app_state=app_state, client_postgres=self.pool, config_postgres_schema=config_postgres_schema_master(), root_user_password_hash=PASSWORD_HASH)
         await self.pool.execute("UPDATE users SET updated_at = '2026-01-01', last_active_at = NULL WHERE id = 1")    # what the trigger keeps is checked against this
 
     async def asyncTearDown(self):

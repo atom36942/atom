@@ -243,7 +243,7 @@ async def func_postgres_read(*, client_postgres: asyncpg.Pool | None, client_pas
         for r in result_list:
             for name in (*blocked_cols, *added): r.pop(name, None)
         if relation and result_list:
-            result_list = await func_postgres_relation(client_postgres=client_postgres, client_postgres_conn=conn, obj_list=result_list, relation=relation, config_sql_read_relation_fetch_limit_max=config_sql_read_relation_fetch_limit_max, blocked_tables=blocked_tables, config_column_read_blocked=config_column_read_blocked)
+            result_list = await func_postgres_relation(client_postgres=client_postgres, client_postgres_conn=conn, obj_list=result_list, relation=relation, config_sql_read_relation_fetch_limit_max=config_sql_read_relation_fetch_limit_max, blocked_tables=blocked_tables, config_column_read_blocked=config_column_read_blocked, cache_postgres_schema=cache_postgres_schema)
         return {"obj_list": result_list, "after": next_after}
 
 async def func_postgres_read_group(*, client_postgres: asyncpg.Pool, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, table: str, filter: list, limit: int, order: str, column: str, relation: list, config_column_read_blocked: list | None, after: Any, page: Any, group_column: str | None, group_values: list | None) -> dict:
@@ -283,6 +283,7 @@ async def func_postgres_update(*, client_postgres: asyncpg.Pool | None, client_p
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
     if table == "spatial_ref_sys": raise Exception("system table protected")
     if cache_postgres_schema is not None and table not in cache_postgres_schema: raise Exception(f"table '{table}' not found")
+    if cache_postgres_schema is not None and "id" not in cache_postgres_schema[table]: raise func_api_error(message=f"table '{table}' has no id: update needs one", status_code=400)
     if any("id" not in obj for obj in obj_list): raise Exception("missing required field: 'id' for update operation")
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(ownership_column)): raise Exception(f"invalid identifier {ownership_column}")
     update_cols = [c for c in obj_list[0] if c != "id" and (re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(c)) or (_ for _ in ()).throw(Exception(f"invalid identifier {c}")))]
@@ -345,7 +346,7 @@ async def func_postgres_delete(*, client_postgres: asyncpg.Pool | None, client_p
     if table == "spatial_ref_sys": raise Exception("system table protected")
     if cache_postgres_schema is not None and table not in cache_postgres_schema: raise Exception(f"table '{table}' not found")
     schema = (cache_postgres_schema or {}).get(table, {})
-    if schema and "id" not in schema: raise Exception(f"table '{table}' missing id column")
+    if schema and "id" not in schema: raise func_api_error(message=f"table '{table}' has no id: delete needs one", status_code=400)
     if not ids or not isinstance(ids, (list, tuple)): raise Exception("ids required")
     id_list = [int(x) for x in ids]
     limit_chunk = 5000

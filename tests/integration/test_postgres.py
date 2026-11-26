@@ -24,7 +24,7 @@ from function import func_postgres_schema_init
 from function import func_postgres_schema_ai_view
 from function import func_postgres_schema_read
 from function import func_postgres_update
-from tests.integration.support import config_postgres
+from tests.integration.support import config_postgres_schema_master
 from tests.integration.support import create_database
 from tests.integration.support import drop_database
 from tests.integration.support import requires_postgres
@@ -37,7 +37,7 @@ async def schema_init(url):
     pool = await asyncpg.create_pool(url, min_size=1, max_size=2)
     try:
         app_state = SimpleNamespace(**{name: getattr(function, name) for name in function.__all__})
-        return await func_postgres_schema_init(app_state=app_state, client_postgres=pool, config_postgres=config_postgres(),
+        return await func_postgres_schema_init(app_state=app_state, client_postgres=pool, config_postgres_schema=config_postgres_schema_master(),
                                                root_user_password_hash=HASHER.hash("root-test-password"))
     finally:
         await pool.close()

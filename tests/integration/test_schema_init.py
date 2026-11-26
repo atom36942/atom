@@ -10,7 +10,7 @@ import asyncpg.connection
 
 import function
 from function import func_postgres_schema_init
-from tests.integration.support import config_postgres
+from tests.integration.support import config_postgres_schema_master
 from tests.integration.support import create_database
 from tests.integration.support import drop_database
 from tests.integration.support import requires_postgres
@@ -31,7 +31,7 @@ class SchemaInitTests(unittest.IsolatedAsyncioTestCase):
 
     async def init(self, app_state=None):
         app_state = app_state or SimpleNamespace(**{name: getattr(function, name) for name in function.__all__})
-        return await func_postgres_schema_init(app_state=app_state, client_postgres=self.pool, config_postgres=config_postgres(), root_user_password_hash=PASSWORD_HASH)
+        return await func_postgres_schema_init(app_state=app_state, client_postgres=self.pool, config_postgres_schema=config_postgres_schema_master(), root_user_password_hash=PASSWORD_HASH)
 
     async def recorded_init(self):
         statements = []
@@ -58,9 +58,9 @@ class SchemaInitTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await self.pool.fetch("SELECT oid, tgname FROM pg_trigger WHERE NOT tgisinternal ORDER BY oid"), trigger_ids, "no trigger was recreated (same oids)")
 
     async def test_an_index_column_keeps_its_sort_order(self):
-        config = config_postgres()
+        config = config_postgres_schema_master()
         config["table"]["sorted_item"] = [{"name": "id", "datatype": "bigint", "identity": "always", "is_primary": True}, {"name": "score", "datatype": "numeric", "index": "btree(score desc nulls last,id)|btree(score,id)"}]
-        await func_postgres_schema_init(app_state=SimpleNamespace(**{name: getattr(function, name) for name in function.__all__}), client_postgres=self.pool, config_postgres=config, root_user_password_hash=PASSWORD_HASH)
+        await func_postgres_schema_init(app_state=SimpleNamespace(**{name: getattr(function, name) for name in function.__all__}), client_postgres=self.pool, config_postgres_schema=config, root_user_password_hash=PASSWORD_HASH)
         definitions = {r["indexname"]: r["indexdef"] for r in await self.pool.fetch("SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'sorted_item'")}
         self.assertIn("(score DESC NULLS LAST, id)", definitions["idx_sorted_item_score_desc_nulls_last_id_btree"])
         self.assertIn("(score, id)", definitions["idx_sorted_item_score_id_btree"])
@@ -73,7 +73,7 @@ class SchemaInitTests(unittest.IsolatedAsyncioTestCase):
         await self.init(app_state)
         self.assertEqual(await self.pool.fetchval("SELECT permissions FROM users WHERE id = 1"), [6, 120, 121, 132, 136, 212, 301], "reset to exactly that list")
         # with config_is_postgres_schema_init off, the root update is routine, so an unchanged database passes the check
-        await function.func_postgres_schema_check(app_state=app_state, client_postgres=self.pool, config_postgres=config_postgres())
+        await function.func_postgres_schema_check(app_state=app_state, client_postgres=self.pool, config_postgres_schema=config_postgres_schema_master())
 
     async def test_a_guard_removed_or_changed_by_hand_is_put_back(self):
         await self.init()

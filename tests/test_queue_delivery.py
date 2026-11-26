@@ -90,15 +90,15 @@ class ConsumerProcess:
 
 @unittest.skipUnless(POSTGRES_URL, "set ATOM_TEST_POSTGRES_URL to run Postgres queue tests")
 class PostgresDeliveryTests(unittest.TestCase):
-    """The Postgres queue on a throwaway database holding only queue_job (as config_postgres defines it)."""
+    """The Postgres queue on a throwaway database holding only queue_job (as config_postgres_schema_master defines it)."""
     @classmethod
     def setUpClass(cls):
-        from tests.integration.support import config_postgres
+        from tests.integration.support import config_postgres_schema_master
         from tests.integration.support import create_database
         from tests.integration.support import drop_database
         cls.db_name, cls.url = create_database()
         cls.addClassCleanup(drop_database, cls.db_name)
-        columns = {column["name"]: column for column in config_postgres()["table"]["queue_job"]}
+        columns = {column["name"]: column for column in config_postgres_schema_master()["table"]["queue_job"]}
         def ddl(column): return f'"{column['name']}" {column['datatype']}' + (" GENERATED ALWAYS AS IDENTITY PRIMARY KEY" if column.get("identity") else "") + (" NOT NULL" if column.get("is_mandatory") else "") + (f" DEFAULT {column['default']}" if "default" in column else "")
         cls.sql(f"CREATE TABLE queue_job ({', '.join(ddl(column) for column in columns.values())})")
 

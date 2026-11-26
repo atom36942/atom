@@ -24,7 +24,7 @@ def state(**changes):
 
 class IndexSortOrderTests(unittest.TestCase):
     def validate(self, index):
-        func_postgres_schema_config_validate(config_postgres={"table": {"item": [{"name": "id", "datatype": "bigint", "is_primary": True}, {"name": "score", "datatype": "text", "index": index}]}})
+        func_postgres_schema_config_validate(config_postgres_schema={"table": {"item": [{"name": "id", "datatype": "bigint", "is_primary": True}, {"name": "score", "datatype": "text", "index": index}]}})
 
     def test_a_btree_column_may_name_its_sort_order(self):
         for index in ("btree(score desc nulls last,id)", "btree(score asc,id)", "btree(score nulls first)", "btree(score,id)", "gin_trgm(score)"): self.validate(index)
@@ -35,28 +35,28 @@ class IndexSortOrderTests(unittest.TestCase):
 
 
 class ConfigExtendKeepsAtomTests(unittest.TestCase):
-    BASE = SimpleNamespace(config_api={"/health": {"id": 1}, "/info": {"id": 2}}, config_postgres={"extension": ["postgis", "pg_trgm"], "table": {"users": [], "log_api": []}, "control": {"is_index_drop": True}, "sql": {}},
+    BASE = SimpleNamespace(config_api={"/health": {"id": 1}, "/info": {"id": 2}}, config_postgres_schema_master={"extension": ["postgis", "pg_trgm"], "table": {"users": [], "log_api": []}, "control": {"is_index_drop": True}, "sql": {}},
                            config_column_int_mapping={"blob": {"type": {1: "File", 2: "Presigned Url"}}, "log_users_delete": {"worker_status": {None: "Pending", 1: "Processing"}}})
 
     def check(self, **extend):
         func_check_config_extend_keeps_atom(config_module=self.BASE, config_extend_module=SimpleNamespace(**extend))
 
     def test_extending_any_way_passes(self):
-        postgres = {**self.BASE.config_postgres, "table": {**self.BASE.config_postgres["table"]}}    # Atom's top level and tables, as config_extend.py writes it
+        postgres = {**self.BASE.config_postgres_schema_master, "table": {**self.BASE.config_postgres_schema_master["table"]}}    # Atom's top level and tables, as config_extend.py writes it
         postgres["table"].update({"task": [], "users": [{"name": "id"}]})    # a new table, and Atom's users columns changed
-        self.check(config_api={**self.BASE.config_api, "/health": {"id": 1, "is_active": False}, "/task": {"id": 200}}, config_postgres=postgres)
+        self.check(config_api={**self.BASE.config_api, "/health": {"id": 1, "is_active": False}, "/task": {"id": 200}}, config_postgres_schema_master=postgres)
         self.check(config_api=dict(self.BASE.config_api))    # a copy works as well as **base
         self.check(config_options={})    # other dicts are not checked
         self.check()
         func_check_config_extend_keeps_atom(config_module=self.BASE, config_extend_module=None)
 
     def test_postgres_keeps_every_part_and_entry_atom_defines(self):
-        base = self.BASE.config_postgres
-        self.check(config_postgres={**base, "extension": [*base["extension"], "hstore"], "control": {"is_index_drop": False, "is_new": True}, "table": {**base["table"], "task": []}})    # values change, additions are free
-        with self.assertRaisesRegex(Exception, r"config_postgres drops 4 of Atom's entries \(extension, control, sql, table.log_api\)"):
-            self.check(config_postgres={"table": {"users": []}})    # written from scratch: Atom's parts are gone
+        base = self.BASE.config_postgres_schema_master
+        self.check(config_postgres_schema_master={**base, "extension": [*base["extension"], "hstore"], "control": {"is_index_drop": False, "is_new": True}, "table": {**base["table"], "task": []}})    # values change, additions are free
+        with self.assertRaisesRegex(Exception, r"config_postgres_schema_master drops 4 of Atom's entries \(extension, control, sql, table.log_api\)"):
+            self.check(config_postgres_schema_master={"table": {"users": []}})    # written from scratch: Atom's parts are gone
         with self.assertRaisesRegex(Exception, r"drops 2 of Atom's entries \(extension.pg_trgm, control.is_index_drop\)"):
-            self.check(config_postgres={**base, "extension": ["postgis"], "control": {}})
+            self.check(config_postgres_schema_master={**base, "extension": ["postgis"], "control": {}})
 
     def test_int_mapping_keeps_atom_codes_but_labels_and_additions_are_free(self):
         self.check(config_column_int_mapping={**self.BASE.config_column_int_mapping, "blob": {"type": {1: "Upload", 2: "Signed link", 3: "Mine"}}, "users": {"role": {1: "Admin"}}})
@@ -68,8 +68,11 @@ class ConfigExtendKeepsAtomTests(unittest.TestCase):
     def test_dropping_atom_routes_or_tables_stops_startup(self):
         with self.assertRaisesRegex(Exception, r"config_api drops 2 of Atom's routes \(/health, /info\); fix: \{\*\*base_config_api, \.\.\.\}"):
             self.check(config_api={"/task": {"id": 200}})
-        with self.assertRaisesRegex(Exception, r"config_postgres drops 1 of Atom's entries \(table.log_api\); fix: \{\*\*base_config_postgres, \"table\": \{\*\*base_config_postgres\[\"table\"\], \.\.\.\}\}"):
-            self.check(config_postgres={**self.BASE.config_postgres, "table": {"users": [], "task": []}})
+        with self.assertRaisesRegex(Exception, r"config_postgres_schema_master drops 1 of Atom's entries \(table.log_api\); fix: \{\*\*base_config_postgres_schema_master, \"table\": \{\*\*base_config_postgres_schema_master\[\"table\"\], \.\.\.\}\}"):
+            self.check(config_postgres_schema_master={**self.BASE.config_postgres_schema_master, "table": {"users": [], "task": []}})
+
+    def test_an_atom_table_may_live_in_another_database(self):
+        self.check(config_postgres_schema_master={**self.BASE.config_postgres_schema_master, "table": {"users": []}}, config_postgres_schema_logs={"table": {"log_api": []}})    # log_api with config_postgres_db_log_api = "logs"
 
 
 class ConfigExtendAliasTests(unittest.TestCase):
@@ -409,22 +412,24 @@ class WorkerConfigCheckTests(unittest.TestCase):
 
 
 class StartupCheckTableIdTests(unittest.TestCase):
-    def test_func_check_refuses_a_table_without_id_first(self):
+    def test_func_check_takes_tables_without_id_and_refuses_a_non_integer_id(self):
         import io
         from contextlib import redirect_stdout
         with redirect_stdout(io.StringIO()):
             import main
         state = main.app.state
-        original = state.config_postgres
+        original = state.config_postgres_schema_master
         try:
             main.app.state.func_check(app=main.app)    # Atom's own tables pass
-            for columns, reason in (([{"name": "title", "datatype": "text"}], "no id"), ([{"name": "title", "datatype": "text"}, {"name": "id", "datatype": "bigint", "is_primary": True}], "id not first"), ([{"name": "id", "datatype": "text", "is_primary": True}], "id not an integer")):
-                with self.subTest(reason):
-                    state.config_postgres = {**original, "table": {**original["table"], "note": columns}}
-                    with self.assertRaisesRegex(Exception, "note first column must have name='id'|note.id must only be defined"):
-                        main.app.state.func_check(app=main.app)
+            for columns in ([{"name": "title", "datatype": "text"}], [{"name": "title", "datatype": "text"}, {"name": "id", "datatype": "bigint", "is_primary": True}],
+                            [{"name": "time", "datatype": "timestamptz", "is_primary": True}, {"name": "device", "datatype": "text", "is_primary": True}, {"name": "value", "datatype": "float8"}]):
+                with self.subTest(columns=columns):
+                    state.config_postgres_schema_master = {**original, "table": {**original["table"], "note": columns}}
+                    main.app.state.func_check(app=main.app)
+            state.config_postgres_schema_master = {**original, "table": {**original["table"], "note": [{"name": "id", "datatype": "text", "is_primary": True}]}}
+            with self.assertRaisesRegex(Exception, r"config_postgres_schema_master: note.id must be an integer column"): main.app.state.func_check(app=main.app)
         finally:
-            state.config_postgres = original
+            state.config_postgres_schema_master = original
 
 if __name__ == "__main__":
     unittest.main()

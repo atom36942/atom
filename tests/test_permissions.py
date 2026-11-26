@@ -87,7 +87,7 @@ class PermissionTests(unittest.IsolatedAsyncioTestCase):
     def test_atom_tables_nobody_edits_are_in_the_defaults(self):
         import config
         self.assertTrue({"log_api", "log_users_password", "log_users_delete", "script_run", "otp"} <= set(config.config_table_write_blocked))
-        self.assertEqual(config.config_postgres["control"]["table_row_update_disable"], ["log_api", "log_users_password", "api_key"])
+        self.assertEqual(config.config_postgres_schema_master["control"]["table_row_update_disable"], ["log_api", "log_users_password", "api_key"])
 
     def test_generic_object_apis_refuse_the_users_table(self):
         func_check_table_not_users(table="orders")

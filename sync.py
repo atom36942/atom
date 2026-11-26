@@ -44,7 +44,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 # setting
 # Atom's version: raised by hand when a change is worth a new number (no tags); a project's sync.py shows the version it has
-ATOM_VERSION = "19.5.1"
+ATOM_VERSION = "20.0.0"
 REPO_URL = "https://github.com/atom36942/atom.git"
 # Single files replaced from upstream on every sync.
 SYNC_FILES = [
@@ -67,7 +67,7 @@ EXTEND_FOLDERS = ["router_extend", "function_extend", "script_extend", "static_e
 # The starter config_extend.py sync creates when it is missing: # base (Atom's values), # atom (Atom's three dicts, each starting from its base; startup checks they keep Atom's entries), # extend (settings only the project has).
 CONFIG_EXTEND_STARTER = """# base
 from config import config_column_int_mapping as base_config_column_int_mapping
-from config import config_postgres as base_config_postgres
+from config import config_postgres_schema_master as base_config_postgres_schema_master
 from config import config_api as base_config_api
 
 # atom
@@ -75,10 +75,10 @@ config_column_int_mapping = {
 **base_config_column_int_mapping,
 }
 
-config_postgres = {
-**base_config_postgres,
+config_postgres_schema_master = {
+**base_config_postgres_schema_master,
 "table": {
-**base_config_postgres["table"],
+**base_config_postgres_schema_master["table"],
 },
 }
 

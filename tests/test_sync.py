@@ -39,7 +39,7 @@ class SyncTests(unittest.TestCase):
         self.write(self.upstream, "script/worker.py", "# upstream worker\n")
         self.write(self.upstream, "static/api.html", "upstream api page\n")
         self.write(self.upstream, "files/README.md", "upstream files\n")
-        self.write(self.upstream, "config.py", "config_postgres = {}\nconfig_api = {}\n")
+        self.write(self.upstream, "config.py", "config_postgres_schema_master = {}\nconfig_api = {}\n")
         self.write(self.upstream, "requirements.txt", "fastapi==1.0\norjson==3.0\n")
         self.commit(self.upstream)
         self.root = self.base / "developer"
@@ -173,7 +173,7 @@ class SyncTests(unittest.TestCase):
         self.assertEqual((self.root / "config_extend.py").read_text(), sync.EXTEND_FILES["config_extend.py"])
 
     def test_sync_preserves_empty_or_invalid_config_extension(self):
-        for content in ("", "config_postgres = None\n", "not valid python: !!!\n"):
+        for content in ("", "config_postgres_schema_master = None\n", "not valid python: !!!\n"):
             with self.subTest(content=content):
                 self.write(self.root, "config_extend.py", content)
                 self.run_sync()

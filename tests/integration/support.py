@@ -24,10 +24,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 requires_postgres = unittest.skipUnless(ADMIN_URL, "set ATOM_TEST_POSTGRES_URL to run PostgreSQL integration tests")
 
 
-def config_postgres():
+def config_postgres_schema_master():
     """Read the schema literal from config.py without importing it (importing would load .env)."""
     tree = ast.parse((REPO_ROOT / "config.py").read_text())
-    node = next(n for n in tree.body if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "config_postgres")
+    node = next(n for n in tree.body if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "config_postgres_schema_master")
     return ast.literal_eval(node.value)
 
 
@@ -72,11 +72,13 @@ APP_TEST_ENV = {
 }
 
 
-def app_start(*, env):
+def app_start(*, env, config_extend=None):
     """Boot the real app (lifespan included) from a temp working directory with only APP_TEST_ENV + env.
 
     config.py loads .env from the working directory and startup resets ./tmp, so running
-    from the repo root would read developer secrets and wipe tmp/. Returns a handle for app_stop.
+    from the repo root would read developer secrets and wipe tmp/. config_extend: the text of a
+    project's config_extend.py, written to that directory. Returns a handle for app_stop; a failed
+    start is undone (directory, environment, modules) before it raises, so later tests are unaffected.
     """
     import io
     import sys
@@ -94,23 +96,32 @@ def app_start(*, env):
     handle["quiet"] = redirect_stderr(handle["stderr"])
     handle["quiet"].__enter__()
     sys.path.insert(0, str(REPO_ROOT))
+    if config_extend is not None:
+        with open(os.path.join(handle["workdir"].name, "config_extend.py"), "w") as file: file.write(config_extend)
+        sys.path.insert(0, handle["workdir"].name)
     for module in ("main", "config", "config_extend"): sys.modules.pop(module, None)
-    import main
-    from fastapi.testclient import TestClient
-    handle["app"], handle["client"] = main.app, TestClient(main.app)
-    handle["client"].__enter__()
+    try:
+        import main
+        from fastapi.testclient import TestClient
+        handle["app"], handle["client"] = main.app, TestClient(main.app)
+        handle["client"].__enter__()
+    except BaseException:
+        handle["client"] = None
+        app_stop(handle)
+        raise
     return handle
 
 
 def app_stop(handle):
     import sys
     try:
-        handle["client"].__exit__(None, None, None)
+        if handle.get("client") is not None: handle["client"].__exit__(None, None, None)
     finally:
         handle["quiet"].__exit__(None, None, None)
         os.chdir(handle["previous_cwd"])
         handle["env"].stop()
         sys.path.remove(str(REPO_ROOT))
+        if handle["workdir"].name in sys.path: sys.path.remove(handle["workdir"].name)
         for module in ("main", "config", "config_extend"): sys.modules.pop(module, None)
         handle["workdir"].cleanup()
 

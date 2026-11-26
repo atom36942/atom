@@ -35,7 +35,7 @@ Atom supports multiple identity fields on the `users` table:
 | **`id_ext`** | `text` | External identifier (Employee ID, Student ID, ERP sync). | `POST /auth/login-id-ext-password` |
 
 ### Configuring Uniqueness in `config.py`:
-Uniqueness constraints are declared under `config_postgres["table"]["users"]`:
+Uniqueness constraints are declared under `config_postgres_schema_master["table"]["users"]`:
 
 - **Composite with Role (Default & Recommended)**: Scopes identity per role, enabling multi-persona accounts (e.g. Driver vs. Rider):
   ```python
@@ -53,7 +53,7 @@ Uniqueness constraints are declared under `config_postgres["table"]["users"]`:
   ```python
   {"name": "username", "datatype": "text", "unique": "username|username,tenant_id"},
   ```
-- **Soft-Delete Uniqueness (Partial Index)**: In PostgreSQL, `NULL != NULL`. To enforce uniqueness only among active users, define a partial index in `config_postgres["sql"]`:
+- **Soft-Delete Uniqueness (Partial Index)**: In PostgreSQL, `NULL != NULL`. To enforce uniqueness only among active users, define a partial index in `config_postgres_schema_master["sql"]`:
   ```sql
   CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_active_unique
   ON users (email) WHERE deleted_at IS NULL;
@@ -141,7 +141,7 @@ A page handles it the same way in every case:
 - On a 403 with either message, or a profile with `deactivated_at` or `deleted_at`: log out, clear its storage, and say which, e.g. "Your account is deactivated. Please contact your admin." or "Your account was deleted. Please contact your admin." (never "Session expired").
 - No extra request for it: the page's regular sync (token renewal, then `/my/profile`, e.g. every 3 hours) catches a block on an open page. The server keeps accepting an access token issued before the block until it expires (`config_access_token_expires_sec`, 7 days); use `realtime` on routes that must stop at once.
 
-Deleting needs two switches, because the database guards `users` too: `config_is_user_delete=true` and `users` removed from `config_postgres["control"]["table_row_delete_disable"]` (default on: the API then answers "users delete blocked in the database"). The root user (`id` 1) is never deleted.
+Deleting needs two switches, because the database guards `users` too: `config_is_user_delete=true` and `users` removed from `config_postgres_schema_master["control"]["table_row_delete_disable"]` (default on: the API then answers "users delete blocked in the database"). The root user (`id` 1) is never deleted.
 
 ## 5. OTP Flow
 

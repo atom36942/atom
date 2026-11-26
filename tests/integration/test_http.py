@@ -18,6 +18,12 @@ from tests.integration.support import fetch
 from tests.integration.support import requires_postgres
 
 
+LOG_API_ON_REPORTS = """from config import config_postgres_schema_master as base_config_postgres_schema_master
+config_postgres_schema_master = {**base_config_postgres_schema_master, "table": {k: v for k, v in base_config_postgres_schema_master["table"].items() if k != "log_api"}}
+config_postgres_schema_reports = {"table": {"log_api": base_config_postgres_schema_master["table"]["log_api"]}}
+"""    # API logs go to the reports database: log_api out of master's schema, into reports'
+
+
 @requires_postgres
 class HttpIntegrationTests(unittest.TestCase):
     @classmethod
@@ -26,7 +32,7 @@ class HttpIntegrationTests(unittest.TestCase):
         cls.reports_db_name, cls.reports_url = create_database()    # second database: ?connection= switching and the separate log_api database
         fetch(cls.reports_url, "CREATE TABLE report (id bigserial PRIMARY KEY, title text)")
         fetch(cls.reports_url, "INSERT INTO report (title) VALUES ('from reports')")
-        cls.handle = app_start(env=cls.database_env())
+        cls.handle = app_start(env=cls.database_env(), config_extend=LOG_API_ON_REPORTS)
         cls.app, cls.client = cls.handle["app"], cls.handle["client"]
         cls.workdir = cls.handle["workdir"]
         cls.token = app_login(cls.client, path="/auth/signup-username-password", body={"role": 5, "username": "alice", "password": "alice-pass"})

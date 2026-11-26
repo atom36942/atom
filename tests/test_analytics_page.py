@@ -42,7 +42,7 @@ class AnalyticsPageTests(unittest.TestCase):
         self.assertNotIn("<textarea", OWN)
 
     def test_settings_the_page_reads_exist_in_config(self):
-        for name in sorted(set(re.findall(r'\bconfig_[a-z_]+', OWN)) - {"config_postgres", "config_column_int_mapping"}):
+        for name in sorted(set(re.findall(r'\bconfig_[a-z_]+', OWN)) - {"config_postgres_schema_master", "config_column_int_mapping"}):
             with self.subTest(name=name): self.assertRegex(CONFIG, re.compile(rf"^{name} = ", re.M))
 
     def test_saved_data_is_indexeddb_records(self):

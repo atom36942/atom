@@ -9,6 +9,7 @@ from datetime import datetime
 import asyncpg
 import orjson
 from argon2 import PasswordHasher
+from .middleware import func_api_error
 
 # function
 async def func_postgres_serialize(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, table: str, obj_list: list, is_base: bool) -> list:
@@ -282,7 +283,7 @@ async def func_postgres_where_build(*, client_postgres: asyncpg.Pool | None, cli
     where_sql = await build_filter(filter)
     return where_sql, values
 
-async def func_postgres_relation(*, client_postgres: asyncpg.Pool | None, client_postgres_conn: asyncpg.Connection | None = None, obj_list: list, relation: list, config_sql_read_relation_fetch_limit_max: int, blocked_tables: list = None, config_column_read_blocked: list = None) -> list:
+async def func_postgres_relation(*, client_postgres: asyncpg.Pool | None, client_postgres_conn: asyncpg.Connection | None = None, obj_list: list, relation: list, config_sql_read_relation_fetch_limit_max: int, blocked_tables: list = None, config_column_read_blocked: list = None, cache_postgres_schema: dict = None) -> list:
     """Standardized relationship logic: handles both aggregates (count, sum, etc) and associations (fetching rows) from source to target."""
     if not relation or not obj_list: return obj_list
     blocked_tables_set = set(blocked_tables) if blocked_tables is not None else set()
@@ -320,6 +321,7 @@ async def func_postgres_relation(*, client_postgres: asyncpg.Pool | None, client
             if len(op_parts) < 2 or not op_parts[1].isdigit(): raise Exception("explicit limit required in relation fetch (e.g. fetch|10)")
             custom_limit = int(op_parts[1])
             if custom_limit > config_sql_read_relation_fetch_limit_max: raise Exception(f"relation fetch limit {custom_limit} exceeds maximum allowed: {config_sql_read_relation_fetch_limit_max}")
+            if cache_postgres_schema and target_table in cache_postgres_schema and "id" not in cache_postgres_schema[target_table]: raise func_api_error(message=f"table '{target_table}' has no id: relation fetch needs one (it takes the newest rows by id)", status_code=400)
             cols_sql = "*" if val == "*" else ",".join([f'"{v.strip()}"' for v in val.split(",")])
             if val != "*" and "id" not in val.split(",") and target_col != "id": cols_sql += f',"{target_col}"'
             sql = f'SELECT * FROM (SELECT {cols_sql}, "{target_col}" AS relation_id, ROW_NUMBER() OVER(PARTITION BY "{target_col}" ORDER BY id DESC) as rn FROM "{target_table}" WHERE "{target_col}" = ANY($1)) t WHERE rn <= $2'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
