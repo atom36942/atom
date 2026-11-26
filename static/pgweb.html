@@ -100,8 +100,7 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
 #sidetabs{display:flex;gap:2px;margin:8px;padding:3px;background:var(--hl);border:1px solid var(--line);border-radius:7px}    /* a segmented control: the kinds in one track */
 #sidetabs[hidden]{display:none!important}
 .side-tab{flex:1 0 auto;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:5px 8px;font-size:11.5px;font-weight:500;border-radius:5px;
-  border:0;background:transparent;color:var(--fg);cursor:pointer;white-space:nowrap;
-  user-select:none;transition:background .15s ease,color .15s ease}
+  border:0;background:transparent;color:var(--fg);cursor:pointer;white-space:nowrap;user-select:none;transition:none}    /* no fade (the general button one included): a switch shows at once */
 .side-tab:hover:not(.on){background:var(--bg)}
 .side-tab .side-count{min-width:18px;padding:0 5px;border-radius:9px;font-size:10.5px;font-weight:600;line-height:16px;background:var(--bg);color:var(--dim)}
 .side-tab.on{background:var(--sel);color:var(--sel-fg);font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.18)}    /* the open kind: a solid pill in the selection colour, as the open table is marked */
@@ -673,14 +672,14 @@ dialog.fm .ft{box-sizing:border-box;min-height:54px;align-items:center;flex-wrap
       <div id="brand"><span id="productname">PgWeb<span class="atom-ver"></span></span><span id="dbname" role="button" tabindex="0" aria-haspopup="dialog" hidden></span></div>
     </div>
     <button type="button" id="queryrunner" class="side-runner" title="Query runner (SQL Editor)" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 8 4 4-4 4M12 17h7"/></svg>Query runner</button>
+    <div class="search" id="tablesearch" hidden>
+      <input id="q" placeholder="Search" aria-label="Search the list" autocomplete="off" spellcheck="false"/>
+      <button id="qclr" title="Clear" hidden>×</button>
+    </div>
     <div id="sidetabs" role="tablist" aria-label="Object types" hidden>
       <button type="button" class="side-tab on" data-kind="table">Tables</button>
       <button type="button" class="side-tab" data-kind="view">Views</button>
       <button type="button" class="side-tab" data-kind="materialized_view">Materialized</button>
-    </div>
-    <div class="search" id="tablesearch" hidden>
-      <input id="q" placeholder="Search tables" autocomplete="off" spellcheck="false"/>
-      <button id="qclr" title="Clear" hidden>×</button>
     </div>
     <div id="tree" hidden></div>
   </aside>
@@ -1353,8 +1352,6 @@ function setSideTab(kind, triggerRender = true){
   for(const btn of document.querySelectorAll('#sidetabs .side-tab')){
     btn.classList.toggle('on', btn.dataset.kind === S.sideTab);
   }
-  const meta = getKindMeta(S.sideTab);
-  $('q').placeholder = `Search ${meta.plural}`;
   if(triggerRender) drawTree();
 }
 
