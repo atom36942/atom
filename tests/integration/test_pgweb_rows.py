@@ -40,7 +40,7 @@ class PgwebRowsTests(unittest.TestCase):
             keys = dict(cache)
             first = await func_pgweb_rows(pool=pool, table="item", limit=2, is_meta=True, cache_table=cache)
             following = await func_pgweb_rows(pool=pool, table="item", pk="id", is_desc=True, limit=2, after=first["after"], cache_table=cache)
-            filtered = await func_pgweb_rows(pool=pool, table="item", pk="id", limit=10, filter_col="n", filter_op=">", filter_value="3", cache_table=cache)
+            filtered = await func_pgweb_rows(pool=pool, table="item", pk="id", limit=10, filters=[{"col": "n", "op": ">", "value": "3"}], cache_table=cache)
             return keys, cache, first, following, filtered
         keys, cache, first, following, filtered = self.run_on_pool(run)
         self.assertEqual(keys, {"item": {"pk": "id", "latest_first": True}, "tag": {"pk": "code", "latest_first": False}, "item_view": {"pk": None, "latest_first": False}})
@@ -52,14 +52,14 @@ class PgwebRowsTests(unittest.TestCase):
     def test_like_and_ilike_search_any_column_type_as_text(self):
         for sql in ("CREATE TABLE item (id bigserial PRIMARY KEY, name varchar(20), tags text[], data jsonb)", """INSERT INTO item (name, tags, data) VALUES ('Apple', '{red}', '{"k": 1}'), ('pear', '{green}', '{}')"""): fetch(self.url, sql)
         async def run(pool):
-            return [[r[0] for r in (await func_pgweb_rows(pool=pool, table="item", pk="id", filter_col=col, filter_op=op, filter_value=value))["rows"]] for col, op, value in (("name", "ILIKE", "%APP%"), ("tags", "ILIKE", "%RE%"), ("data", "LIKE", '%"k"%'), ("id", "LIKE", "2"))]
+            return [[r[0] for r in (await func_pgweb_rows(pool=pool, table="item", pk="id", filters=[{"col": col, "op": op, "value": value}]))["rows"]] for col, op, value in (("name", "ILIKE", "%APP%"), ("tags", "ILIKE", "%RE%"), ("data", "LIKE", '%"k"%'), ("id", "LIKE", "2"))]
         self.assertEqual(self.run_on_pool(run), [[1], [1, 2], [1], [2]])
 
     def test_an_out_of_date_key_is_read_again_with_the_real_one(self):
         for sql in ("CREATE TABLE item (id bigserial PRIMARY KEY, code text UNIQUE)", "INSERT INTO item (code) VALUES ('b'), ('a'), ('c')"): fetch(self.url, sql)
         async def run(pool):
             stale = {"item": {"pk": "code", "latest_first": False, "types": {"code": "integer"}}}    # the key and a type changed since the list was read
-            return await func_pgweb_rows(pool=pool, table="item", limit=10, is_meta=True, filter_col="code", filter_op="<>", filter_value="z", cache_table=stale), stale
+            return await func_pgweb_rows(pool=pool, table="item", limit=10, is_meta=True, filters=[{"col": "code", "op": "<>", "value": "z"}], cache_table=stale), stale
         page, cache = self.run_on_pool(run)
         self.assertEqual(([r[0] for r in page["rows"]], page["meta"]["pk"]), ([3, 2, 1], "id"))
         self.assertEqual(cache["item"], {"pk": "id", "latest_first": True, "types": {"id": "bigint", "code": "text"}})
@@ -91,7 +91,7 @@ class PgwebRowsTests(unittest.TestCase):
             cache = {}
             await func_pgweb_schema(pool=pool, cache_table=cache)
             page = await func_pgweb_rows(pool=pool, table="Order Items", limit=10, is_meta=True, cache_table=cache)
-            filtered = await func_pgweb_rows(pool=pool, table="Order Items", pk="Id", limit=10, filter_col='say "hi"', filter_op="=", filter_value="b", cache_table=cache)
+            filtered = await func_pgweb_rows(pool=pool, table="Order Items", pk="Id", limit=10, filters=[{"col": 'say "hi"', "op": "=", "value": "b"}], cache_table=cache)
             return page, filtered
         page, filtered = self.run_on_pool(run)
         self.assertEqual((page["meta"]["pk"], [r[1] for r in page["rows"]]), ("Id", ["a", "b"]))
@@ -100,3 +100,24 @@ class PgwebRowsTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_several_conditions_match_all_or_any_and_bad_ones_are_refused(self):
+        for sql in ("CREATE TABLE item (id bigserial PRIMARY KEY, n integer, name text)", "INSERT INTO item (n, name) VALUES (1, 'apple'), (2, 'pear'), (3, NULL), (4, 'plum')", "ANALYZE item"): fetch(self.url, sql)
+        async def ids(pool, filters, join="and"):
+            return [r[0] for r in (await func_pgweb_rows(pool=pool, table="item", pk="id", filters=filters, filter_join=join))["rows"]]
+        async def run(pool):
+            both = await ids(pool, [{"col": "n", "op": ">=", "value": "2"}, {"col": "name", "op": "ILIKE", "value": "%P%"}])
+            either = await ids(pool, [{"col": "n", "op": "=", "value": "1"}, {"col": "name", "op": "IS NULL"}], "or")
+            paged = await func_pgweb_rows(pool=pool, table="item", pk="id", limit=1, after='["1"]', filters=[{"col": "n", "op": "=", "value": "1"}, {"col": "n", "op": "=", "value": "4"}], filter_join="or")    # the cursor stays outside the OR
+            meta = (await func_pgweb_rows(pool=pool, table="item", limit=1, is_meta=True))["meta"]["stats"]
+            errors = []
+            for filters, join in (([{"col": "nope", "op": "=", "value": "1"}], "and"), ([{"col": "n", "op": "DROP", "value": "1"}], "and"),
+                                  ([{"col": "n", "op": "=", "value": "1"}] * 11, "and"), ([{"col": "n", "op": "=", "value": "1"}], "xor")):
+                try: await ids(pool, filters, join)
+                except Exception as exc: errors.append(str(exc))
+            return both, either, [r[0] for r in paged["rows"]], meta, errors
+        both, either, paged, meta, errors = self.run_on_pool(run)
+        self.assertEqual((both, either, paged), ([2, 4], [1, 3], [4]))
+        self.assertEqual(meta["estimated_rows"], 4)    # pg_class.reltuples after ANALYZE
+        self.assertEqual(len(errors), 4)
+        self.assertRegex(errors[0], "unknown filter column"); self.assertRegex(errors[1], "invalid filter operator"); self.assertRegex(errors[2], "at most 10"); self.assertRegex(errors[3], "and or or")

@@ -39,6 +39,8 @@ def func_pgweb_regclass(table: str) -> str:
     """A public table's name as regclass text, quoted, so capitals and other characters name the table exactly."""
     return func_pgweb_ident("public", table)
 
+PGWEB_FILTER_OPS = ("=", "<>", ">", "<", ">=", "<=", "LIKE", "ILIKE", "IS NULL", "IS NOT NULL")
+PGWEB_FILTER_MAX = 10    # conditions in one filter
 PGWEB_CUT_BYTES = 16384    # a grid cell over this size comes as a preview; the page reads the whole row when it needs the real value
 PGWEB_CUT_PREVIEW = 1000    # characters in a cut value's preview (the grid shows 500)
 
@@ -375,10 +377,11 @@ async def func_pgweb_catalog(*, pool: asyncpg.Pool, kind: str, timeout_sec: int 
     return {"columns": columns, "rows": [{key: func_pgweb_jsonable(value) for key, value in record.items()} for record in records]}
 
 async def func_pgweb_rows(*, pool: asyncpg.Pool, table: str, limit: int = 1000, after: Any = None,
-                          filter_col: str = None, filter_op: str = None, filter_value: Any = None, is_desc: bool = False, pk: str = None, is_meta: bool = False,
+                          filters: list = None, filter_join: str = "and", is_desc: bool = False, pk: str = None, is_meta: bool = False,
                           cache_table: dict = None, timeout_sec: int = 30) -> dict:
     """Read one public table page and optional grid metadata: {"cols", "rows", "after", "ms"[, "meta"]}, ordered by the single-column primary key (is_desc: newest first)
-    and paged after the cursor with Atom's func_page_* helpers (after: the previous page's after, None on the last page), never OFFSET. cache_table (one per pgweb connection) keeps each table's key and column types: opening a table reads its columns and rows at the same time, and later pages and filters skip the type lookup."""
+    and paged after the cursor with Atom's func_page_* helpers (after: the previous page's after, None on the last page), never OFFSET. cache_table (one per pgweb connection) keeps each table's key and column types: opening a table reads its columns and rows at the same time, and later pages and filters skip the type lookup.
+    filters: up to PGWEB_FILTER_MAX conditions [{"col", "op", "value"}], all of them (filter_join "and") or any of them ("or"); each column must be the table's, each operator one of PGWEB_FILTER_OPS, and every value goes as a parameter."""
     if not table: raise Exception("table is required")
     limit = max(1, min(int(limit or 1000), 5000))
     cache_table = {} if cache_table is None else cache_table
@@ -393,18 +396,25 @@ async def func_pgweb_rows(*, pool: asyncpg.Pool, table: str, limit: int = 1000, 
         if after not in (None, ""):
             if not keys: raise Exception("paging needs a single-column primary key")
             clauses.append(func_page_after_where(keys=keys, after=after, values=args))
-        if filter_col:
-            operator = str(filter_op or "=").upper()
-            if operator not in ("=", "<>", ">", "<", ">=", "<=", "LIKE", "ILIKE", "IS NULL", "IS NOT NULL"): raise Exception("invalid filter operator")
-            filter_type = await column_type(filter_col)
-            if not filter_type: raise Exception(f"unknown filter column: {filter_col}")
-            column_sql = func_pgweb_ident(filter_col)
-            if operator.startswith("IS "):
-                clauses.append(f"{column_sql} {operator}")
-            else:
-                args.append("" if filter_value is None else str(filter_value))
-                if operator.endswith("LIKE"): clauses.append(f"{column_sql}{'' if re.fullmatch(r'(text|citext|character( varying)?)(\(\d+\))?', filter_type) else '::text'} {operator} ${len(args)}::text")    # any column type compares as text (uuid, json, arrays, enums, dates)
-                else: clauses.append(f"{column_sql} {operator} (${len(args)}::text)::{filter_type}")
+        if filters:
+            if not isinstance(filters, list) or len(filters) > PGWEB_FILTER_MAX: raise Exception(f"filters: a list of at most {PGWEB_FILTER_MAX} conditions")
+            join = str(filter_join or "and").lower()
+            if join not in ("and", "or"): raise Exception("filter_join must be and or or")
+            conditions = []
+            for item in filters:
+                item = item if isinstance(item, dict) else {}
+                column, operator, value = item.get("col"), str(item.get("op") or "=").upper(), item.get("value")
+                if operator not in PGWEB_FILTER_OPS: raise Exception("invalid filter operator")
+                filter_type = await column_type(column) if column else None
+                if not filter_type: raise Exception(f"unknown filter column: {column}")
+                column_sql = func_pgweb_ident(column)
+                if operator.startswith("IS "):
+                    conditions.append(f"{column_sql} {operator}")
+                    continue
+                args.append("" if value is None else str(value))
+                if operator.endswith("LIKE"): conditions.append(f"{column_sql}{'' if re.fullmatch(r'(text|citext|character( varying)?)(\(\d+\))?', filter_type) else '::text'} {operator} ${len(args)}::text")    # any column type compares as text (uuid, json, arrays, enums, dates)
+                else: conditions.append(f"{column_sql} {operator} (${len(args)}::text)::{filter_type}")
+            clauses.append("(" + f" {join.upper()} ".join(conditions) + ")")
         where_sql = (" WHERE " + " AND ".join(clauses)) if clauses else ""
         order_sql = f" ORDER BY {func_page_order_sql(keys=keys)}" if keys else ""
         # a table with a key: values over PGWEB_CUT_BYTES come as a preview, measured in SQL without reading them, so a page of large json or text stays small
@@ -459,7 +469,7 @@ async def func_pgweb_rows(*, pool: asyncpg.Pool, table: str, limit: int = 1000, 
                    (SELECT pa.attname FROM pg_index i JOIN pg_attribute pa ON pa.attrelid = i.indrelid AND pa.attnum = ANY(i.indkey)
                     WHERE i.indrelid = a.attrelid AND i.indisprimary AND i.indnkeyatts = 1
                     ORDER BY array_position(i.indkey::smallint[], pa.attnum) LIMIT 1) AS pk,
-                   pg_size_pretty(c.relpages::bigint * 8192) AS total_size,
+                   pg_size_pretty(c.relpages::bigint * 8192) AS total_size, c.reltuples::bigint AS estimated_rows,
                    (SELECT array_agg(t.tgname::text ORDER BY t.tgname) FROM pg_trigger t
                     WHERE t.tgrelid = c.oid AND NOT t.tgisinternal AND t.tgenabled <> 'D' AND (t.tgtype & 4) <> 0) AS insert_triggers
             FROM pg_attribute a JOIN pg_class c ON c.oid = a.attrelid
@@ -477,7 +487,8 @@ async def func_pgweb_rows(*, pool: asyncpg.Pool, table: str, limit: int = 1000, 
     pk_type = next((row["type"] for row in catalog if row["name"] == detected_pk), "")
     meta = {"columns": [{k: row[k] for k in ("position", "name", "type", "key_type", "nullable", "default_value", "generated")} for row in catalog],
             "pk": detected_pk, "latest_first": func_pgweb_latest_first(pk=detected_pk, pk_type=pk_type),
-            "stats": {"total_size": first_meta["total_size"] if first_meta else "0 bytes"},
+            "stats": {"total_size": first_meta["total_size"] if first_meta else "0 bytes",
+                      "estimated_rows": first_meta["estimated_rows"] if first_meta and first_meta["estimated_rows"] >= 0 else None},    # PostgreSQL's estimate (pg_class.reltuples, kept by VACUUM and ANALYZE): instant at any size; None before the table was first analyzed
             "insert_triggers": list(first_meta["insert_triggers"] or []) if first_meta else []}
     cache_table[table] = {"pk": meta["pk"], "latest_first": meta["latest_first"], "types": {row["name"]: row["type"] for row in catalog}}
     if plan(meta) != guess or isinstance(out, BaseException): out = await page(*plan(meta))    # the remembered key was out of date: read the page again with the real one

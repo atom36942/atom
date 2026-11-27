@@ -4,6 +4,12 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [21.1.0] - 2026-11-27
+
+- **pgweb: filters with several conditions.** The Filter rows dialog matches **all** (AND) or **any** (OR) of up to 10 conditions (column, operator, value). `/pgweb` `rows` takes `filters` (a list of `{col, op, value}`) and `filter_join` (`and` or `or`) in place of `filter_col`, `filter_op` and `filter_value`; columns are checked against the table, operators come from a fixed list and values go as parameters. The header shows a red clear icon while a filter is on ([docs/admin.md](docs/admin.md)).
+- **pgweb: an estimated row count.** The grid card's header shows PostgreSQL's estimate of the table's rows (`~1.0M rows`, from `pg_class.reltuples`, instant at any size) beside its size; the row panel is always there and has no close button.
+- **Fix: pgweb's slow `LIKE` note.** A `%text%` filter taking 100 ms or more failed with "el is not a function" instead of offering the trigram index.
+
 ## [21.0.1] - 2026-11-26
 
 - **pgweb is faster.** It now runs a query in one round trip, where it used to take about seven, and PostgreSQL can use parallel workers again. Read-only mode runs on a second pool, read-only by default. The CSV download comes from PostgreSQL's `COPY`, with values in PostgreSQL's text format: arrays `{a,b}`, booleans `t`/`f`. On an Azure database a query takes 75 ms instead of 516 ms. Locally, a CSV of 1,000,000 rows takes 1.5 s instead of 11.1 s. The session reset after typed SQL (pgweb, the admin query runners, exports) now runs after the response is sent ([docs/performance.md](docs/performance.md)).

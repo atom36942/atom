@@ -200,7 +200,7 @@ body.more-open .tab.on{background:transparent;color:var(--nav-fg)}    /* only on
 #v-rows{--rp-eff:max(300px,min(var(--rp-w,min(480px,42%)),calc(100% - 540px)))}    /* the panel's width: the chosen or default width, never leaving the grid card under about 470px (its header's one line) */
 #v-rows.rp-open #gridcard{margin-right:calc(var(--rp-eff) + 58px)}    /* the panel's width and right margin (10px) plus a 48px gap */
 #gridcard{container-type:inline-size}
-@container (max-width:500px){ #tools .pagenum{display:none} #tools .fchip{min-width:80px} }    /* a narrow grid card: the page buttons stay, their label goes, so the header keeps one line */
+@container (max-width:500px){ #tools .pagenum{display:none} }    /* a narrow grid card: the page buttons stay, their label goes, so the header keeps one line */
 .card-head{display:flex;align-items:center;gap:4px;flex:none;min-height:52px;padding:6px 8px 6px 14px;border-bottom:1px solid var(--card-line);background:var(--th-bg)}    /* both cards' headers: one height, one band */
 .card-head .iconbtn,.card-head .pagebtn{width:26px;height:26px;padding:0;flex:none}
 .card-head .iconbtn svg,.card-head .pagebtn svg{width:13px;height:13px}
@@ -211,56 +211,35 @@ body.more-open .tab.on{background:transparent;color:var(--nav-fg)}    /* only on
 #tools .pagenum{min-width:0;padding:0 4px;font-size:12px;white-space:nowrap}
 #tools #pagesize{height:26px;min-width:0;margin:0 2px;padding:2px 24px 2px 8px;font-size:12px;background-position:right 8px center}
 #filterbtn.on,#filterbtn.on:hover:not(:disabled){background:var(--sel);border-color:var(--sel);color:var(--sel-fg)}    /* a filter is applied */
-.fchip{display:inline-flex;align-items:center;flex:0 1 auto;min-width:110px;max-width:240px;height:24px;margin-right:4px;
-  border:1px solid color-mix(in srgb,var(--sel) 45%,transparent);border-radius:12px;background:color-mix(in srgb,var(--sel) 12%,var(--bg))}
-.fchip[hidden]{display:none}
-.fchip button{height:22px;border:0;border-radius:11px;background:transparent;color:var(--fg);font-size:11.5px;transition:none}
-#fchip-edit{min-width:0;padding:0 4px 0 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#fchip-edit:hover:not(:disabled){background:transparent;text-decoration:underline}
-#fchip-x{flex:none;width:22px;padding:0;font-size:14px;font-weight:700;line-height:20px;color:var(--err)}
-#fchip-x:hover:not(:disabled){background:var(--err);color:#fff}
+#fclearbtn:not(:disabled){color:var(--err);border-color:color-mix(in srgb,var(--err) 45%,transparent)}    /* red while a filter is on: one click clears it */
+#fclearbtn:not(:disabled):hover{background:var(--err);border-color:var(--err);color:#fff}
 #fslow{display:flex;align-items:center;gap:8px;flex:none;padding:5px 12px;font-size:12px;color:#7a4a00;background:#fff6e0;border-bottom:1px solid #f1dfb0}
 #fslow[hidden]{display:none}
 #fslow span{overflow:hidden;text-overflow:ellipsis}
 #fslow button{height:24px;padding:0 9px;font-size:11.5px;flex:none}
 :root[data-theme=dark] #fslow{color:#f0c27a;background:#2a2214;border-bottom-color:#4a3a1c}
-/* the filter dialog: column, operator, value */
-#fdlg{width:min(600px,calc(100vw - 32px));overflow:visible}
-#fdlg form{overflow:visible}
-#fdlg .bd{display:flex;align-items:center;gap:8px;overflow:visible}
-#fdlg #fval{flex:1;min-width:120px;height:32px;padding:4px 9px;font-size:12px}
+/* the filter dialog: Match all or any of up to 10 conditions, one row each (column, operator, value, trash) */
+#fdlg{width:min(640px,calc(100vw - 32px))}
+#fdlg .bd{display:flex;flex-direction:column;gap:8px}
+.fd-join{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--dim)}
+.fd-join select{height:28px;padding:2px 8px;font-size:12px;color:var(--fg)}
+.fd-row{display:flex;align-items:center;gap:8px}
+.fd-row .fd-col{width:190px;flex:none;height:32px;padding:4px 9px;font-size:12px}
+.fd-row .fd-col.bad{border-color:var(--err);box-shadow:0 0 0 2px color-mix(in srgb,var(--err) 20%,transparent)}
+.fd-row .fd-op{min-width:96px}
+.fd-row .fd-val{flex:1;min-width:100px;height:32px;padding:4px 9px;font-size:12px}
+.fd-row .fd-del{width:28px;height:28px;flex:none;color:var(--dim)}
+.fd-row .fd-del:hover:not(:disabled){color:var(--err)}
+.fd-row .fd-del svg{width:13px;height:13px}
+#faddcond{align-self:flex-start;height:28px;padding:0 10px;font-size:12px;color:var(--sel);border-style:dashed}
 #fdlg #fclr{margin-right:auto}
-.fcol-picker{position:relative;display:inline-flex}
-.fcol-btn{height:32px;padding:4px 12px 4px 10px;min-width:160px;max-width:260px;background:var(--bg);
-  border:1px solid var(--line);border-radius:3px;font-size:12px;color:var(--fg);cursor:pointer;
-  display:inline-flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;outline:none}
-.fcol-btn:hover{border-color:#8a8a8a;background:var(--hl)}
-.fcol-btn:focus-visible{border-color:var(--sel);box-shadow:0 0 0 2px rgba(56,116,215,.2)}
-.fcol-btn-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
-.fcol-btn-arrow{display:inline-flex;align-items:center;justify-content:center;color:var(--dim);flex:none;margin-left:auto}
-.fcol-btn-arrow svg{display:block;width:11px;height:11px;stroke:var(--dim)}
-#fop,#pagesize{height:32px;min-width:68px;flex:none;padding:4px 28px 4px 10px;
+#fdlg .fd-op,#pagesize{height:32px;min-width:68px;flex:none;padding:4px 28px 4px 10px;
   font-size:12px;appearance:none;
   -webkit-appearance:none;-moz-appearance:none;cursor:pointer;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:right 10px center;background-size:11px 11px}
-:root[data-theme=dark] #fop,:root[data-theme=dark] #pagesize{
+:root[data-theme=dark] #fdlg .fd-op,:root[data-theme=dark] #pagesize{
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23aaaaaa' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");}
-.fcol-menu{position:absolute;top:calc(100% + 4px);left:0;z-index:100;width:max-content;min-width:100%;max-width:320px;
-  background:var(--bg);border:1px solid var(--line);border-radius:4px;
-  box-shadow:0 6px 22px rgba(0,0,0,.2);overflow:hidden;display:flex;flex-direction:column}
-.fcol-menu[hidden]{display:none}
-.fcol-search-wrap{padding:6px;border-bottom:1px solid var(--line);background:var(--side)}
-.fcol-search{width:100%!important;height:28px!important;padding:2px 8px!important;font-size:12px;
-  border:1px solid var(--line);border-radius:3px;background:var(--bg);outline:none}
-.fcol-search:focus{border-color:var(--sel)}
-.fcol-list{max-height:240px;overflow-y:auto;overflow-x:hidden;padding:4px 0;scrollbar-gutter:stable}
-.fcol-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px;
-  font-size:12px;cursor:pointer;user-select:none}
-.fcol-item:hover,.fcol-item.active{background:var(--hl);color:var(--fg)}
-.fcol-item.selected{background:var(--side-on);color:var(--side-on-fg);font-weight:600}
-.fcol-item .col-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fcol-empty{padding:10px 12px;color:var(--dim);font-size:12px;text-align:center}
 .detail-tools{height:50px;flex:none;display:flex;align-items:center;gap:8px;padding:8px 10px;
   border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--filter-bg)}
 .detail-tools input{width:210px;min-width:120px;flex:0 1 210px;height:32px;padding:4px 6px 4px 9px;order:4}
@@ -786,7 +765,6 @@ dialog.fm .ft{box-sizing:border-box;min-height:54px;align-items:center;flex-wrap
         <div id="gridcard">
           <div id="tools" class="card-head">
             <div class="card-title"><b id="gh-table"></b><span class="card-sub" id="ftxt"></span></div>
-            <span class="fchip" id="fchip" hidden><button type="button" id="fchip-edit"></button><button type="button" id="fchip-x" title="Remove the filter" aria-label="Remove the filter">×</button></span>
             <div class="pagenav" id="pagenav" hidden>
               <button class="iconbtn pagebtn" id="prevbatch" title="Previous page" aria-label="Previous page"></button>
               <span class="pagenum" id="pagenum">Page 1</span>
@@ -796,6 +774,7 @@ dialog.fm .ft{box-sizing:border-box;min-height:54px;align-items:center;flex-wrap
             <button class="iconbtn" id="rowrefresh" title="Refresh table data" aria-label="Refresh table data"></button>
             <button class="iconbtn" id="rowcsv" title="Download the rows on this page as CSV" aria-label="Download the rows on this page as CSV" disabled></button>
             <button class="iconbtn" id="filterbtn" title="Filter rows" aria-label="Filter rows"></button>
+            <button class="iconbtn" id="fclearbtn" title="Clear the filter" aria-label="Clear the filter" disabled></button>
             <button class="iconbtn" id="rowadd" title="Add a row" aria-label="Add a row" disabled></button>
           </div>
           <div id="fslow" role="status" hidden></div>
@@ -814,7 +793,6 @@ dialog.fm .ft{box-sizing:border-box;min-height:54px;align-items:center;flex-wrap
             <button type="button" class="iconbtn" id="rp-next" title="Next row (↓)" aria-label="Next row"></button>
             <button type="button" class="iconbtn" id="rp-download" title="Download this row as CSV, one line per column" aria-label="Download this row as CSV"></button>
             <button type="button" class="iconbtn" id="rp-delete" aria-label="Delete this row"></button>
-            <button type="button" class="iconbtn" id="rp-close" title="Close (Esc)" aria-label="Close"></button>
           </div>
           <div class="rp-body" id="rp-body"></div>
         </aside>
@@ -872,27 +850,12 @@ dialog.fm .ft{box-sizing:border-box;min-height:54px;align-items:center;flex-wrap
 <dialog id="fdlg" aria-label="Filter rows"><form method="dialog">
   <div class="hd"><span class="title">Filter rows</span></div>
   <div class="bd">
-    <div class="fcol-picker" id="fcol-picker">
-      <button type="button" class="fcol-btn" id="fcol-btn" aria-haspopup="listbox" aria-expanded="false" title="Choose column to filter">
-        <span class="fcol-btn-text" id="fcol-btn-text">Select column</span>
-        <span class="fcol-btn-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
-      </button>
-      <div class="fcol-menu" id="fcol-menu" hidden>
-        <div class="fcol-search-wrap">
-          <input type="search" id="fcol-search" class="fcol-search" placeholder="Search columns…" autocomplete="off" spellcheck="false"/>
-        </div>
-        <div class="fcol-list" id="fcol-list" role="listbox"></div>
-      </div>
-      <select id="fcol" hidden></select>
-    </div>
-    <select id="fop">
-      <option>=</option><option>≠</option><option>&gt;</option><option>&lt;</option>
-      <option>≥</option><option>≤</option><option>LIKE</option><option>ILIKE</option>
-      <option>IS NULL</option><option>IS NOT NULL</option>
-    </select>
-    <input id="fval" placeholder="Filter value" autocomplete="off"/>
+    <div class="fd-join">Match <select id="fjoin" aria-label="Match all or any"><option value="and">all</option><option value="or">any</option></select> of these conditions</div>
+    <div id="fconds"></div>
+    <button type="button" id="faddcond">+ Add condition</button>
+    <datalist id="fcols"></datalist>
   </div>
-  <div class="ft"><button type="button" id="fclr" hidden>Remove filter</button><button value="cancel">Cancel</button><button type="button" class="primary" id="fgo">Apply</button></div>
+  <div class="ft"><button type="button" id="fclr" hidden>Clear all</button><button value="cancel">Cancel</button><button type="button" class="primary" id="fgo">Apply</button></div>
 </form></dialog>
 <dialog id="dlg"><form method="dialog">
   <div class="hd" id="dlg-t"></div><div class="bd" id="dlg-b"></div>
@@ -965,6 +928,7 @@ $('rowrefresh').innerHTML=icon('refresh');
 $('rowcsv').innerHTML=icon('download');
 $('rowadd').innerHTML=icon('plus');
 $('filterbtn').innerHTML=icon('filter');
+$('fclearbtn').innerHTML=icon('close');
 $('rp-keycopy').innerHTML=icon('copy');
 $('rp-download').innerHTML=icon('download');
 $('prevbatch').innerHTML=icon('chevronLeft');
@@ -1004,7 +968,7 @@ const S = { db:'', table:'', kind:'', pk:null, cols:[], widths:[], total:0,
             sideCollapsed:getStored('sideCollapsed') === '1',
             sideTab:getStored('sideTab') || 'table',
             sideItems:[], sideShown:0, queryCleared:false,
-            filterApplied:{col:'',op:'=',val:''}, dbInfo:null, dbCatalog:{}, dbCatalogKind:'' };
+            filters:[], filterJoin:'and', dbInfo:null, dbCatalog:{}, dbCatalogKind:'' };
 let pool=[], lastFirst=-1, ticking=false;
 let lastC0=-1, lastC1=-1;    // the columns the row pool holds values for (all of them, unless the table is wide)
 const WIDE_COLS=40;    // over this many columns, only those in view (and 400px either side) get values as the grid scrolls
@@ -1706,10 +1670,10 @@ async function openObject(table, kind, initialTab = 'rows', first = null){    /*
     targetObj.scrollIntoView({block:'nearest'});
   }
   if(table!==S.table){ S.pageSize=DEFAULT_PAGE_SIZE; $('pagesize').value=S.pageSize; }   /* a changed page size lasts while this table stays open */
-  S.table=table; S.kind=targetKind; S.where=null; S.local=null; S.loaded={}; drawSlowFilterHint(0);
+  S.table=table; S.kind=targetKind; S.filters=[]; S.filterJoin='and'; S.local=null; S.loaded={}; drawSlowFilterHint(0);
   setExports(false);
   S.rows=[]; lastFirst=-1;
-  $('fval').value=''; $('ftxt').textContent=''; $('gh-table').textContent=table; $('gh-table').title=table;
+  $('ftxt').textContent=''; $('gh-table').textContent=table; $('gh-table').title=table;
   mountGrid($('gridcard'));
   for(const t of document.querySelectorAll('.tab')) t.hidden = t.dataset.v==='info' || t.dataset.v==='health';
   $('morewrap').hidden=false;
@@ -1729,13 +1693,8 @@ async function openObject(table, kind, initialTab = 'rows', first = null){    /*
 
   for(const input of document.querySelectorAll('.detail-search')) input.value='';
   for(const select of document.querySelectorAll('.detail-filter')){ select.value=''; select.parentElement.classList.remove('on'); }
-  $('fcol').textContent='';
-  for(const column of m.meta.columns){
-    const option=el('option'); option.value=column.name; option.textContent=column.name;
-    $('fcol').appendChild(option);
-  }
-  renderFcolPicker(m.meta.columns);
-  S.filterApplied={col:$('fcol').value,op:'=',val:''}; drawFilterOps(false); drawFilterActions();
+  $('fcols').replaceChildren(...m.meta.columns.map(column=>{ const option=el('option'); option.value=column.name; return option; }));    // the dialog's column boxes search these
+  drawFilterActions();
   drawStObj(table);
   $('st-rows').textContent = `${m.rows.length} rows loaded`;
   $('st-size').textContent = m.meta.stats.total_size || '';
@@ -1832,8 +1791,9 @@ function rowAt(i){
   return (S.local || S.rows)[i] ?? null;
 }
 function filterParams(){
-  return S.where?{filter_col:S.where.col,filter_op:S.where.op,filter_value:S.where.val}:{};
+  return S.filters.length?{filters:S.filters.map(filterForApi),filter_join:S.filterJoin}:{};
 }
+const compactCount=n=>n<10000?n.toLocaleString():n<1e6?`${(n/1e3).toFixed(n<1e5?1:0)}K`:n<1e9?`${(n/1e6).toFixed(n<1e7?1:0)}M`:`${(n/1e9).toFixed(1)}B`;
 function drawBatchNav(){
   const supported=!!S.pk, page=S.pageIndex+1;
   $('pagenav').hidden=false;
@@ -1843,8 +1803,10 @@ function drawBatchNav(){
   const unsupported='Requires a single-column primary key';
   $('prevbatch').title=!supported?unsupported:S.pageIndex===0?'First page':`Go to Page ${page-1}`;
   $('nextbatch').title=!supported?unsupported:!S.after?'No more rows':`Go to Page ${page+1}`;
-  const size=S.meta?.stats?.total_size;
-  $('ftxt').textContent=`${S.total.toLocaleString()} ${S.total===1?'row':'rows'}${size?' · '+size:''}`;    // the rows shown on this page and the table's size
+  const size=S.meta?.stats?.total_size, estimate=S.meta?.stats?.estimated_rows;
+  const rows=S.filters.length?`${S.total.toLocaleString()} shown · filtered`:estimate!=null?`~${compactCount(estimate)} rows`:`${S.total.toLocaleString()} shown`;    // an estimate needs no count of the table; a filtered total would
+  $('ftxt').textContent=size?`${rows} · ${size}`:rows;
+  $('ftxt').title=S.filters.length?'Rows on this page; counting every filtered row would read the whole table':estimate!=null?`About ${estimate.toLocaleString()} rows: PostgreSQL's estimate, kept up to date by VACUUM and ANALYZE`:'';
 }
 // pages follow the server's cursor: Next sends the last response's after, Previous the after saved for that page (S.cursors[i] opens page i+1; null is the first page)
 async function changeBatch(direction){
@@ -2015,13 +1977,12 @@ for(const table of document.querySelectorAll('.detail-grid')) table.tBodies[0].a
 /* ==== row panel ==== */
 // one row's fields beside the grid: open from the button on a row's left edge; ↑/↓ move between rows, Esc closes
 $('rp-prev').innerHTML=icon('chevronUp'); $('rp-next').innerHTML=icon('chevronDown');
-$('rp-delete').innerHTML=icon('trash'); $('rp-close').innerHTML=icon('close');
+$('rp-delete').innerHTML=icon('trash');
 // a click on a cell opens its row here; selecting text to copy does not
 rowsEl.addEventListener('click', e=>{
   const td=e.target.closest('.td'); if(!td||!S.cols.length) return;
   if(String(window.getSelection()||'')) return;
   const tr=td.parentElement; if(tr.hidden) return;
-  setStored('rowPanelClosed', undefined);    // clicking a row brings the panel back for every table
   rowPanelOpen(+tr.dataset.i);
 });
 // drag the panel's left edge to widen it for long values; the width is remembered, double-click resets it (capped as in --rp-eff: the grid card keeps room for its header)
@@ -2052,7 +2013,7 @@ function rowPanelOpen(index){
 // a table's rows (not a query result) open with the first row in the panel, so every table has the same layout; not when the panel was closed with × or Esc
 // (until a row is clicked again) or the window is under 1100 px wide; a table without rows keeps the panel with "No rows"
 function rowPanelAuto(){
-  if(S.local||!S.table||getStored('rowPanelClosed')==='1'||innerWidth<1100) return;
+  if(S.local||!S.table) return;
   if(!S.total){ rowPanelEmpty(); return; }
   rowPanelOpen(0);
 }
@@ -2062,10 +2023,6 @@ function rowPanelEmpty(){
   $('rp-title').textContent=$('rp-title').title=S.table; $('rp-key').hidden=true;
   for(const id of ['rp-prev','rp-next','rp-download','rp-delete']) $(id).disabled=true;
   $('rp-body').textContent=''; $('rp-body').appendChild(el('div','rp-empty','No rows'));
-}
-function rowPanelDismiss(){
-  setStored('rowPanelClosed','1');    // closed on purpose: tables open without it until a row is clicked
-  rowPanelClose();
 }
 function rowPanelClose(){
   if(RP.index<0&&$('rowpanel').hidden) return;
@@ -2450,7 +2407,6 @@ function openField(column,colIndex,row){
   view();
   $('dlg').showModal();
 }
-$('rp-close').onclick=rowPanelDismiss;
 $('rp-prev').onclick=()=>rowPanelOpen(RP.index-1);
 $('rp-next').onclick=()=>rowPanelOpen(RP.index+1);
 $('rp-search').oninput=rowPanelDraw;
@@ -2481,179 +2437,91 @@ $('rp-delete').onclick=()=>{
 document.addEventListener('keydown', e=>{
   if(RP.index<0||$('dlg').open||!$('moremenu').hidden||!$('v-rows').classList.contains('on')) return;    // Esc closes an open More menu first
   if(e.target.closest('input,textarea,select,[contenteditable]')) return;
-  if(e.key==='Escape'){ rowPanelDismiss(); e.preventDefault(); }
-  else if(e.key==='ArrowDown'){ rowPanelOpen(RP.index+1); e.preventDefault(); }
+  if(e.key==='ArrowDown'){ rowPanelOpen(RP.index+1); e.preventDefault(); }
   else if(e.key==='ArrowUp'){ rowPanelOpen(RP.index-1); e.preventDefault(); }
 });
 
-/* ==== filter ==== */
-let currentColumns = [];
-
-function syncFcolBtnText(){
-  const val = $('fcol').value;
-  $('fcol-btn-text').textContent = val || 'Select column';
-}
-
-function renderFcolPicker(columns){
-  currentColumns = columns || [];
-  syncFcolBtnText();
-  renderFcolList('');
-}
-
-function renderFcolList(term = ''){
-  const list = $('fcol-list');
-  if(!list) return;
-  list.innerHTML = '';
-  const q = term.trim().toLowerCase();
-  const filtered = q ? currentColumns.filter(c => (c.name||'').toLowerCase().includes(q) || (c.type||'').toLowerCase().includes(q)) : currentColumns;
-  if(!filtered.length){
-    list.innerHTML = '<div class="fcol-empty">No matching columns</div>';
-    return;
-  }
-  const selected = $('fcol').value;
-  for(let i = 0; i < filtered.length; i++){
-    const col = filtered[i];
-    const item=el('div');
-    item.className = 'fcol-item' + (col.name === selected ? ' selected' : '') + (i === 0 && q ? ' active' : '');
-    item.dataset.col = col.name;
-    item.append(el('span','col-name',col.name));    // the name only: in full, the type is in Structure
-    item.onclick = (e) => {
-      e.stopPropagation();
-      selectFcol(col.name);
-    };
-    list.appendChild(item);
-  }
-}
-
-function selectFcol(colName){
-  if(!colName) return;
-  $('fcol').value = colName;
-  syncFcolBtnText();
-  closeFcolMenu();
-  $('fcol').onchange?.();
-}
-
-function openFcolMenu(){
-  $('fcol-menu').hidden = false;
-  $('fcol-btn').setAttribute('aria-expanded', 'true');
-  $('fcol-search').value = '';
-  renderFcolList('');
-  setTimeout(() => $('fcol-search').focus(), 20);
-}
-
-function closeFcolMenu(){
-  $('fcol-menu').hidden = true;
-  $('fcol-btn').setAttribute('aria-expanded', 'false');
-}
-
-function toggleFcolMenu(){
-  if($('fcol-menu').hidden) openFcolMenu();
-  else closeFcolMenu();
-}
-
-$('fcol-btn').onclick = (e) => {
-  e.stopPropagation();
-  toggleFcolMenu();
-};
-
-$('fcol-search').oninput = () => {
-  renderFcolList($('fcol-search').value);
-};
-
-$('fcol-search').onkeydown = (e) => {
-  const items = Array.from($('fcol-list').querySelectorAll('.fcol-item'));
-  if(!items.length) return;
-  const active = $('fcol-list').querySelector('.fcol-item.active');
-  let idx = items.indexOf(active);
-  if(e.key === 'ArrowDown'){
-    e.preventDefault();
-    if(active) active.classList.remove('active');
-    idx = (idx + 1) % items.length;
-    items[idx].classList.add('active');
-    items[idx].scrollIntoView({block:'nearest'});
-  }else if(e.key === 'ArrowUp'){
-    e.preventDefault();
-    if(active) active.classList.remove('active');
-    idx = (idx - 1 + items.length) % items.length;
-    items[idx].classList.add('active');
-    items[idx].scrollIntoView({block:'nearest'});
-  }else if(e.key === 'Enter'){
-    e.preventDefault();
-    const target = active || items[0];
-    if(target && target.dataset.col){
-      selectFcol(target.dataset.col);
-    }
-  }else if(e.key === 'Escape'){
-    e.preventDefault();
-    closeFcolMenu();
-    $('fcol-btn').focus();
-  }
-};
-
-document.addEventListener('click', (e) => {
-  if(!e.target.closest('#fcol-picker')) closeFcolMenu();
-});
-
+/* ==== filter: Match all or any of up to FILTER_MAX conditions, edited in the Filter rows dialog ==== */
+// S.filters holds what is applied, as typed: [{col, op (as shown, e.g. ≠), val}]; S.filterJoin 'and' or 'or'. The header's filter icon is blue while one is on and the red clear icon removes them all.
+const FILTER_MAX=10;
 const OPS={'=':'=','≠':'<>','>':'>','<':'<','≥':'>=','≤':'<=','LIKE':'LIKE','ILIKE':'ILIKE',
            'IS NULL':'IS NULL','IS NOT NULL':'IS NOT NULL'};
-function filterOperators(){
-  const type=(S.meta?.columns.find(c=>c.name===$('fcol').value)?.type||'').toLowerCase();
+function filterOperators(column){
+  const type=(S.meta?.columns.find(c=>c.name===column)?.type||'').toLowerCase();
   if(/char|text|citext/.test(type)) return ['ILIKE','LIKE','=','≠','IS NULL','IS NOT NULL'];
   if(/int|numeric|decimal|real|double|serial|date|time|timestamp|interval|money/.test(type))
     return ['=','≠','>','<','≥','≤','ILIKE','LIKE','IS NULL','IS NOT NULL'];
   return ['=','≠','ILIKE','LIKE','IS NULL','IS NOT NULL'];
 }
-function drawFilterOps(keep=true){
-  const previous=keep ? $('fop').value : S.filterApplied.op;
-  const choices=filterOperators();
-  $('fop').innerHTML=choices.map(op=>`<option>${op}</option>`).join('');
-  $('fop').value=choices.includes(previous) ? previous : choices[0];
-  const noValue=$('fop').value.startsWith('IS ');
-  $('fval').disabled=noValue; $('fval').placeholder=noValue?'No value required':/LIKE$/.test($('fop').value)?'Contains (% for a pattern)':'Filter value';
+// what the server gets: the SQL operator, and LIKE/ILIKE without a % meaning "contains"
+function filterForApi(f){
+  const op=OPS[f.op], value=/LIKE$/.test(op)&&f.val&&!f.val.includes('%')?`%${f.val}%`:f.val;
+  return op.startsWith('IS ')?{col:f.col,op}:{col:f.col,op,value};
 }
-// the applied filter shows as a chip in the card's header (a click edits it, × removes it) and turns the filter icon blue; the dialog's Remove filter shows while one is applied
+const filterText=f=>`${f.col} ${f.op}${f.op.startsWith('IS ')?'':' '+f.val}`;
 function drawFilterActions(){
-  const on=!!S.where, a=S.filterApplied;
-  $('fchip').hidden=!on; $('filterbtn').classList.toggle('on',on); $('fclr').hidden=!on;
-  $('filterbtn').title=on?'Edit the filter':'Filter rows';
-  if(on){ const text=`${a.col} ${a.op}${a.op.startsWith('IS ')?'':' '+a.val}`; $('fchip-edit').textContent=text; $('fchip-edit').title=`${text} (click to edit)`; }
-  $('fgo').disabled=!$('fcol').value;
+  const on=S.filters.length>0;
+  $('filterbtn').classList.toggle('on',on);
+  $('filterbtn').title=on?`${on&&S.filters.length===1?'1 condition':S.filters.length+' conditions'} applied: click to see or edit`:'Filter rows';
+  $('fclearbtn').disabled=!on;
+  $('fclearbtn').title=on?'Clear the filter':'No filter applied';
+}
+// one condition row of the dialog: the column box searches the table's columns (datalist), the operators follow the column's type
+function filterRow(f={col:'',op:'',val:''}){
+  const row=el('div','fd-row'), col=el('input','fd-col'), op=el('select','fd-op'), val=el('input','fd-val'), del=iconButton('trash','Remove this condition','iconbtn fd-del');
+  col.setAttribute('list','fcols'); col.placeholder='Column'; col.autocomplete='off'; col.spellcheck=false; col.value=f.col;
+  val.autocomplete='off'; val.value=f.val||'';
+  const ops=()=>{ const previous=op.value||f.op, choices=filterOperators(col.value); op.innerHTML=choices.map(o=>`<option>${o}</option>`).join(''); op.value=choices.includes(previous)?previous:choices[0];
+    const noValue=op.value.startsWith('IS '); val.disabled=noValue; val.placeholder=noValue?'No value needed':/LIKE$/.test(op.value)?'Contains (% for a pattern)':'Value'; };
+  col.oninput=()=>{ col.classList.remove('bad'); ops(); };
+  op.onchange=ops;
+  del.onclick=()=>{ row.remove(); if(!$('fconds').children.length) $('fconds').appendChild(filterRow()); drawFilterDialog(); };
+  ops();
+  row.append(col,op,val,del);
+  return row;
+}
+function drawFilterDialog(){
+  const count=$('fconds').children.length;
+  $('faddcond').disabled=count>=FILTER_MAX; $('faddcond').title=count>=FILTER_MAX?`At most ${FILTER_MAX} conditions`:'';
+  $('fclr').hidden=!S.filters.length;
 }
 function openFilterDialog(){
   if(!S.table||S.local) return;
-  if(S.filterApplied.col){ $('fcol').value=S.filterApplied.col; syncFcolBtnText(); drawFilterOps(false); $('fop').value=S.filterApplied.op; drawFilterOps(); $('fval').value=S.filterApplied.val; }    // opens on the filter in use
-  drawFilterActions();
+  $('fjoin').value=S.filterJoin;
+  $('fconds').replaceChildren(...(S.filters.length?S.filters:[{col:'',op:'',val:''}]).map(f=>filterRow(f)));    // opens on what is applied
+  drawFilterDialog();
   $('fdlg').showModal();
-  ($('fval').disabled?$('fcol-btn'):$('fval')).focus();
+  const first=$('fconds').querySelector('.fd-row:last-child');
+  (first.querySelector('.fd-col').value?(first.querySelector('.fd-val:not(:disabled)')||first.querySelector('.fd-col')):first.querySelector('.fd-col')).focus();
 }
-async function clearFilter(){
-  if(!S.where) return;
-  S.where=null; $('fval').value='';
-  if(await applyFilter()) S.filterApplied={col:$('fcol').value,op:$('fop').value,val:''};
-  syncFcolBtnText(); drawFilterActions();
+async function setFilters(filters,join){
+  const previous=[S.filters,S.filterJoin];
+  S.filters=filters; S.filterJoin=join;
+  if(await applyFilter()){ drawFilterActions(); return true; }
+  [S.filters,S.filterJoin]=previous; return false;
 }
-$('filterbtn').onclick=openFilterDialog;
-$('fchip-edit').onclick=openFilterDialog;
-$('fchip-x').onclick=clearFilter;
-$('fdlg').querySelector('form').addEventListener('submit',e=>{ if(e.submitter?.value!=='cancel') e.preventDefault(); });    // only Cancel (or Esc) closes it; Enter applies
-$('fcol').onchange=()=>{ syncFcolBtnText(); drawFilterOps(); drawFilterActions(); };
-$('fop').onchange=()=>{ drawFilterOps(); drawFilterActions(); };
-$('fval').oninput=drawFilterActions;
-$('fgo').onclick = async () => {
-  const col=$('fcol').value, op=OPS[$('fop').value], typed=$('fval').value;
-  if(!col) return;
-  const val=/LIKE$/.test(op)&&typed&&!typed.includes('%')?`%${typed}%`:typed;    // LIKE/ILIKE without % means contains
-  const previous=S.where;
-  S.where=!val&&!op.startsWith('IS')?null:{col,op,val};
-  if(await applyFilter()){
-    S.filterApplied={col,op:$('fop').value,val:typed}; drawFilterActions(); $('fdlg').close();
-  }else S.where=previous;
+$('faddcond').onclick=()=>{ if($('fconds').children.length>=FILTER_MAX) return; const row=filterRow(); $('fconds').appendChild(row); drawFilterDialog(); row.querySelector('.fd-col').focus(); };
+$('fgo').onclick=async()=>{
+  const columns=new Set(S.cols), filters=[]; let bad=null;
+  for(const row of $('fconds').children){
+    const col=row.querySelector('.fd-col'), op=row.querySelector('.fd-op').value, val=row.querySelector('.fd-val').value;
+    if(!col.value.trim()&&!val.trim()) continue;    // an empty row is left out
+    if(!columns.has(col.value)){ col.classList.add('bad'); bad||=col; continue; }
+    if(!op.startsWith('IS ')&&val==='') { row.querySelector('.fd-val').focus(); return; }
+    filters.push({col:col.value,op,val});
+  }
+  if(bad){ bad.focus(); return; }
+  if(await setFilters(filters,$('fjoin').value)) $('fdlg').close();
 };
-$('fclr').onclick = async () => { await clearFilter(); $('fdlg').close(); };
+$('fclr').onclick=async()=>{ if(await setFilters([],'and')) $('fdlg').close(); };
+$('filterbtn').onclick=openFilterDialog;
+$('fclearbtn').onclick=()=>setFilters([],'and');
+$('fdlg').addEventListener('keydown',e=>{ if(e.key==='Enter'&&e.target.matches('.fd-col,.fd-val')){ e.preventDefault(); $('fgo').click(); } });
+$('fdlg').querySelector('form').addEventListener('submit',e=>{ if(e.submitter?.value!=='cancel') e.preventDefault(); });    // only Cancel (or Esc) closes it; Enter applies
 // a %text% LIKE/ILIKE filter cannot use a normal index, so Postgres reads every row; when that is slow, say so and offer the index that fixes it
 function drawSlowFilterHint(ms){
-  const w=S.where, box=$('fslow');    // not 'el': that would hide the el() helper used below
-  const slow=!!w&&/LIKE$/.test(w.op)&&String(w.val).startsWith('%')&&ms>=100;    // 100 ms: about where a delay is noticeable
+  const w=S.filters.map(filterForApi).find(f=>/LIKE$/.test(f.op)&&String(f.value).startsWith('%')), box=$('fslow');    // not 'el': that would hide the el() helper used below
+  const slow=!!w&&ms>=100;    // 100 ms: about where a delay is noticeable
   box.hidden=!slow; box.textContent=''; if(!slow) return;
   const ident=name=>'"'+String(name).replace(/"/g,'""')+'"';
   const sql=`CREATE EXTENSION IF NOT EXISTS pg_trgm;\nCREATE INDEX ON ${ident(S.table)} USING gin (${ident(w.col)} gin_trgm_ops);`;
@@ -2675,7 +2543,6 @@ async function applyFilter(){
     return true;
   }catch(err){ if(seq!==rowsSeq) return false; alertBox('Filter failed', err.message); return false; }
 }
-$('fval').onkeydown = e => { if(e.key==='Enter'){ e.preventDefault(); $('fgo').click(); } };
 
 /* ==== query ==== */
 function mountGrid(host){
@@ -2773,8 +2640,8 @@ $('rp-download').onclick=()=>{
 $('rowcsv').onclick=()=>{
   const rows=S.local||S.rows, filename=`${safeFilePart(S.table)}-rows.csv`;
   const cut=S.local?0:S.rows.filter(row=>cutRows.has(row)).length;
-  const where=S.where?`${S.where.col} ${S.where.op}${S.where.op.startsWith('IS')?'':' '+S.where.val}`:'None';
-  const whole=!S.local&&!S.where&&!S.after&&!S.pageIndex;    // one page and no filter: the file is the whole table
+  const where=S.filters.length?S.filters.map(filterText).join(S.filterJoin==='or'?' OR ':' AND '):'None';
+  const whole=!S.local&&!S.filters.length&&!S.after&&!S.pageIndex;    // one page and no filter: the file is the whole table
   confirmDownload('Download rows',
     [['Rows',whole?`${rows.length.toLocaleString()} (the whole table)`:`${rows.length.toLocaleString()} (Page ${S.pageIndex+1}, page size ${S.pageSize})`],['Columns',`${S.cols.length} (all)`],
      ['Filter',where],['Order',S.pk?`${S.pk} ${S.latestFirst?'newest first':'oldest first'}`:'As loaded'],['File',filename]],
