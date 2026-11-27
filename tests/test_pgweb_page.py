@@ -22,7 +22,7 @@ class PgwebPageTests(unittest.TestCase):
         self.assertEqual(sorted({i for i in ids if ids.count(i) > 1}), [])
 
     def test_main_controls_are_present(self):
-        for element in ("home-dsn", "tree", "sidetabs", "vp", "rows", "rowpanel", "rp-body", "sql", "run", "resetsql", "pagesize", "pagenav", "fslow", "connbtn", "dlg", "moremenu"):
+        for element in ("home-dsn", "tree", "sidetabs", "sidefoot", "vp", "rows", "rowpanel", "rp-body", "sql", "run", "resetsql", "pagesize", "pagenav", "fslow", "connbtn", "dlg", "moremenu"):
             with self.subTest(element=element): self.assertIn(element, DEFINED)
 
     @unittest.skipUnless(shutil.which("node"), "node is not installed (CI runners have it)")

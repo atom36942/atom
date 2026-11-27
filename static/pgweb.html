@@ -102,9 +102,7 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
 .side-tab{flex:1 0 auto;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:5px 8px;font-size:11.5px;font-weight:500;border-radius:5px;
   border:0;background:transparent;color:var(--fg);cursor:pointer;white-space:nowrap;user-select:none;transition:background-color .1s ease-out,color .1s ease-out,box-shadow .1s ease-out}    /* a quick fade: smooth, never sluggish */
 #sidetabs .side-tab:hover:not(.on){background:color-mix(in srgb,var(--sel) 12%,transparent);border-color:transparent}    /* a faint tint of the selection colour, never white; the id outranks the general button:hover */
-.side-tab .side-count{min-width:18px;padding:0 5px;border-radius:9px;font-size:10.5px;font-weight:600;line-height:16px;background:var(--bg);color:var(--dim)}
 #sidetabs .side-tab.on,#sidetabs .side-tab.on:hover{background:var(--sel);color:var(--sel-fg);font-weight:700;border-color:transparent;box-shadow:0 1px 3px rgba(0,0,0,.18)}    /* the open kind: a solid pill in the selection colour, as the open table is marked */
-.side-tab.on .side-count{background:rgba(255,255,255,.25);color:var(--sel-fg)}
 
 #side .search{height:40px;padding:0 12px;position:relative;background:var(--bg);border-bottom:1px solid var(--line)}
 #side .search:focus-within{background:var(--hl)}
@@ -134,6 +132,17 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
 .obj .obj-copy{flex:none;width:22px;height:22px;margin-right:-6px;padding:0;display:none;align-items:center;justify-content:center;border:0;border-radius:3px;background:transparent;color:var(--dim)}
 .obj:hover .obj-copy,.obj .obj-copy:focus-visible{display:inline-flex}
 .obj .obj-copy:hover{color:var(--fg);background:var(--bg)}
+.hist{height:auto;min-height:29px;padding:6px 12px;align-items:flex-start}    /* one saved query: its SQL on one line, when and how it went under it */
+.hist-main{flex:1;min-width:0}
+.hist-sql{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:11.5px Menlo,Monaco,Consolas,"Courier New",monospace}
+.hist-meta{margin-top:2px;font-size:10.5px;color:var(--dim)}
+.hist.err .hist-meta::before{content:"";display:inline-block;width:6px;height:6px;margin-right:5px;border-radius:50%;background:var(--err);vertical-align:1px}    /* failed: a red dot */
+.hist-head{display:flex;align-items:center;justify-content:space-between;height:28px;padding:0 6px 0 12px;font-size:11px;font-weight:700;color:var(--dim);border-bottom:1px solid var(--row-line)}
+.hist-head .hist-clear{width:22px;height:22px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:3px;background:transparent;color:var(--dim)}
+.hist-head .hist-clear:hover{color:var(--err);background:var(--bg)}
+.hist-head .hist-clear svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#sidefoot{flex:none;padding:6px 12px;font-size:11px;color:var(--dim);border-top:1px solid var(--line);background:var(--side)}    /* the list's count, pinned under it */
+#sidefoot[hidden]{display:none}
 .obj .obj-copy svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
 #main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
@@ -169,15 +178,6 @@ body.more-open .tab.on{background:transparent;color:var(--nav-fg)}    /* only on
   background:var(--nav);position:relative;z-index:2}
 #optionswrap[hidden],#optionswrap > [hidden]{display:none!important}
 /* SQL Runner: the fixed first item of the sidebar, like Admin's Dashboard; .on while the runner is open */
-/* the query runner: the first row of the table list (above the first table, on every tab, never filtered by the search), a divider under it */
-.side-runner{display:flex;align-items:center;gap:8px;margin:0;height:31px;padding:0 12px;border:0;border-bottom:1px solid var(--line);border-radius:0;
-  background:var(--table-list-bg);color:var(--nav);font-size:12px;font-weight:600;cursor:pointer;transition:none}    /* instant, like a table row */
-.side-runner[hidden]{display:none}
-.side-runner svg{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.side-runner:hover:not(:disabled){background:var(--hl);border-color:var(--line)}    /* beats the general button:hover; the divider keeps its colour */
-:root[data-theme=dark] .side-runner{color:#c792ea}
-.side-runner.on,.side-runner.on:hover:not(:disabled){background:var(--side-on);color:var(--side-on-fg);font-weight:700;box-shadow:inset 4px 0 0 var(--sel)}    /* selected exactly like a table (.obj.on), hovered or not */
-:root[data-theme=dark] .side-runner.on{color:var(--side-on-fg)}
 #tabs .headicon{width:30px;height:30px;padding:0;margin:0 2px;border:0;border-radius:3px;
   font-size:16px;line-height:28px;text-align:center;align-self:center;background:transparent;color:#fff}
 #tabs .headicon:hover:not(:disabled){background:rgba(255,255,255,.2);color:#fff;border-color:transparent}
@@ -671,7 +671,6 @@ dialog.fm .ft{box-sizing:border-box;min-height:54px;align-items:center;flex-wrap
     <div id="dbline">
       <div id="brand"><span id="productname">PgWeb<span class="atom-ver"></span></span><span id="dbname" role="button" tabindex="0" aria-haspopup="dialog" hidden></span></div>
     </div>
-    <button type="button" id="queryrunner" class="side-runner" title="Query runner (SQL Editor)" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 8 4 4-4 4M12 17h7"/></svg>Query runner</button>
     <div class="search" id="tablesearch" hidden>
       <input id="q" placeholder="Search" aria-label="Search the list" autocomplete="off" spellcheck="false"/>
       <button id="qclr" title="Clear" hidden>×</button>
@@ -679,9 +678,11 @@ dialog.fm .ft{box-sizing:border-box;min-height:54px;align-items:center;flex-wrap
     <div id="sidetabs" role="tablist" aria-label="Object types" hidden>
       <button type="button" class="side-tab on" data-kind="table">Tables</button>
       <button type="button" class="side-tab" data-kind="view">Views</button>
-      <button type="button" class="side-tab" data-kind="materialized_view">Materialized</button>
+      <button type="button" class="side-tab" data-kind="materialized_view" title="Materialized views">Mat</button>
+      <button type="button" class="side-tab" data-kind="sql" title="Query runner and your SQL history">SQL</button>
     </div>
     <div id="tree" hidden></div>
+    <div id="sidefoot" role="status" hidden></div>
   </aside>
 
   <div id="sideresizer" role="separator" aria-orientation="vertical" tabindex="0" title="Drag to adjust sidebar width (double-click to auto-fit or reset)" hidden></div>
@@ -1119,11 +1120,10 @@ function setConnected(on){
   for(const el of $('optionswrap').querySelectorAll('.conn-only')) el.hidden = !on;    // the theme button stays, connected or not
   $('pane').hidden = false;
   $('status').hidden = true;
-  $('queryrunner').disabled = !on;
-  $('queryrunner').hidden = !on;
   $('sidetabs').hidden = !on;
   $('tablesearch').hidden = !on;
   $('tree').hidden = !on;
+  $('sidefoot').hidden = !on;
   $('reload').disabled = !on;
   $('rowrefresh').disabled = !on;
   $('run').disabled = $('stream').disabled = $('explain').disabled = $('analyze').disabled = $('resetsql').disabled = $('sql').disabled = !on;
@@ -1320,26 +1320,21 @@ function askDisconnect(){
 /* ==== sidebar ==== */
 function getKindMeta(kind){
   if(kind === 'view') return { singular: 'view', plural: 'views', label: 'Views' };
-  if(kind === 'materialized_view') return { singular: 'materialized view', plural: 'materialized views', label: 'Materialized' };
+  if(kind === 'materialized_view') return { singular: 'materialized view', plural: 'materialized views', label: 'Mat' };
+  if(kind === 'sql') return { singular: 'saved query', plural: 'saved queries', label: 'SQL' };
   return { singular: 'table', plural: 'tables', label: 'Tables' };
 }
 
-// each side tab shows how many objects it has as a badge, e.g. Tables 12; the sidebar is kept wide enough for them on one line
-function drawSideTabCounts(){
-  for(const btn of document.querySelectorAll('#sidetabs .side-tab')){
-    btn.dataset.label ||= btn.textContent.trim();
-    const count=((S.tree.public||{})[btn.dataset.kind]||[]).length;
-    const label=el('span',null,btn.dataset.label);
-    const badge=el('span','side-count',String(count));
-    btn.replaceChildren(label,badge);
-  }
-  fitSidebarToTabs();
+// the list's count sits in the footer, not on the tabs, so the tabs keep one width whatever the number: "204 tables", "12 of 204 tables" while searching
+function drawSideFoot(shown,total,meta){
+  const noun=total===1?meta.singular:meta.plural;
+  $('sidefoot').textContent=shown===total?`${total.toLocaleString()} ${noun}`:`${shown.toLocaleString()} of ${total.toLocaleString()} ${noun}`;
 }
 function sideTabsWidth(){
   const tabs=$('sidetabs'); if(!tabs||tabs.hidden) return 0;
   const style=getComputedStyle(tabs);
   // the text's own width (spans do not stretch with the tab), plus each tab's padding and border
-  const tab=b=>[...b.children].reduce((w,span)=>w+span.getBoundingClientRect().width,0)+parseFloat(getComputedStyle(b).columnGap||0)*(b.children.length-1)+parseFloat(getComputedStyle(b).paddingLeft)*2;
+  const tab=b=>{ const range=document.createRange(); range.selectNodeContents(b); return range.getBoundingClientRect().width+parseFloat(getComputedStyle(b).paddingLeft)*2; };    // the label's own width (the tab stretches)
   return Math.ceil([...tabs.children].reduce((sum,b)=>sum+tab(b),0) + (tabs.children.length-1)*parseFloat(style.columnGap||2) + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + parseFloat(style.marginLeft) + parseFloat(style.marginRight) + 2);    // + the track's border
 }
 function fitSidebarToTabs(){
@@ -1356,17 +1351,18 @@ function setSideTab(kind, triggerRender = true){
 }
 
 for(const btn of document.querySelectorAll('#sidetabs .side-tab')){
-  btn.onclick = () => setSideTab(btn.dataset.kind);
+  btn.onclick = () => { setSideTab(btn.dataset.kind); if(btn.dataset.kind==='sql') openRunner(); };    // SQL: the runner on the right, the history on the left
 }
 
 // All public schema objects stay in memory; DOM rows are appended in small batches.
 function drawTree(){
-  drawSideTabCounts();
+  fitSidebarToTabs();
   const kind = S.sideTab || 'table';
-  S.sideItems = ((S.tree.public||{})[kind]||[]).map(o=>o.name).sort((a,b)=>a.localeCompare(b));
+  S.sideItems = kind==='sql' ? [] : ((S.tree.public||{})[kind]||[]).map(o=>o.name).sort((a,b)=>a.localeCompare(b));
   renderTreeBatch(true);
 }
 function renderTreeBatch(reset=false){
+  if(S.sideTab==='sql'){ if(reset) drawHistory(); return; }    // at most SQL_HISTORY_MAX items: drawn at once
   const box=$('tree'), term=$('q').value.trim().toLowerCase();
   const kind = S.sideTab || 'table';
   const meta = getKindMeta(kind);
@@ -1384,10 +1380,69 @@ function renderTreeBatch(reset=false){
     frag.appendChild(d);
   }
   S.sideShown+=next.length; box.appendChild(frag);
+  if(reset) drawSideFoot(matches.length, S.sideItems.length, meta);
   if(reset && !matches.length){
     const empty=el('div','obj'); empty.style.cssText='color:var(--dim);cursor:default';
     empty.textContent=term?`No matching ${meta.plural}`:`No ${meta.plural} in public`; box.appendChild(empty);
   }
+}
+/* ==== SQL history: queries run with Execute, newest first, in this browser only (localStorage), one list per database ==== */
+// the last SQL_HISTORY_MAX per database, each up to SQL_HISTORY_SQL_MAX characters, for the last SQL_HISTORY_DBS databases used; the same SQL run again moves to the top
+const SQL_HISTORY_KEY='pgweb-sql-history', SQL_HISTORY_MAX=50, SQL_HISTORY_SQL_MAX=10000, SQL_HISTORY_DBS=10;
+function sqlHistoryDb(){ const p=dbParts(S.connectionUrl); return p?`${p.host}:${p.port}/${p.db}`:(S.db||''); }
+function sqlHistoryAll(){ try{ const all=JSON.parse(localStorage.getItem(SQL_HISTORY_KEY)); return all&&typeof all==='object'?all:{}; }catch{ return {}; } }
+function sqlHistory(){ const list=sqlHistoryAll()[sqlHistoryDb()]; return Array.isArray(list)?list:[]; }
+function sqlHistorySave(list){
+  const all=sqlHistoryAll(), db=sqlHistoryDb();
+  delete all[db]; if(list.length) all[db]=list;    // written last: the databases least recently used drop off first
+  const dbs=Object.keys(all); for(const old of dbs.slice(0,Math.max(0,dbs.length-SQL_HISTORY_DBS))) delete all[old];
+  for(let attempt=0;attempt<3;attempt++){
+    try{ localStorage.setItem(SQL_HISTORY_KEY,JSON.stringify(all)); return; }
+    catch{ if(!all[db]) return; all[db]=all[db].slice(0,Math.ceil(all[db].length/2)); }    // storage full: keep the newer half
+  }
+}
+function sqlHistoryAdd(sql,result){
+  sql=String(sql||'').trim().slice(0,SQL_HISTORY_SQL_MAX); if(!sql) return;
+  sqlHistorySave([{sql,at:Date.now(),...result},...sqlHistory().filter(item=>item.sql!==sql)].slice(0,SQL_HISTORY_MAX));
+  if(S.sideTab==='sql') drawHistory();
+}
+function drawHistory(){
+  const box=$('tree'), term=$('q').value.trim().toLowerCase(), all=sqlHistory();
+  const items=term?all.filter(item=>item.sql.toLowerCase().includes(term)):all;
+  box.textContent='';
+  if(all.length){
+    const head=el('div','hist-head'); head.appendChild(el('span',null,'History'));
+    const clear=iconButton('trash','Clear the whole history of this database','hist-clear'); clear.onclick=askClearSqlHistory;
+    head.appendChild(clear); box.appendChild(head);
+  }
+  for(const item of items){
+    const row=el('div','obj hist'+(item.ok===false?' err':''));
+    const main=el('div','hist-main');
+    main.append(el('div','hist-sql',item.sql.replace(/\s+/g,' ')),
+                el('div','hist-meta',[ago(item.at),item.ok===false?'failed':`${(item.rows??0).toLocaleString()}${item.truncated?'+':''} ${item.rows===1&&!item.truncated?'row':'rows'}`,item.ms!=null?`${Math.round(item.ms).toLocaleString()} ms`:''].filter(Boolean).join(' · ')));
+    row.title=(item.sql.length>2000?item.sql.slice(0,2000)+'…':item.sql)+(item.error?`\n\nFailed: ${item.error}`:'')+'\n\nClick to load it into the editor (it does not run)';
+    const del=iconButton('trash','Delete this query from the history','obj-copy');
+    del.onclick=e=>{ e.stopPropagation(); sqlHistorySave(sqlHistory().filter(x=>x.sql!==item.sql)); drawHistory(); };
+    row.append(main,del);
+    row.onclick=()=>loadHistorySql(item.sql);    // loads only: an old UPDATE or DELETE never runs again by a click
+    box.appendChild(row);
+  }
+  if(!items.length){ const empty=el('div','obj'); empty.style.cssText='color:var(--dim);cursor:default;white-space:normal;height:auto;padding:8px 12px'; empty.textContent=term?'No matching queries':'No queries yet: run one with Execute and it shows here'; box.appendChild(empty); }
+  drawSideFoot(items.length,all.length,getKindMeta('sql'));
+}
+function loadHistorySql(sql){
+  if(!$('v-query').classList.contains('on')) openRunner();
+  $('sql').value=sql; $('sql').dispatchEvent(new Event('input')); $('sql').focus();
+}
+function askClearSqlHistory(e){
+  e?.stopPropagation();
+  const count=sqlHistory().length; if(!count) return;
+  $('dlg-t').textContent='';
+  const title=el('span','title','Clear SQL history'); title.appendChild(el('span','dlg-type',sqlHistoryDb())); $('dlg-t').appendChild(title);
+  $('dlg-b').textContent=`All ${count} saved ${count===1?'query':'queries'} of this database will be deleted from this browser. This cannot be undone.`;
+  $('dlg-f').innerHTML='<button value="cancel">Cancel</button><button class="danger" id="histyes">Clear all</button>';
+  $('dlg').showModal();
+  $('histyes').onclick=ev=>{ ev.preventDefault(); $('dlg').close(); sqlHistorySave([]); drawHistory(); toast('SQL history cleared'); };
 }
 function searchTables(){
   const term = $('q').value.trim().toLowerCase();
@@ -1450,7 +1505,6 @@ function openRunner(){
   drawResetSql();
   $('sql').focus();
 }
-$('queryrunner').onclick = openRunner;
 
 /* ==== open a table ==== */
 const detailCellValues=new WeakMap();
@@ -2863,6 +2917,7 @@ async function runQuery(confirmed){
                          is_read_only:S.readOnly?1:0,query_id:queryId});
     const count=m.rows.length.toLocaleString();
     showQueryResult(seq,m,`${m.truncated ? count+'+ rows · showing first '+count : count+' rows'} · ${(performance.now()-t0).toFixed(1)} ms`);
+    sqlHistoryAdd(sql,{ok:true,rows:m.rows.length,truncated:!!m.truncated,ms:performance.now()-t0});
   }catch(err){
     if(S.cancelRequested){ $('qmsg').className=''; $('qmsg').textContent='Canceled'; hideQueryError(); }
     else if(err.message.includes('unbounded_write')){
@@ -2876,6 +2931,7 @@ async function runQuery(confirmed){
       const message=S.readOnly && /read.only|read-only/i.test(err.message)
         ? 'Blocked by read-only mode' : err.message;
       $('qmsg').className=''; $('qmsg').textContent=''; showQueryError('Query failed',message);
+      sqlHistoryAdd(sql,{ok:false,ms:performance.now()-t0,error:String(message).slice(0,300)});
     }
   } finally { finishQuery(queryId); }
 }
@@ -3023,7 +3079,6 @@ function show(v){
   for(const item of $('moremenu').querySelectorAll('button')) item.classList.toggle('on',item.dataset.v===v);
   $('moremenu').hidden=true;
   $('status').hidden = true;
-  $('queryrunner')?.classList.toggle('on', v==='query');
   $('dbinfo')?.classList.toggle('on', v==='info');
   $('health')?.classList.toggle('on', v==='health');
   if(v==='query'){
