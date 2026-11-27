@@ -2494,7 +2494,7 @@ function filterRow(f={col:'',op:'',val:''}){
     const noValue=op.value.startsWith('IS '); val.disabled=noValue; val.placeholder=noValue?'No value needed':/LIKE$/.test(op.value)?'Contains (% for a pattern)':'Value'; };
   col.oninput=()=>{ col.classList.remove('bad'); ops(); colMenuDraw(col,true); };
   col.onchange=ops;
-  col.onfocus=col.onclick=()=>colMenuDraw(col);
+  col.onclick=()=>colMenuDraw(col);    // the list opens on a click, typing or ↓, not just because the box has the focus
   col.onblur=()=>setTimeout(()=>{ if(colMenu.input===col&&document.activeElement!==col) colMenuClose(); },0);
   col.onkeydown=colMenuKey;
   op.onchange=ops;
@@ -2511,7 +2511,7 @@ const colMenu={input:null,index:0,items:[]};
 function colMenuDraw(input,typed=false){    // typed: narrow by what is typed; opening shows every column with the current one marked
   const box=$('fcolmenu'), term=typed?input.value.trim().toLowerCase():'';
   colMenu.input=input; colMenu.items=(S.meta?.columns||[]).filter(c=>!term||c.name.toLowerCase().includes(term));
-  colMenu.index=Math.max(0,colMenu.items.findIndex(c=>c.name===input.value));
+  colMenu.index=typed&&term?0:colMenu.items.findIndex(c=>c.name===input.value);    // nothing marked until the user types, uses the arrows, or the box already holds a column
   box.replaceChildren(...(colMenu.items.length?colMenu.items.map((c,i)=>{ const item=el('div',i===colMenu.index?'on':''); item.append(el('span',null,c.name),el('small',null,c.type)); item.title=`${c.name} · ${c.type}`;
     item.onmousedown=e=>{ e.preventDefault(); colMenuPick(i); }; return item; }):[el('div','none','No matching columns')]));
   const r=input.getBoundingClientRect();
@@ -2529,9 +2529,9 @@ function colMenuKey(e){
   const open=!$('fcolmenu').hidden&&colMenu.input===e.target;
   if(e.key==='ArrowDown'||e.key==='ArrowUp'){
     e.preventDefault(); if(!open){ colMenuDraw(e.target); return; }
-    colMenu.index=Math.min(colMenu.items.length-1,Math.max(0,colMenu.index+(e.key==='ArrowDown'?1:-1)));
+    colMenu.index=colMenu.index<0?0:Math.min(colMenu.items.length-1,Math.max(0,colMenu.index+(e.key==='ArrowDown'?1:-1)));
     [...$('fcolmenu').children].forEach((item,i)=>item.classList.toggle('on',i===colMenu.index)); $('fcolmenu').children[colMenu.index]?.scrollIntoView({block:'nearest'});
-  }else if(e.key==='Enter'&&open&&colMenu.items.length){ e.preventDefault(); e.stopPropagation(); colMenuPick(colMenu.index); }
+  }else if(e.key==='Enter'&&open&&colMenu.index>=0){ e.preventDefault(); e.stopPropagation(); colMenuPick(colMenu.index); }
   else if(e.key==='Escape'&&open){ e.preventDefault(); e.stopPropagation(); colMenuClose(); }    // closes the list, not the dialog
 }
 $('fdlg').addEventListener('close',colMenuClose);
