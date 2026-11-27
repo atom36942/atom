@@ -247,6 +247,15 @@ body.more-open .tab.on{background:transparent;color:var(--nav-fg)}    /* only on
 #ftxt{white-space:nowrap}
 #fslow{display:flex;align-items:center;gap:8px;flex:none;padding:5px 10px;font-size:12px;color:#7a4a00;background:#fff6e0;border-bottom:1px solid #f1dfb0}
 #fslow[hidden]{display:none}
+/* the rows toolbar: compact, on the backdrop and above the grid card only; the row panel takes the full height on the right */
+#tools{flex-wrap:wrap;gap:6px;padding:8px 10px 0;border:0;background:transparent;box-shadow:none}
+#tools select,#tools input,#tools button,#tools #fop,#tools #pagesize,#tools .fcol-btn{height:28px}
+#tools .fcol-btn{min-width:130px}
+#tools #fval{width:150px;min-width:90px;flex:0 1 150px}
+#tools .tools-right{display:flex;align-items:center;gap:6px;margin-left:auto}    /* rows, page size, pages and actions: on the right, also when they wrap onto a line of their own */
+#tools .pagebtn,#tools .iconbtn{width:28px;height:28px;padding:0}
+#fslow{margin:6px 10px 0;border:1px solid #f1dfb0;border-radius:6px}
+#v-rows.rp-open #tools,#v-rows.rp-open #fslow{margin-right:calc(var(--rp-w,min(520px,50%)) + 48px)}    /* they end where the grid card ends */
 #fslow span{overflow:hidden;text-overflow:ellipsis}
 #fslow button{height:24px;padding:0 9px;font-size:11.5px;flex:none}
 :root[data-theme=dark] #fslow{color:#f0c27a;background:#2a2214;border-bottom-color:#4a3a1c}
@@ -310,11 +319,11 @@ body.more-open .tab.on{background:transparent;color:var(--nav-fg)}    /* only on
 #rows .td{cursor:pointer}
 #rowpanel .iconbtn svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #rowpanel[hidden]{display:none}
-#rowpanel{position:absolute;right:10px;bottom:10px;width:var(--rp-w,min(520px,50%));z-index:5;display:flex;flex-direction:column;min-height:0;
+#rowpanel{position:absolute;top:8px;right:10px;bottom:10px;width:var(--rp-w,min(520px,50%));z-index:5;display:flex;flex-direction:column;min-height:0;
   background:var(--bg);border:1px solid var(--card-line);border-radius:6px;overflow:hidden;box-shadow:var(--card-shadow)}
 #rp-resize{position:absolute;left:-3px;top:0;bottom:0;width:6px;cursor:col-resize;z-index:1}
 #rp-resize:hover,#rp-resize.dragging{background:var(--nav)}
-.rp-head{display:flex;align-items:center;gap:4px;padding:8px 8px 8px 14px;border-bottom:1px solid var(--th-line);background:var(--rp-head)}    /* purple tint, like the top bar */
+.rp-head{display:flex;align-items:center;gap:4px;min-height:39px;padding:6px 8px 6px 14px;border-bottom:1px solid var(--card-line);background:var(--th-bg)}    /* a grey band like the grid's header: which table and which row */
 .rp-title{flex:1 1 auto;min-width:72px;max-width:62%}    /* the title keeps room; the filter box gives way first */
 .rp-title b{display:block;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #rp-key{display:flex;align-items:center;gap:4px;min-width:0;margin-top:1px}#rp-key[hidden]{display:none}    /* the row's key under table.key, with its own copy */
@@ -796,7 +805,7 @@ dialog.fm .ft{box-sizing:border-box;min-height:54px;align-items:center;flex-wrap
           <input id="fval" placeholder="Filter value" autocomplete="off"/>
           <button id="fgo" hidden>Apply</button>
           <button id="fclr" title="Reset filter" hidden>Reset</button>
-          <span class="sp"></span><span id="ftxt"></span>
+          <div class="tools-right"><span id="ftxt"></span>
           <select id="pagesize" title="Rows per page" aria-label="Rows per page"></select>
           <div class="pagenav" id="pagenav" hidden>
             <button class="iconbtn pagebtn" id="prevbatch" title="Previous page" aria-label="Previous page"></button>
@@ -806,6 +815,7 @@ dialog.fm .ft{box-sizing:border-box;min-height:54px;align-items:center;flex-wrap
           <button class="iconbtn" id="rowrefresh" title="Refresh table data" aria-label="Refresh table data"></button>
           <button class="iconbtn" id="rowcsv" title="Download the rows on this page as CSV" aria-label="Download the rows on this page as CSV" disabled></button>
           <button class="iconbtn" id="rowadd" title="Add a row" aria-label="Add a row" disabled></button>
+          </div>
         </div>
         <div id="fslow" role="status" hidden></div>
         <div id="vp"><div id="inner">
@@ -2017,7 +2027,6 @@ function rowPanelOpen(index){
   const row=rowAt(index); if(!row) return;
   const isNew=RP.index<0;
   Object.assign(RP,{index,row,table:S.table});
-  $('rowpanel').style.top=vp.offsetTop+'px';    // below the toolbar and the slow-filter bar, when shown
   $('rowpanel').hidden=false; $('v-rows').classList.add('rp-open');
   if(isNew) $('rp-search').value='';
   // keep the row in view as ↑/↓ move through the table
@@ -2039,7 +2048,6 @@ function rowPanelAuto(){
 }
 function rowPanelEmpty(){
   Object.assign(RP,{index:-1,row:null,table:''});
-  $('rowpanel').style.top=vp.offsetTop+'px';
   $('rowpanel').hidden=false; $('v-rows').classList.add('rp-open');
   $('rp-title').textContent=$('rp-title').title=S.table; $('rp-key').hidden=true;
   for(const id of ['rp-prev','rp-next','rp-download','rp-delete']) $(id).disabled=true;
@@ -2068,10 +2076,10 @@ function rowDeleteBlock(row){
 function rowPanelDraw(){
   const {index,row}=RP; if(index<0||!row) return;
   const pkAt=S.pk?S.cols.indexOf(S.pk):-1;
-  $('rp-title').textContent=pkAt>=0?`${S.table}.${S.pk}`:(S.table||'Query result');    // table.key above, the key's value below with a copy icon
+  $('rp-title').textContent=S.table||'Query result';    // the table above, the row's key under it (id = 52) with a copy icon for the value
   $('rp-title').title=$('rp-title').textContent;
   const key=pkAt>=0?compactCellValue(row[pkAt]):'';
-  $('rp-key').hidden=pkAt<0; $('rp-keyval').textContent=key; $('rp-keyval').title=key;
+  $('rp-key').hidden=pkAt<0; $('rp-keyval').textContent=pkAt>=0?`${S.pk} = ${key}`:''; $('rp-keyval').title=key;
   $('rp-keycopy').onclick=()=>copyText(key,`${S.pk} copied`);
   $('rp-prev').disabled=index<=0; $('rp-next').disabled=index>=S.total-1; $('rp-download').disabled=false;
   const blocked=rowDeleteBlock(row);
