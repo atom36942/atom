@@ -1,5 +1,7 @@
 """pgweb query runner and CSV download against a real throwaway PostgreSQL database: SQL that reads rows runs wrapped (no cursor, so parallel workers), the rest as typed; read-only mode on the read-only pool and on a plain one."""
 import asyncio
+import io
+import json
 import unittest
 
 from function.clients import func_client_postgres
@@ -96,3 +98,26 @@ class PgwebQueryTests(unittest.IsolatedAsyncioTestCase):
         finally: pgweb.PGWEB_RESULT_MAX_BYTES = original
         self.assertEqual((capped["truncated"], capped["limit"]), (True, "size"))
         self.assertTrue(0 < len(capped["rows"]) < 200)
+
+    async def test_sql_dumps_load_back_with_the_same_rows_and_json_lines_hold_every_row(self):
+        await asyncio.to_thread(fetch, self.url, "CREATE TABLE odd (id int, note text, code char(3), bits bit(4), raw bytea, tags text[])")
+        await asyncio.to_thread(fetch, self.url, "INSERT INTO odd SELECT g, CASE g % 3 WHEN 0 THEN E'two\\nlines \\\\ ''q'' \"d\"\\ttab' WHEN 1 THEN '' END, CASE WHEN g % 2 = 0 THEN 'US' ELSE 'USD' END, B'1010', '\\x00ff'::bytea, ARRAY['a', NULL, 'b c'] FROM generate_series(1, 1201) g")
+        same = "SELECT md5(string_agg(x::text, '|' ORDER BY id)) AS h FROM {} x"
+        insert = await self.csv("select * from odd", file_format="insert", table_name="odd_insert")
+        self.assertIn('CREATE TABLE "odd_insert" (\n    "id" integer,\n    "note" text,\n    "code" bpchar,\n    "bits" bit varying', insert)
+        async with self.pool.acquire() as conn: await conn.execute(insert)
+        dump = await self.csv("select * from odd", file_format="copy", table_name="public.odd_copy")
+        script, data = dump.split(' FROM stdin;\n')
+        self.assertTrue(data.endswith("\\.\n"))
+        async with self.pool.acquire() as conn:
+            await conn.execute(script.rsplit("\nCOPY ", 1)[0])
+            await conn.copy_to_table("odd_copy", source=io.BytesIO(data[:-3].encode()), format="text")
+        hashes = [(await asyncio.to_thread(fetch, self.url, same.format(name)))[0]["h"] for name in ("odd", "odd_insert", "odd_copy")]
+        self.assertEqual(len(set(hashes)), 1, hashes)
+        no_create = await self.csv("select 1 as a, 2 as a", file_format="copy", is_create=False)
+        self.assertNotIn("CREATE TABLE", no_create)
+        self.assertIn('COPY "query_result" ("a", "a_2") FROM stdin;\n1\t2\n\\.\n', no_create)
+        lines = (await self.csv("select id, note from odd order by id", file_format="jsonl")).splitlines()
+        self.assertEqual((len(lines), json.loads(lines[2])), (1201, {"id": 3, "note": "two\nlines \\ 'q' \"d\"\ttab"}))
+        with self.assertRaisesRegex(Exception, "need SQL that reads rows"): await self.csv("show search_path", file_format="copy")
+        with self.assertRaisesRegex(Exception, "unknown file format"): await self.csv("select 1", file_format="xml")

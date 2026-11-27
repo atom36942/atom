@@ -6,6 +6,8 @@ import re
 import time
 from contextlib import nullcontext
 from contextlib import suppress
+from datetime import UTC
+from datetime import datetime
 from decimal import Decimal
 from typing import Any
 from urllib.parse import urlsplit
@@ -558,8 +560,9 @@ async def func_pgweb_query(*, pool: asyncpg.Pool, sql: str, is_confirmed: bool =
             if query_id and active_queries is not None and active_queries.get(query_id) == backend_pid:
                 active_queries.pop(query_id, None)
 
-async def func_pgweb_copy_chunks(*, conn, body: str, timeout_sec: int, chunk_bytes: int = 65536):
-    """PostgreSQL's own CSV of a query that reads rows (COPY (<body>) TO STDOUT CSV HEADER), in chunks of about chunk_bytes; the server writes it in C, while a bounded queue keeps a slow download from buffering the result."""
+async def func_pgweb_copy_chunks(*, conn, body: str, timeout_sec: int, chunk_bytes: int = 65536, copy_format: str = "csv"):
+    """PostgreSQL's own output of a query that reads rows (COPY (<body>) TO STDOUT, CSV with a header or COPY's text format), in chunks of about chunk_bytes;
+    the server writes it in C, while a bounded queue keeps a slow download from buffering the result."""
     queue = asyncio.Queue(maxsize=16)
     buffer = bytearray()
     async def sink(data):
@@ -569,7 +572,7 @@ async def func_pgweb_copy_chunks(*, conn, body: str, timeout_sec: int, chunk_byt
             buffer.clear()
     async def run():
         try:
-            await conn.copy_from_query(f"{body}\n", output=sink, format="csv", header=True, timeout=timeout_sec)
+            await conn.copy_from_query(f"{body}\n", output=sink, format=copy_format, header=True if copy_format == "csv" else None, timeout=timeout_sec)
             if buffer: await queue.put(bytes(buffer))
             await queue.put(None)
         except Exception as exc: await queue.put(exc)
@@ -582,16 +585,84 @@ async def func_pgweb_copy_chunks(*, conn, body: str, timeout_sec: int, chunk_byt
         task.cancel()
         with suppress(BaseException): await task
 
-async def func_pgweb_stream(*, pool: asyncpg.Pool, sql: str, is_confirmed: bool = False, is_read_only: bool = False, timeout_sec: int = 300) -> Any:
-    """Stream every row returned by one query as CSV without buffering the result set, its errors raised before the download starts.
+PGWEB_STREAM_FORMATS = {"csv": ("text/csv", "csv"), "copy": ("application/sql", "sql"), "insert": ("application/sql", "sql"), "jsonl": ("application/x-ndjson", "jsonl")}
+PGWEB_INSERT_ROWS = 500
+PGWEB_DUMP_TYPE_SQL = """SELECT CASE o WHEN 1042 THEN 'bpchar' WHEN 1014 THEN 'bpchar[]' WHEN 1560 THEN 'bit varying' WHEN 1561 THEN 'bit varying[]' WHEN 705 THEN 'text' WHEN 2249 THEN 'text'
+    ELSE format_type(o, NULL) END FROM unnest($1::oid[]) WITH ORDINALITY AS u(o, n) ORDER BY n"""    # no length on char(n) / bit(n) means 1: unbounded instead; unknown and record as text
+
+def func_pgweb_dump_target(table_name: str) -> str:
+    """The table a SQL dump loads into, quoted: schema.table when typed so (plain names on both sides), else one name; query_result when empty."""
+    name = str(table_name or "").strip() or "query_result"
+    match = re.fullmatch(r"([A-Za-z_]\w*)\.([A-Za-z_]\w*)", name)
+    return func_pgweb_ident(*match.groups()) if match else func_pgweb_ident(name)
+
+async def func_pgweb_dump_chunks(*, conn, body: str, file_format: str, table_name: str = None, is_create: bool = True, timeout_sec: int = 300, chunk_bytes: int = 65536):
+    """A query's rows as a file another PostgreSQL loads (inside a transaction, for the cursor):
+    copy: a psql script as pg_dump writes it (optional CREATE TABLE, COPY ... FROM stdin, the rows in COPY's text format from PostgreSQL itself, \\.); psql -f file.sql loads it;
+    insert: the same with multi-row INSERT statements (PGWEB_INSERT_ROWS a statement), which any SQL client runs; jsonl: one JSON object a line (row_to_json).
+    Columns keep the query's names (a repeated name gets _2, _3) and types (format_type without length, so every value fits); constraints and indexes are not part of a result."""
+    statement = await conn.prepare(f"SELECT * FROM ({body}\n) AS pgweb_query", timeout=timeout_sec)  # noqa: S608 - SQL console by design
+    attrs = statement.get_attributes()
+    if not attrs: raise Exception("query returned no columns")
+    if file_format == "jsonl":
+        lines = []
+        async for record in conn.cursor(f"SELECT row_to_json(pgweb_query)::text FROM ({body}\n) AS pgweb_query", prefetch=2000, timeout=timeout_sec):  # noqa: S608
+            lines.append(record[0])
+            if len(lines) >= 2000: yield ("\n".join(lines) + "\n").encode(); lines = []
+        if lines: yield ("\n".join(lines) + "\n").encode()
+        return
+    names, seen = [], set()
+    for attr in attrs:
+        name = base = attr.name or "column"
+        number = 1
+        while name in seen: number += 1; name = f"{base}_{number}"
+        seen.add(name); names.append(name)
+    types = [row[0] for row in await conn.fetch(PGWEB_DUMP_TYPE_SQL, [attr.type.oid for attr in attrs], timeout=timeout_sec)]
+    target, columns = func_pgweb_dump_target(table_name), ", ".join(func_pgweb_ident(name) for name in names)
+    head = [f"-- PostgreSQL data from pgweb, {datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S UTC')}", "-- Load it with: psql -d <database> -f <this file>",
+            "SET client_encoding = 'UTF8';", "SET standard_conforming_strings = on;", ""]
+    if is_create: head += [f"CREATE TABLE {target} (", ",\n".join(f"    {func_pgweb_ident(name)} {kind}" for name, kind in zip(names, types, strict=True)), ");", ""]
+    if file_format == "copy":
+        yield ("\n".join(head) + f"\nCOPY {target} ({columns}) FROM stdin;\n").encode()
+        async for chunk in func_pgweb_copy_chunks(conn=conn, body=body, timeout_sec=timeout_sec, chunk_bytes=chunk_bytes, copy_format="text"): yield chunk
+        yield b"\\.\n"
+        return
+    yield ("\n".join(head) + "\n").encode()
+    aliases = ", ".join(func_pgweb_ident(f"c{index}") for index in range(len(attrs)))    # by position: a result may repeat a name
+    def as_text(index, oid):    # char(n) keeps its padding (::text trims it); NULL stays NULL
+        column = func_pgweb_ident(f"c{index}")
+        return f"CASE WHEN {column} IS NULL THEN NULL ELSE concat({column}) END" if oid == 1042 else f"{column}::text"
+    values = ", ".join(as_text(index, attr.type.oid) for index, attr in enumerate(attrs))
+    literal = lambda value: "NULL" if value is None else "'" + value.replace("'", "''") + "'"    # every value as PostgreSQL writes it as text; the column's type reads it back
+    statement_head, batch, size = f"INSERT INTO {target} ({columns}) VALUES\n", [], 0
+    out = []
+    async for record in conn.cursor(f"SELECT {values} FROM ({body}\n) AS pgweb_query({aliases})", prefetch=2000, timeout=timeout_sec):  # noqa: S608
+        batch.append("(" + ", ".join(literal(value) for value in record.values()) + ")")
+        if len(batch) >= PGWEB_INSERT_ROWS:
+            out.append(statement_head + ",\n".join(batch) + ";\n"); batch = []
+            size += len(out[-1])
+            if size >= chunk_bytes: yield "".join(out).encode(); out, size = [], 0
+    if batch: out.append(statement_head + ",\n".join(batch) + ";\n")
+    if out: yield "".join(out).encode()
+
+async def func_pgweb_stream(*, pool: asyncpg.Pool, sql: str, is_confirmed: bool = False, is_read_only: bool = False, timeout_sec: int = 300,
+                            file_format: str = "csv", table_name: str = None, is_create: bool = True) -> Any:
+    """Stream every row returned by one query without buffering the result set, its errors raised before the download starts. file_format: csv, or copy / insert / jsonl
+    (func_pgweb_dump_chunks: files another PostgreSQL loads; SQL that reads rows only).
     SQL that reads rows goes through COPY (func_pgweb_copy_chunks; 1M rows 1.7 vs 10.2 s through Python), values in PostgreSQL's text format (arrays {a,b}, booleans t/f, NULL empty, an empty string "");
     other row-returning SQL (INSERT ... RETURNING, SHOW, EXPLAIN) is prepared and read through a cursor into Python's csv. Read-only mode as in func_pgweb_query."""
     func_pgweb_write_check(sql=sql, is_confirmed=is_confirmed, is_read_only=is_read_only)
+    if file_format not in PGWEB_STREAM_FORMATS: raise Exception(f"unknown file format: {file_format}")
     body = func_pgweb_select_body(sql)
+    if file_format != "csv" and body is None: raise Exception("SQL dumps and JSON Lines need SQL that reads rows (SELECT, WITH, VALUES or TABLE)")
     read_only_tx = bool(is_read_only) and not getattr(pool, "atom_read_only", False)
 
     async def _iter():
         async with func_postgres_acquire_clean(client_postgres=pool) as conn:
+            if file_format != "csv":
+                async with conn.transaction(readonly=bool(is_read_only)):
+                    async for chunk in func_pgweb_dump_chunks(conn=conn, body=body, file_format=file_format, table_name=table_name, is_create=bool(is_create), timeout_sec=timeout_sec): yield chunk
+                return
             if body is not None:
                 is_started = False
                 try:
@@ -972,7 +1043,8 @@ async def func_pgweb_response(*, app_state: State, ob: dict) -> Response:
             pool = func_pgweb_pool(client_postgres_pgweb=app_state.client_postgres_pgweb, is_read_only=bool(ob.get("is_read_only")))
             if not pool: return error(Exception("not_connected"))
             generator = await func_pgweb_stream(pool=pool, **{key: value for key, value in ob.items() if key != "action"})
-            return StreamingResponse(generator, media_type="text/csv; charset=utf-8", headers={"Content-Disposition": 'attachment; filename="query-result-all.csv"', "Cache-Control": "no-store", **identity})
+            media_type, extension = PGWEB_STREAM_FORMATS.get(ob.get("file_format") or "csv", PGWEB_STREAM_FORMATS["csv"])
+            return StreamingResponse(generator, media_type=f"{media_type}; charset=utf-8", headers={"Content-Disposition": f'attachment; filename="query-result-all.{extension}"', "Cache-Control": "no-store", **identity})
         return Response(content=func_pgweb_orjson_dumps({"status": 1, "message": await func_pgweb(app_state=app_state, **ob)}), media_type="application/json", headers=identity)
     except Exception as exc:
         return error(exc)

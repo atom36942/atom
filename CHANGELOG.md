@@ -4,6 +4,12 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [21.2.0] - 2026-11-27
+
+- **pgweb: Download in more formats.** The query runner's **Download** (every row, no row limit) saves **CSV**, **SQL dump (COPY)** (a psql script as `pg_dump` writes it: `CREATE TABLE`, then `COPY ... FROM stdin` with PostgreSQL's own rows; `psql -d <db> -f file.sql` loads it into another database, 2 million rows in about 4 s), **SQL INSERTs** (500 rows a statement, for any SQL client) or **JSON Lines**, any of them gzipped in the browser. The SQL formats take the table to load into (the query's first `FROM` table by default) and an optional `CREATE TABLE` from the result's columns and types. `/pgweb` `stream` takes `file_format` (`csv`, `copy`, `insert`, `jsonl`), `table_name` and `is_create` ([docs/admin.md](docs/admin.md)).
+- **pgweb: query results look like tables.** A result is a card headed "Query result" with its rows and time under the title and a download icon (CSV, JSON or XML) on the right, in place of the bar's message and Download result button; and the row panel opens beside it on the first row (click a row or use ↑/↓). The panel's line under its title is "Row n of N" for every table, keyed or not, and every result.
+- **pgweb: sidebar as a card.** The tabs, then one card with the list and a footer holding the count and the Search box; a new connection opens on Tables. The filter dialog combines conditions with **AND** or **OR**; Disconnect's confirm button is red; no grey lines between the cards.
+
 ## [21.1.0] - 2026-11-27
 
 - **pgweb: filters with several conditions.** The Filter rows dialog shows rows that match **all** (AND) or **any** (OR) of up to 10 conditions (a searchable column, an operator that fits its type, a value). `/pgweb` `rows` takes `filters` (a list of `{col, op, value}`) and `filter_join` (`and` or `or`) in place of `filter_col`, `filter_op` and `filter_value`; columns are checked against the table, operators come from a fixed list and values go as parameters. The header's filter icon is blue while a filter is on and a red clear icon removes it ([docs/admin.md](docs/admin.md)).
