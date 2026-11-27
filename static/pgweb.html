@@ -133,9 +133,9 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
 .obj:hover .obj-copy,.obj .obj-copy:focus-visible{display:inline-flex}
 .obj .obj-copy:hover{color:var(--fg);background:var(--bg)}
 .hist{height:auto;min-height:29px;padding:6px 12px;align-items:flex-start}    /* one saved query: its SQL on one line, when and how it went under it */
-.hist-main{flex:1;min-width:0}
+.hist-main{flex:1;min-width:0;overflow:hidden}
 .hist-sql{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:11.5px Menlo,Monaco,Consolas,"Courier New",monospace}
-.hist-meta{margin-top:2px;font-size:10.5px;color:var(--dim)}
+.hist-meta{margin-top:2px;font-size:10.5px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}    /* one line with …, like the SQL above it */
 .hist-head{display:flex;align-items:center;justify-content:space-between;height:28px;padding:0 6px 0 12px;font-size:11px;font-weight:700;color:var(--dim);border-bottom:1px solid var(--row-line)}
 .hist-head .hist-clear{width:22px;height:22px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:3px;background:transparent;color:var(--dim)}
 .hist-head .hist-clear:hover{color:var(--err);background:var(--bg)}
