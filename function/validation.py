@@ -32,11 +32,14 @@ def func_role_allowed_values(*, roles: list) -> list | None:
     return None if "*" in (roles or []) else roles
 
 def func_check_table_access(*, app_state: State, connection: str = None, table: str, group: str, action: str, relation: list = None) -> None:
-    """Refuse a table (and every table a read joins through relation) whose schema does not list action under group (public, private, my, admin) in config_postgres_schema_<connection>: a table is closed unless listed. 403."""
+    """Refuse a table (and every table a read joins through relation) whose schema does not list action under group (public, private, my) in config_postgres_schema_<connection>: a table is closed unless listed. group admin: any table of that schema (the /admin route's permission id decides who). 403."""
     database = connection or "master"
     rules = (getattr(app_state, "cache_postgres_table_rule", None) or {}).get(database) or {}
     tables = [(table, action)] + [(parts[1], "read") for rel in relation or [] if len(parts := [p.strip() for p in rel.split(",", 4)]) >= 2]
     for name, needed in tables:
+        if group == "admin":
+            if name not in rules: raise func_api_error(message=f"admin {needed} not allowed for table: {name} (not in config_postgres_schema_{database})", status_code=403)
+            continue
         if needed not in ((rules.get(name) or {}).get(group) or []): raise func_api_error(message=f"{group} {needed} not allowed for table: {name} (add \"{needed}\" to \"{group}\" of {name} in config_postgres_schema_{database})", status_code=403)
 
 def func_check_table_column_exists(*, app_state: State = None, cache_postgres_schema: dict = None, table: str, column: str, purpose: str = None) -> None:

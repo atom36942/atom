@@ -53,7 +53,7 @@ curl -H "Authorization: Bearer $TOKEN" "http://localhost:8000/admin/postgres-sch
 
 Each database has its own schema: `config_postgres_schema_<name>` is applied at startup to the database of `config_postgres_url_<name>`, master first. `config_postgres_schema_master` holds Atom's tables; a project adds one for another database in `config_extend.py`, and that database gets exactly what its schema lists (nothing of Atom's, no `users`). A schema naming a database without a URL stops startup.
 
-Each table is an object: `column` (required) and who may use it through Atom's object routes (`public`, `private`, `my`, `admin`; closed unless listed), plus `row_lock`, `row_delete_max`, `users_delete_skip`, `buffer_limit` and `retention_day`. The schema is the one place a table's structure, access and labels are set; the keys are in [config.md](config.md#table-keys).
+Each table is an object: `column` (required) and who may use it through Atom's object routes (`public`, `private`, `my`; closed unless listed; the admin routes reach every table in it), plus `row_lock`, `row_delete_max`, `buffer_limit` and `retention_day`. The schema is the one place a table's structure, access and labels are set; the keys are in [config.md](config.md#table-keys).
 
 When `config_is_postgres_schema_init = True`, Atom inspects and automatically migrates each database on startup:
 - Creates the PostgreSQL extensions of its `extension` part.
@@ -68,7 +68,7 @@ When `config_is_postgres_schema_init = True`, Atom inspects and automatically mi
 # config_extend.py: a second database, telematics (config_postgres_url_telematics in .env)
 config_postgres_schema_telematics = {
 "extension": ["timescaledb"],
-"table": {"reading": {"admin": ["read"], "column": [{"name": "device", "datatype": "text", "is_primary": True}, {"name": "time", "datatype": "timestamptz", "is_primary": True}, {"name": "speed", "datatype": "real"}]}},
+"table": {"reading": {"column": [{"name": "device", "datatype": "text", "is_primary": True}, {"name": "time", "datatype": "timestamptz", "is_primary": True}, {"name": "speed", "datatype": "real"}]}},
 "sql": {"reading_hypertable": "SELECT create_hypertable('reading', 'time', if_not_exists => TRUE)"},
 }
 ```

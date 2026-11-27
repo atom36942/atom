@@ -61,7 +61,7 @@ Uniqueness constraints are declared under `config_postgres_schema_master["table"
 
 ### Adding a Custom Identity Column:
 For an OIDC provider, add it to `config_oidc_provider`: its column comes with it. For anything else (a provider without ID tokens, a company directory):
-1. Add the column to `users` in `config_extend.py`, unique per role: `{"name": "github_login_id", "datatype": "text", "unique": "github_login_id,role"}`, and to `config_column_users_my_blocked`.
+1. Add the column to `users` in `config_extend.py`, unique per role: `{"name": "github_login_id", "datatype": "text", "unique": "github_login_id,role"}`, with `"users_access": ["my_update_blocked"]`.
 2. Add its login route in `router_extend/` (e.g. `POST /auth/login-github`) ending with `func_auth_login_finish`, so 2FA applies.
 
 ---
@@ -112,17 +112,17 @@ Rows of `users` are written only through these APIs; the generic object APIs (`/
 
 | API | Query | Body | Rules |
 |---|---|---|---|
-| `POST /admin/user-create` | | `{role, username, password, ...columns}` | The three required; any other `users` column (profile fields, a project's own columns) is set in the same insert, except those in `config_column_users_my_blocked`, `config_column_single_update` and `config_column_users_blocked` (sign-up, login, verification, permissions, system: set them with an update) and `id`, `deactivated_at`; returns `{"id": ...}` |
+| `POST /admin/user-create` | | `{role, username, password, ...columns}` | The three required; any other `users` column (profile fields, a project's own columns) is set in the same insert, except `my_update_blocked`, `update_alone` and `update_blocked` columns (sign-up, login, verification, permissions, system: set them with an update) and `id`, `deactivated_at`; returns `{"id": ...}` |
 | `PUT /admin/user-update` | | `{id, ...users columns}`, or several as `{"obj_list": [{id, ...}, ...]}` | Up to `config_batch_item_limit` users, ids unique, each with its own columns and checked by the same rules; one transaction, so a missing id (404) or any refused user updates none. `email`/`mobile` need `otp` only when `config_is_otp_require_users_update` is on. The root user's `role` and `deactivated_at` cannot change. `permissions` must be ids of routes with `user_check_permission` in `config_api` |
 | `DELETE /admin/user-delete` | `id` | | One user; never the root user |
-| `PUT /my/user-update` | | `{...own users columns}` | Own row from the token (an `id`, if sent, must be the user's own). `email`/`mobile` always need `otp` (sent to the new value with `/public/otp-send-email` or `-mobile`). Columns in `config_column_users_my_blocked` (`role`, `permissions`, `deactivated_at`, ...) are refused |
+| `PUT /my/user-update` | | `{...own users columns}` | Own row from the token (an `id`, if sent, must be the user's own). `email`/`mobile` always need `otp` (sent to the new value with `/public/otp-send-email` or `-mobile`). `my_update_blocked` columns (`role`, `permissions`, `deactivated_at`, ...) are refused |
 | `DELETE /my/user-delete` | | | Own account; token only |
 
 Both updates accept any `users` column (Atom's and a project's own), checked against the table; only the fields sent are updated.
 
 Rules for both updates:
-- A column in `config_column_single_update` (`username`, `password`, `email`, `mobile`) is updated alone: `{password}`, `{email, otp}`, never `{password, name}`.
-- Columns in `config_column_users_blocked` (`created_*`, `updated_*`, `deleted_*`, `is_protected`, `last_active_at`) are refused by both; columns in `config_column_users_my_blocked` only by `/my/user-update`; every other column, a project's own included, is allowed. A project adds its own columns to either list in `config_extend.py`.
+- An `update_alone` column (`username`, `password`, `email`, `mobile`) is updated alone: `{password}`, `{email, otp}`, never `{password, name}`.
+- `update_blocked` columns (`created_*`, `updated_*`, `deleted_*`, `is_protected`, `last_active_at`) are refused by both; `my_update_blocked` columns only by `/my/user-update`; every other column, a project's own included, is allowed. A project sets `users_access` on its own columns in `config_extend.py` ([users columns](config.md#users-columns-users_access)).
 - `password` is hashed (Argon2) and logged in `log_users_password`; `email` is saved in lowercase; formats follow each `users` column's `regex` (`username`, `password`, `email_secondary`, `mobile_secondary`), with its `regex_message` as the error.
 
 ### Deactivated or deleted accounts
@@ -175,7 +175,7 @@ Atom generates HS256 JWT pairs signed with `config_token_secret_key`:
 }
 ```
 
-- **Payload Claims**: Minimal claims from `config_column_token_encode` (`id`, `role`, `username`, `id_ext`, `deactivated_at`, `deleted_at`).
+- **Payload Claims**: Minimal claims: the `users` columns with `token` in `users_access` (`id`, `role`, `username`, `id_ext`, `deactivated_at`, `deleted_at`, `permissions`).
 - **Token Type**: Encodes `type: "access"` or `type: "refresh"`.
 - **Refreshing**: `POST /my/token-refresh` reads the current refresh token, re-reads the user and mints a fresh pair; a deleted or deactivated account gets `403` instead, as at login.
 

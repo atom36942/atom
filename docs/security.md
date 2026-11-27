@@ -20,7 +20,7 @@ Atom attaches standard baseline security headers to every HTTP response before r
 ## 2. Identity & Token Security
 
 - **Stateless HS256 JWTs**: Signed using `config_token_secret_key`. No session state is held server-side. In production startup refuses a key shorter than 32 bytes, since a short key can be brute-forced from any issued token and then used to forge admin tokens.
-- **Minimal Token Claims**: Encodes only non-sensitive routing fields (`id`, `role`, `username`, `id_ext`, `deactivated_at`, `deleted_at`) declared in `config_column_token_encode`.
+- **Minimal Token Claims**: Encodes only non-sensitive routing fields (`id`, `role`, `username`, `id_ext`, `deactivated_at`, `deleted_at`, `permissions`): the `users` columns with `token` in their `users_access`.
 - **Argon2 Password Hashing**: Passwords are never stored or logged in plaintext; hashed via Argon2id (`m=65536, t=3, p=4`).
 - **Constant-Time Verification**: Endpoint checks (such as `/auth/login-password`) use `hmac.compare_digest` to thwart timing attacks.
 
@@ -32,7 +32,7 @@ Atom attaches standard baseline security headers to every HTTP response before r
 - **Sensitive Column Exfiltration Shield**: Projections, filters, distinct queries, and group-by aggregations strictly block sensitive fields declared in `config_column_read_blocked` and `"password"`.
 - **Per-User Permissions**: a route with `user_check_permission` admits only users whose `users.permissions` holds its `id`, admins included; only `/admin/user-update` grants them, and only labelled ids ([auth.md](auth-permission.md)).
 - **Server-Managed Column Protections**: Clients cannot mutate fields in `config_column_admin` (`created_at`, `role`, `verified_at`).
-- **User Writes Have Their Own APIs**: generic object APIs refuse `table=users`; `/my/user-*` and `/admin/user-*` update one user at a time, with `config_column_single_update` columns (`password`, `email`, `mobile`, `username`) sent alone and email or mobile verified by OTP.
+- **User Writes Have Their Own APIs**: generic object APIs refuse `table=users`; `/my/user-*` and `/admin/user-*` update one user at a time, with `update_alone` columns (`password`, `email`, `mobile`, `username`) sent alone and email or mobile verified by OTP.
 - **Trusted Writes Are Internal Only**: `func_postgres_create(..., is_trusted=True)` skips column, regex and type checks for rows Atom builds itself (the API log). Never pass it for request data; a test fails if any `router/` or `router_extend/` file uses it.
 - **Database Trigger Protections**: Superadmin user (`id: 1`) is guarded by PostgreSQL triggers (`trigger_protect_root_users`) preventing deletion.
 - **Logs Nobody Edits**: tables only Atom writes (`log_api`, `log_users_password`, `log_users_delete`, `script_run`, `otp`) list no writes in their schema, so every generic write API refuses them, admin's included (403), and `log_api` and `log_users_password` are append-only in the database (`row_lock` `update`: a trigger refuses every `UPDATE`). The app's database login owns the tables and can drop a trigger, so the SQL runner can still undo this; for logs that even a database owner can't change, give the app a login that doesn't own them.

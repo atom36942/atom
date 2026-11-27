@@ -22,7 +22,7 @@ from function import func_middleware_check_user_deleted
 
 class PermissionTests(unittest.IsolatedAsyncioTestCase):
     def test_a_table_is_closed_unless_its_schema_lists_the_action(self):
-        state = SimpleNamespace(cache_postgres_table_rule={"master": {"product": {"public": ["read"]}, "users": {"admin": ["read"]}}})
+        state = SimpleNamespace(cache_postgres_table_rule={"master": {"product": {"public": ["read"]}, "users": {}}})
         func_check_table_access(app_state=state, table="product", group="public", action="read")
         for kwargs in ({"table": "users", "group": "public", "action": "read"}, {"table": "product", "group": "public", "action": "read", "relation": ["user,users,id,created_by_id"]}, {"table": "product", "group": "public", "action": "create"}, {"table": "orders", "group": "my", "action": "read"}):
             with self.subTest(kwargs=kwargs), self.assertRaisesRegex(Exception, "not allowed for table"): func_check_table_access(app_state=state, **kwargs)
@@ -66,13 +66,12 @@ class PermissionTests(unittest.IsolatedAsyncioTestCase):
     def test_global_user_check_defaults_are_token(self):
         import config
         self.assertEqual((config.config_api_global_user_check_deleted, config.config_api_global_user_check_deactivated), ("token", "token"))
-        self.assertTrue({"deleted_at", "deactivated_at"} <= set(config.config_column_token_encode))
+        from function import func_postgres_users_access
+        self.assertTrue({"deleted_at", "deactivated_at"} <= set(func_postgres_users_access(config_postgres_schema=config.config_postgres_schema_master)["token"]))
 
     def test_atom_tables_nobody_edits_are_locked(self):
         import config
         tables = config.config_postgres_schema_master["table"]
-        for table in ("log_api", "log_users_password", "log_users_delete", "script_run", "otp", "queue_job"):
-            with self.subTest(table=table): self.assertEqual(tables[table]["admin"], ["read"])
         self.assertEqual(sorted(name for name, spec in tables.items() if "update" in spec.get("row_lock", [])), ["api_key", "log_api", "log_users_password"])
         self.assertEqual(sorted(name for name, spec in tables.items() if "delete" in spec.get("row_lock", [])), ["config", "log_users_delete", "log_users_password", "users"])
 

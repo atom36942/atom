@@ -322,7 +322,7 @@ config_postgres_schema_master = {
 }
 ```
 
-Atom's object routes reach the table only as its `public`, `private`, `my` and `admin` lists allow ([table keys](config.md#table-keys)).
+Atom's object routes reach the table only as its `public`, `private` and `my` lists allow; the admin routes reach it for users granted their ids ([table keys](config.md#table-keys)).
 
 Restart Atom after the change. Startup schema initialization creates the table and missing columns, then refreshes the schema cache used by generic CRUD routes. Review data types, defaults, indexes, and uniqueness rules before applying changes to production. See [extend.md](extend.md#4-add-or-change-database-tables).
 
@@ -586,7 +586,7 @@ Custom routes should check the client they depend on and return a clear error wh
 
 The prefixes represent data-access scope, not just route organization:
 
-- `/public/object-*` is anonymous and limited to tables whose schema lists `public` actions (each table lists `public`, `private`, `my` and `admin` actions; closed unless listed).
+- `/public/object-*` is anonymous and limited to tables whose schema lists `public` actions (each table lists `public`, `private` and `my` actions; closed unless listed).
 - `/my/object-*` requires a user and scopes rows through `ownership_column = authenticated_user.id`. Read, update, and delete each validate `ownership_column` against their own configured allowlist; create always stamps `created_by_id`.
 - `/admin/object-*` can operate on any row and table, subject to its administrator route policy.
 

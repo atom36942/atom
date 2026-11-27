@@ -8,7 +8,7 @@ from starlette.datastructures import State
 from .app import func_app_route_list
 from .postgres_schema import func_postgres_schema_config_validate
 from .postgres_schema import func_postgres_schema_dict
-from .postgres_schema import func_postgres_schema_columns
+from .postgres_schema import func_postgres_users_access
 from .schedule import func_schedule_read
 from .webhook import func_webhook_verify_scheme_check
 
@@ -107,12 +107,9 @@ def func_check_runtime_config(*, app_state: State) -> None:
     role_label = values.get("config_users_role_label")
     if "config_users_role_label" in values and (not isinstance(role_label, dict) or not all(isinstance(code, int) and not isinstance(code, bool) and isinstance(label, str) for code, label in role_label.items())): raise ValueError("config_users_role_label must be {role: \"label\"}, e.g. {1: \"Admin\", 2: \"User\"}")
     if "config_sql" in values: raise ValueError("config_sql was removed in Atom 9.0.0: its queries are Atom's own; set config_cache_row_limit_config, config_cache_row_limit_users_role, config_cache_row_limit_users_deactivated, config_cache_row_limit_users_deleted and config_profile_metadata_sql instead")
-    private_read = values.get("config_column_users_private_read")    # Atom's config.py always sets it
-    users_columns = {column.get("name") for column in (func_postgres_schema_columns(config_postgres_schema=values.get("config_postgres_schema_master") or {}).get("users") or []) if isinstance(column, dict)}
-    if "config_column_users_private_read" in values and (not isinstance(private_read, list) or not private_read or not all(isinstance(column, str) for column in private_read)): raise ValueError("config_column_users_private_read must be a non-empty list of users columns")
-    for column in private_read or []:
-        if column == "password" or column in (values.get("config_column_read_blocked") or []): raise ValueError(f"config_column_users_private_read: {column} is never readable (config_column_read_blocked)")
-        if users_columns and column not in users_columns: raise ValueError(f"config_column_users_private_read: no users column {column!r} in config_postgres_schema_master")
+    if removed := [key for key in ("config_column_token_encode", "config_column_users_private_read", "config_column_single_update", "config_column_users_my_blocked", "config_column_users_blocked") if key in values]: raise ValueError(f"{', '.join(removed)} removed in Atom 24.0.0: set users_access on each users column in config_postgres_schema_master (token, private_read, update_alone, my_update_blocked, update_blocked); delete it from config_extend.py and .env")
+    for column in func_postgres_users_access(config_postgres_schema=values.get("config_postgres_schema_master") or {})["private_read"]:
+        if column == "password" or column in (values.get("config_column_read_blocked") or []): raise ValueError(f"users.{column}: private_read never applies to a column in config_column_read_blocked")
     if removed := [key for key in ("config_inmemory_cache_cleanup_auto_sec", "config_schedule_check_sec") if key in values]: raise ValueError(f"{', '.join(removed)} removed in Atom 22.0.0: fixed in code (cache cleanup every 300 s, schedule check every 600 s); delete it from config_extend.py and .env")
     if removed := [key for key in ("config_webhook_timeout_sec", "config_webhook_retry_max", "config_webhook_retry_wait_sec", "config_webhook_poll_sec", "config_webhook_verify_tolerance_sec") if key in values]: raise ValueError(f"{', '.join(removed)} removed in Atom 22.0.0: webhook timing is fixed (10 s timeout, 8 retries from 60 s doubling, 5 s poll, 300 s signature tolerance); delete it from config_extend.py and .env")
     if removed := [key for key in ("config_permission_table", "config_permission_user_roles", "config_permission_user_column_blocked", "config_permission_table_write_allowed", "config_permission_user_create_roles", "config_table_permission_write_allowed", "config_column_users_permission_blocked") if key in values]: raise ValueError(f"{', '.join(removed)} removed in Atom 22.0.0 with the /permission routes: grant a user the id of the /admin route instead (users.permissions holds route ids only)")
@@ -150,12 +147,13 @@ def func_check_api_config(*, app: FastAPI) -> None:
     # ids under 200 belong to Atom, so a new Atom route never takes a project's id
     project_paths = {route.path for route in func_app_route_list(app=app) if hasattr(route, "path") and getattr(getattr(route, "endpoint", None), "__module__", "").startswith("router_extend")}
     api_ids = []
+    token_columns = func_postgres_users_access(config_postgres_schema=getattr(app.state, "config_postgres_schema_master", None) or {})["token"]
     user_mode_allowed = ("redis", "realtime", "inmemory", "token")
     for key in ("config_api_global_user_check_deleted", "config_api_global_user_check_deactivated"):
         value = getattr(app.state, key, None)
         if value is not None and value not in user_mode_allowed: raise Exception(f"invalid {key}: {value!r}, allowed: {', '.join(user_mode_allowed)} or None")
         column = key.removeprefix("config_api_global_user_check_") + "_at"
-        if value == "token" and column not in (getattr(app.state, "config_column_token_encode", None) or []): raise Exception(f"{key} is token: add {column} to config_column_token_encode")
+        if value == "token" and column not in token_columns: raise Exception(f"{key} is token: add \"token\" to the users_access of users.{column}")
     api_mode_allowed = ("redis", "inmemory")
     api_keys_allowed = ("id", "is_active", "auth", "is_connection_param", "user_check_role", "user_check_permission", "user_check_deactivated", "user_check_deleted", "cache", "rate_limit", "api_cache_sec", "api_ratelimiting_times_sec", "is_log_api", "webhook_verify", "ip_allow", "token_verify")
     def flag_check(value, key):
@@ -233,7 +231,7 @@ def func_check_api_config(*, app: FastAPI) -> None:
             permission_val = cfg["user_check_permission"]
             if not isinstance(permission_val, dict) or set(permission_val) != {"mode"}: raise Exception(f"{path} invalid user_check_permission: expected {{\"mode\": \"token\"}} or {{\"mode\": \"realtime\"}}")
             if permission_val["mode"] not in ("token", "realtime"): raise Exception(f"{path} invalid user_check_permission mode: {permission_val['mode']}, allowed: token, realtime")
-            if permission_val["mode"] == "token" and "permissions" not in (getattr(app.state, "config_column_token_encode", None) or []): raise Exception(f"{path} user_check_permission: add permissions to config_column_token_encode")
+            if permission_val["mode"] == "token" and "permissions" not in token_columns: raise Exception(f"{path} user_check_permission: add \"token\" to the users_access of users.permissions")
         for key in ("user_check_deactivated", "user_check_deleted"):
             u_val = cfg.get(key)
             if u_val:

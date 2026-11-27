@@ -12,8 +12,9 @@ def func_postgres_schema_dict(*, values: dict) -> dict:
     found = {key.removeprefix("config_postgres_schema_"): value for key, value in values.items() if key.startswith("config_postgres_schema_")}
     return dict(sorted(found.items(), key=lambda item: item[0] != "master"))
 
-TABLE_ACCESS = {"public": ("create", "read"), "private": ("read",), "my": ("create", "read", "update", "delete", "delete_all"), "admin": ("create", "read", "update", "delete")}    # who calls (the route prefix) -> what they may do
-TABLE_KEYS = ("column", *TABLE_ACCESS, "row_lock", "row_delete_max", "users_delete_skip", "buffer_limit", "retention_day")
+TABLE_ACCESS = {"public": ("create", "read"), "private": ("read",), "my": ("create", "read", "update", "delete", "delete_all")}    # who calls (the route prefix) -> what they may do
+TABLE_KEYS = ("column", *TABLE_ACCESS, "row_lock", "row_delete_max", "buffer_limit", "retention_day")
+USERS_ACCESS = ("token", "private_read", "update_alone", "my_update_blocked", "update_blocked")    # what the user routes do with a users column
 TABLE_BUFFER_LIMIT = 100
 
 def func_postgres_schema_columns(*, config_postgres_schema: dict) -> dict:
@@ -47,6 +48,15 @@ def func_postgres_int_mapping(*, schemas: dict, config_users_role_label: dict = 
     users["permissions"] = {cfg["id"]: path for path, cfg in sorted((config_api or {}).items(), key=lambda item: item[1].get("id", 0) if isinstance(item[1], dict) else 0) if isinstance(cfg, dict) and cfg.get("user_check_permission") and isinstance(cfg.get("id"), int)}
     return mapping
 
+def func_postgres_users_access(*, config_postgres_schema: dict) -> dict:
+    """{value: [users columns]} from each users column's users_access (token, private_read, update_alone, my_update_blocked, update_blocked); id, the primary column, is always in token and private_read."""
+    columns = func_postgres_schema_columns(config_postgres_schema=config_postgres_schema or {}).get("users") or []
+    access = {value: (["id"] if value in ("token", "private_read") and any(col.get("name") == "id" for col in columns) else []) for value in USERS_ACCESS}
+    for col in columns:
+        for value in col.get("users_access") or []:
+            if col["name"] not in access[value]: access[value].append(col["name"])
+    return access
+
 def func_postgres_column_regex_dict(*, schemas: dict) -> dict:
     """{database: {table: {column: [pattern, message]}}}: each column's regex and regex_message (default "<column>: invalid format"), the format the API checks on create and update."""
     rules = {}
@@ -57,8 +67,9 @@ def func_postgres_column_regex_dict(*, schemas: dict) -> dict:
     return rules
 
 def func_postgres_schema_table_validate(*, table_name: str, spec: Any) -> None:
-    """One table's own keys: column (required), who may do what (public, private, my, admin: lists of actions; closed unless listed), row_lock, row_delete_max, users_delete_skip, buffer_limit, retention_day."""
+    """One table's own keys: column (required), who may do what through Atom's object routes (public, private, my: lists of actions; closed unless listed; /admin routes reach every table of the schema, each through its route's permission id), row_lock, row_delete_max, buffer_limit, retention_day."""
     if not isinstance(spec, dict): raise Exception(f"{table_name} must be a dict with a column list: {{\"column\": [...]}} (Atom 23.0.0)")
+    if moved := [key for key in ("admin", "users_delete_skip") if key in spec]: raise Exception(f"{table_name}.{moved[0]} removed in Atom 24.0.0: " + ("the /admin object routes reach every table of the schema (each route's permission id decides who); delete it" if moved[0] == "admin" else "the users-delete worker always skips users and log_users_delete; delete it"))
     if unknown := sorted(set(spec) - set(TABLE_KEYS)): raise Exception(f"{table_name}: unknown key {', '.join(unknown)}; allowed: {', '.join(TABLE_KEYS)}")
     if not isinstance(spec.get("column"), list) or not spec["column"]: raise Exception(f"{table_name} needs a list of columns in column")
     for group, actions in TABLE_ACCESS.items():
@@ -71,7 +82,6 @@ def func_postgres_schema_table_validate(*, table_name: str, spec: Any) -> None:
     if not isinstance(row_lock, list) or not set(row_lock) <= {"update", "delete"} or len(set(row_lock)) != len(row_lock): raise Exception(f"{table_name}.row_lock must be a list of update and/or delete")
     for key, low, high in (("row_delete_max", 1, None), ("buffer_limit", 10, 5000), ("retention_day", 1, 36500)):
         if key in spec and (isinstance(spec[key], bool) or not isinstance(spec[key], int) or spec[key] < low or (high and spec[key] > high)): raise Exception(f"{table_name}.{key} must be an integer from {low}" + (f" to {high}" if high else " up"))
-    if "users_delete_skip" in spec and not isinstance(spec["users_delete_skip"], bool): raise Exception(f"{table_name}.users_delete_skip must be bool")
     names = {col.get("name") for col in spec["column"] if isinstance(col, dict)}
     if "retention_day" in spec and "created_at" not in names: raise Exception(f"{table_name}.retention_day needs a created_at column (rows older than the days are deleted)")
     if table_name == "users" and (writes := [f"{group} {action}" for group in TABLE_ACCESS for action in spec.get(group, []) if action != "read"]): raise Exception(f"users: {', '.join(writes)} not allowed; users rows are written only through /my/user-* and /admin/user-*")
@@ -112,6 +122,10 @@ def func_postgres_schema_config_validate(*, config_postgres_schema: dict) -> Non
             for key in ("is_primary", "is_mandatory", "is_private_read_blocked"):
                 if key in col and not isinstance(col[key], bool):
                     raise Exception(f"{table_name}.{name} {key} must be bool")
+            if "users_access" in col:    # what the user routes do with a users column
+                access = col["users_access"]
+                if table_name != "users": raise Exception(f"{table_name}.{name}: users_access is only for users columns")
+                if not isinstance(access, list) or not access or any(v not in USERS_ACCESS for v in access) or len(set(access)) != len(access): raise Exception(f"{table_name}.{name}: users_access must be a list of {', '.join(USERS_ACCESS)}")
             if "int_mapping" in col:    # labels only (served by /info): never changes the database
                 labels = col["int_mapping"]
                 if dtype.lower().removesuffix("[]") not in integer_datatypes: raise Exception(f"{table_name}.{name}: int_mapping only on an integer column (or an integer array)")

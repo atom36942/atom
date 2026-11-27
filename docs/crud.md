@@ -99,7 +99,7 @@ Use `curl -G --data-urlencode` for query parameters containing spaces, JSON, com
 
 `/public/object-read` and `/admin/object-read` accept the same parameters except `ownership_column`. Public reads require permitted tables and relations; admin reads require admin authorization and do not add user ownership filtering. Blocked columns cannot be explicitly selected or filtered; `column=*` removes them from results.
 
-`/private/user-read` (token) is the user list for any logged-in user: `filter`, `order`, `after`, `page` and `limit` as above, always on `users` and always the columns in `config_column_users_private_read` (`id`, `username`, `name`, `role`, `permissions`, `created_at`, `deactivated_at`). Every other `users` column is blocked from its columns, filters and order, so `filter=["role = 2","deactivated_at is null","username ilike %ann%"]` works and `filter=["mobile ilike %98%"]` is a 400. A project that adds a column to that list makes it readable to every logged-in user.
+`/private/user-read` (token) is the user list for any logged-in user: `filter`, `order`, `after`, `page` and `limit` as above, always on `users` and always the `users` columns with `private_read` in their `users_access` (`id`, `username`, `name`, `role`, `permissions`, `created_at`, `deactivated_at`). Every other `users` column is blocked from its columns, filters and order, so `filter=["role = 2","deactivated_at is null","username ilike %ann%"]` works and `filter=["mobile ilike %98%"]` is a 400. A project that adds `private_read` to a column makes it readable to every logged-in user.
 
 ### Basic selection and sorting
 
@@ -387,11 +387,11 @@ Use these before writing a project route; most screens need nothing else.
 | Counts or totals per value (dashboard cards, charts, calendar) | `table-column-groupby` | `col` (one or more columns), `agg`, `filter` |
 | The values of a dropdown | `table-column-distinct` | `col`, `filter`, `limit`, `after` |
 | CSV download of a list | `object-read-export` | the same as the list |
-| Users of the app (user management) | `/private/user-read` | `filter`, `limit`, `after`; columns from `config_column_users_private_read` |
+| Users of the app (user management) | `/private/user-read` | `filter`, `limit`, `after`; the `private_read` columns |
 | Create, change, delete your own rows | `/my/object-create`, `/my/object-update`, `/my/object-delete` | `table`; update and delete only the caller's rows |
 | Selected users read, change or delete anyone's rows (a support team, a shared task list) | `/admin/object-create`, `-read`, `-read-export`, `-update`, `-delete` | `table`; the user holds that route's id in `users.permissions` |
 
-Pick the tier by who calls: `/my` (own rows), `/private` (any logged-in user, all rows), `/public` (no login), `/admin` (root and users granted the route's id); the table must list that tier's action. Hide columns with `config_column_read_blocked`. Write a project route only for joins, several different lists in one statement, computed filters or business checks.
+Pick the tier by who calls: `/my` (own rows), `/private` (any logged-in user, all rows), `/public` (no login), `/admin` (root and users granted the route's id, every table in the schema); for the other tiers the table must list that tier's action. Hide columns with `config_column_read_blocked`. Write a project route only for joins, several different lists in one statement, computed filters or business checks.
 
 ---
 
@@ -426,7 +426,7 @@ The effective condition is `id = 135 AND assigned_to_id = current_user.id`. If o
 
 ### Anyone's rows, for selected users (the admin object routes)
 
-A user granted an admin object route's id may call it, whatever their role: 67 `/admin/object-read`, 65 `-create`, 66 `-update`, 72 `-delete`; nobody but root holds them until granted. The route works on every table whose `admin` lists the action (`users` is never written through it); protected columns cannot change, `created_by_id`/`updated_by_id` is the caller, the batch limit applies. A grant is the whole route, every table ([auth-permission.md](auth-permission.md#admin-routes-one-id-each)).
+A user granted an admin object route's id may call it, whatever their role: 67 `/admin/object-read`, 65 `-create`, 66 `-update`, 72 `-delete`; nobody but root holds them until granted. The route works on every table in the schema of the database it runs on (`users` is never written through it); protected columns cannot change, `created_by_id`/`updated_by_id` is the caller, the batch limit applies. A grant is the whole route, every table ([auth-permission.md](auth-permission.md#admin-routes-one-id-each)).
 
 ```bash
 # grant a user update and delete of anyone's rows (an admin, PUT /admin/user-update)

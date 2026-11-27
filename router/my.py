@@ -42,7 +42,7 @@ async def func_api_my_token_refresh(*, request: Request):
     if not request.state.client_postgres: raise app_state.func_api_error(message="postgres client not initialized", status_code=500)
     user = await app_state.func_user_read_single(client_postgres=request.state.client_postgres, user_id=request.state.user["id"])
     app_state.func_auth_check_user_active(user=user)    # a deleted or deactivated account gets no new tokens, as at login
-    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_sec=app_state.config_access_token_expires_sec, config_refresh_token_expires_sec=app_state.config_refresh_token_expires_sec, config_column_token_encode=app_state.config_column_token_encode)
+    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_sec=app_state.config_access_token_expires_sec, config_refresh_token_expires_sec=app_state.config_refresh_token_expires_sec, config_column_token_encode=app_state.cache_users_access["token"])
     return {"status": 1, "message": token}
 
 @router.get("/my/api-usage")
@@ -114,7 +114,7 @@ async def func_api_my_user_update(*, request: Request):
     # only otp is typed; every other field passes through (strict off) and is checked against the users table
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "otp", "type": "int"}])
     if "id" in ob and str(ob["id"]) != str(user_id): raise Exception("ownership issue: cannot update other users")
-    values = await app_state.func_user_update_check(client_postgres=request.state.client_postgres, obj=ob, is_admin=False, is_otp_required=True, config_column_single_update=app_state.config_column_single_update, config_column_users_blocked=app_state.config_column_users_blocked, config_column_users_my_blocked=app_state.config_column_users_my_blocked, config_otp_expiry_sec=app_state.config_otp_expiry_sec, config_otp_static=app_state.config_otp_static, config_otp_max_attempt=app_state.config_otp_max_attempt)
+    values = await app_state.func_user_update_check(client_postgres=request.state.client_postgres, obj=ob, is_admin=False, is_otp_required=True, config_column_single_update=app_state.cache_users_access["update_alone"], config_column_users_blocked=app_state.cache_users_access["update_blocked"], config_column_users_my_blocked=app_state.cache_users_access["my_update_blocked"], config_otp_expiry_sec=app_state.config_otp_expiry_sec, config_otp_static=app_state.config_otp_static, config_otp_max_attempt=app_state.config_otp_max_attempt)
     await app_state.func_postgres_update(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_column_regex=app_state.func_column_regex(app_state=app_state, table="users"), table="users", obj_list=[{**values, "id": user_id, "updated_by_id": user_id}], created_by_id=None, client_postgres_conn=None)
     return {"status": 1, "message": "user updated"}
 

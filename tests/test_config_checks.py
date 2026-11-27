@@ -22,6 +22,11 @@ def state(**changes):
                                } | changes))
 
 
+
+def users_schema(*token):
+    """A users table whose token holds these columns (users_access token; id always)."""
+    return {"table": {"users": {"column": [{"name": "id", "datatype": "bigint", "is_primary": True}, *[{"name": name, "datatype": "text", "users_access": ["token"]} for name in token if name != "id"]]}}}
+
 class IndexSortOrderTests(unittest.TestCase):
     def validate(self, index):
         func_postgres_schema_config_validate(config_postgres_schema={"table": {"item": {"column": [{"name": "id", "datatype": "bigint", "is_primary": True}, {"name": "score", "datatype": "text", "index": index}]}}})
@@ -202,7 +207,7 @@ class AdminPermissionCheckTests(unittest.TestCase):
         app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)
         app.get("/admin/x")(lambda: None)
         app.state.config_api = {"/admin/x": {"id": 205, "auth": ["jwt"], **cfg}}
-        app.state.config_column_token_encode = ["id", "role", "permissions"]
+        app.state.config_postgres_schema_master = users_schema("id", "role", "permissions")
         app.state.config_uvicorn_workers = 1
         return app
 
@@ -219,7 +224,7 @@ class GroupGateCheckTests(unittest.TestCase):
         app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)
         app.get(path)(lambda: None)
         app.state.config_api = {path: {"id": 205, **cfg}}
-        app.state.config_column_token_encode = ["id", "role", "permissions"]
+        app.state.config_postgres_schema_master = users_schema("id", "role", "permissions")
         app.state.config_uvicorn_workers = 1
         return app
 
@@ -233,7 +238,7 @@ class PermissionConfigCheckTests(unittest.TestCase):
         app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)
         app.get("/x")(lambda: None)
         app.state.config_api = {"/x": {"id": 205, "auth": ["jwt"], **cfg}}
-        app.state.config_column_token_encode = list(token_encode)
+        app.state.config_postgres_schema_master = users_schema(*token_encode)
         app.state.config_uvicorn_workers = 1
         return app
 
@@ -245,7 +250,7 @@ class PermissionConfigCheckTests(unittest.TestCase):
             ({"user_check_permission": {"mode": "inmemory"}}, None, ("permissions",), "allowed: token, realtime"),
             ({"user_check_permission": {"mode": "token", "id": 9}}, None, ("permissions",), "invalid user_check_permission"),
             ({"user_check_permission": True}, None, ("permissions",), "invalid user_check_permission"),
-            ({"user_check_permission": {"mode": "token"}}, None, ("id", "role"), "add permissions to config_column_token_encode"),
+            ({"user_check_permission": {"mode": "token"}}, None, ("id", "role"), "add \"token\" to the users_access of users.permissions"),
         ]:
             with self.subTest(cfg=cfg, labels=labels), self.assertRaisesRegex(Exception, message):
                 func_check_api_config(app=self.app(cfg, labels, token_encode))

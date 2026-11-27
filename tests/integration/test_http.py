@@ -20,7 +20,7 @@ from tests.integration.support import requires_postgres
 
 LOG_API_ON_REPORTS = """from config import config_postgres_schema_master as base_config_postgres_schema_master
 config_postgres_schema_master = {**base_config_postgres_schema_master, "table": {k: v for k, v in base_config_postgres_schema_master["table"].items() if k != "log_api"}}
-config_postgres_schema_reports = {"table": {"log_api": base_config_postgres_schema_master["table"]["log_api"], "report": {"admin": ["read"], "column": [{"name": "id", "datatype": "bigint", "identity": "always", "is_primary": True}, {"name": "title", "datatype": "text"}]}}}
+config_postgres_schema_reports = {"table": {"log_api": base_config_postgres_schema_master["table"]["log_api"], "report": {"column": [{"name": "id", "datatype": "bigint", "identity": "always", "is_primary": True}, {"name": "title", "datatype": "text"}]}}}
 """    # API logs go to the reports database: log_api out of master's schema, into reports'; its report table admins may read
 
 

@@ -54,7 +54,7 @@ async def schema_column_read(*, conn: asyncpg.Connection) -> dict:
     return schema
 
 def owned_table_list(*, schema: dict, table_include: set, ownership_column_list: list) -> list:
-    """(table, ownership columns, has is_protected) for every table a user's rows can be soft-deleted in: only tables of config_postgres_schema_master without users_delete_skip."""
+    """(table, ownership columns, has is_protected) for every table a user's rows can be soft-deleted in: only tables of config_postgres_schema_master, never users or log_users_delete."""
     tables = []
     for table, columns in schema.items():
         if table not in table_include: continue
@@ -182,7 +182,7 @@ async def worker_loop(*, postgres_url, storage, table_include, ownership_column_
 def main():
     print("Starting Users Delete Worker Script...")
     storage = {"aws_region": config_aws_s3_region_name, "aws_key_id": config_aws_access_key_id, "aws_secret": config_aws_secret_access_key, "azure_name": config_azure_account_name, "azure_key": config_azure_account_key}
-    table_include = {table for table, spec in ((func_config_read().get("config_postgres_schema_master") or {}).get("table") or {}).items() if isinstance(spec, dict) and not spec.get("users_delete_skip")}
+    table_include = set((func_config_read().get("config_postgres_schema_master") or {}).get("table") or {}) - {"users", "log_users_delete"}    # the user's own row and its deletion log stay
     asyncio.run(worker_loop(postgres_url=postgres_url_master, storage=storage, table_include=table_include, ownership_column_list=config_column_ownership_delete, retention_day=config_retention_day_user_soft_deleted))
 
 # main

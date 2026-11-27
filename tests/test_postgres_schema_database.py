@@ -15,6 +15,7 @@ from function import func_postgres_schema_config_validate
 from function import func_postgres_schema_context_build
 from function import func_postgres_schema_dict
 from function import func_postgres_table_rule_dict
+from function import func_postgres_users_access
 from function import func_postgres_update
 from tests.support import database
 
@@ -74,20 +75,20 @@ class TableRuleTests(unittest.TestCase):
         func_postgres_schema_config_validate(config_postgres_schema={"table": {"task": {**keys, "column": self.COLUMNS}}})
 
     def test_table_keys_are_checked(self):
-        self.validate(public=["read"], private=["read"], my=["create", "read", "update", "delete", "delete_all"], admin=["create", "read", "update", "delete"], row_lock=["update", "delete"], row_delete_max=100, users_delete_skip=True, buffer_limit=500, retention_day=90)
+        self.validate(public=["read"], private=["read"], my=["create", "read", "update", "delete", "delete_all"], row_lock=["update", "delete"], row_delete_max=100, buffer_limit=500, retention_day=90)
         self.validate()    # only column is required: closed to every object route
         for keys, message in (({"public": ["delete"]}, "task.public: delete is not an action of /public routes"), ({"private": ["create"]}, "task.private: create is not an action"),
-                              ({"admin": ["delete_all"]}, "task.admin: delete_all is not an action"), ({"my": "read"}, "task.my must be a list of actions"), ({"my": ["read", "read"]}, "lists an action twice"),
+                              ({"my": ["drop"]}, "task.my: drop is not an action"), ({"admin": ["read"]}, "task.admin removed in Atom 24.0.0: the /admin object routes reach every table"), ({"users_delete_skip": True}, "task.users_delete_skip removed in Atom 24.0.0"), ({"my": "read"}, "task.my must be a list of actions"), ({"my": ["read", "read"]}, "lists an action twice"),
                               ({"row_lock": ["read"]}, "row_lock must be a list of update and/or delete"), ({"buffer_limit": 5}, "buffer_limit must be an integer from 10 to 5000"),
-                              ({"retention_day": 0}, "retention_day must be an integer from 1"), ({"row_delete_max": True}, "row_delete_max must be an integer"), ({"users_delete_skip": 1}, "users_delete_skip must be bool"),
+                              ({"retention_day": 0}, "retention_day must be an integer from 1"), ({"row_delete_max": True}, "row_delete_max must be an integer"),
                               ({"publc": ["read"]}, "task: unknown key publc")):
             with self.subTest(keys=keys), self.assertRaisesRegex(Exception, message): self.validate(**keys)
         with self.assertRaisesRegex(Exception, r"task must be a dict with a column list: \{\"column\": \[...\]\} \(Atom 23.0.0\)"):
             func_postgres_schema_config_validate(config_postgres_schema={"table": {"task": self.COLUMNS}})
         with self.assertRaisesRegex(Exception, "retention_day needs a created_at column"):
             func_postgres_schema_config_validate(config_postgres_schema={"table": {"task": {"retention_day": 7, "column": [{"name": "id", "datatype": "bigint"}]}}})
-        with self.assertRaisesRegex(Exception, "users: admin create not allowed"):
-            func_postgres_schema_config_validate(config_postgres_schema={"table": {"users": {"admin": ["create", "read"], "column": [{"name": "id", "datatype": "bigint"}]}}})
+        with self.assertRaisesRegex(Exception, "users: my create not allowed"):
+            func_postgres_schema_config_validate(config_postgres_schema={"table": {"users": {"my": ["create", "read"], "column": [{"name": "id", "datatype": "bigint"}]}}})
         with self.assertRaisesRegex(Exception, r"control.table_row_delete_disable removed in Atom 23.0.0: set row_lock"):
             func_postgres_schema_config_validate(config_postgres_schema={"control": {"table_row_delete_disable": ["users"]}, "table": {}})
 
@@ -100,21 +101,21 @@ class TableRuleTests(unittest.TestCase):
         func_postgres_schema_config_validate(config_postgres_schema={"table": {"t": {"column": [{"name": "tags", "datatype": "smallint[]", "int_mapping": {1: "A", 2: "B"}}]}}})    # an integer array: each item has a label
 
     def test_rules_labels_and_triggers_come_from_the_tables(self):
-        schemas = {"master": {"table": {"task": {"my": ["read"], "buffer_limit": 500, "row_lock": ["delete"], "row_delete_max": 50, "column": self.COLUMNS}, "users": {"column": [{"name": "id", "datatype": "bigint"}]}}}, "logs": {"table": {"event": {"admin": ["read"], "column": self.COLUMNS}}}}
+        schemas = {"master": {"table": {"task": {"my": ["read"], "buffer_limit": 500, "row_lock": ["delete"], "row_delete_max": 50, "column": self.COLUMNS}, "users": {"column": [{"name": "id", "datatype": "bigint"}]}}}, "logs": {"table": {"event": {"column": self.COLUMNS}}}}
         rules = func_postgres_table_rule_dict(schemas=schemas)
         self.assertEqual(rules["master"]["task"], {"my": ["read"], "buffer_limit": 500, "row_lock": ["delete"], "row_delete_max": 50, "private_read_blocked": ["note"]})
-        self.assertEqual(rules["logs"]["event"]["admin"], ["read"])
+        self.assertEqual(rules["logs"]["event"], {"private_read_blocked": ["note"]})
         labels = func_postgres_int_mapping(schemas=schemas, config_users_role_label={1: "Admin", 2: "User"}, config_api={"/admin/b": {"id": 70, "user_check_permission": {"mode": "token"}}, "/admin/a": {"id": 63, "user_check_permission": {"mode": "token"}}, "/my/x": {"id": 5}})
         self.assertEqual(labels, {"master": {"task": {"status": {1: "Open", 2: "Done"}}, "users": {"role": {1: "Admin", 2: "User"}, "permissions": {63: "/admin/a", 70: "/admin/b"}}}, "logs": {"event": {"status": {1: "Open", 2: "Done"}}}})
         context = func_postgres_schema_context_build(config_postgres_schema=schemas["master"])
         self.assertEqual((context["tables"], context["bulk_blocked"], context["table_blocked"], context["update_blocked"]), ({"task", "users"}, [["task", 50]], ["task"], []))
 
     def test_routes_allow_only_what_the_table_lists(self):
-        state = SimpleNamespace(cache_postgres_table_rule=func_postgres_table_rule_dict(schemas={"master": {"table": {"task": {"my": ["read", "update"], "buffer_limit": 500, "column": self.COLUMNS}, "tag": {"my": ["create"], "column": self.COLUMNS}}}, "logs": {"table": {"event": {"admin": ["read"], "column": self.COLUMNS}}}}))
+        state = SimpleNamespace(cache_postgres_table_rule=func_postgres_table_rule_dict(schemas={"master": {"table": {"task": {"my": ["read", "update"], "buffer_limit": 500, "column": self.COLUMNS}, "tag": {"my": ["create"], "column": self.COLUMNS}}}, "logs": {"table": {"event": {"column": self.COLUMNS}}}}))
         func_check_table_access(app_state=state, table="task", group="my", action="read")
-        func_check_table_access(app_state=state, connection="logs", table="event", group="admin", action="read")
+        for action in ("create", "read", "update", "delete"): func_check_table_access(app_state=state, connection="logs", table="event", group="admin", action=action)    # admin: any table of the schema
         for kwargs, message in (({"table": "task", "group": "my", "action": "delete"}, r"my delete not allowed for table: task \(add \"delete\" to \"my\" of task in config_postgres_schema_master\)"),
-                                ({"table": "task", "group": "public", "action": "read"}, "public read not allowed for table: task"), ({"table": "other", "group": "admin", "action": "read"}, "admin read not allowed for table: other"),
+                                ({"table": "task", "group": "public", "action": "read"}, "public read not allowed for table: task"), ({"table": "other", "group": "admin", "action": "read"}, r"admin read not allowed for table: other \(not in config_postgres_schema_master\)"),
                                 ({"table": "task", "group": "my", "action": "read", "relation": ["tags,tag,id,task_id"]}, "my read not allowed for table: tag"),
                                 ({"connection": "logs", "table": "task", "group": "my", "action": "read"}, "config_postgres_schema_logs")):
             with self.subTest(kwargs=kwargs), self.assertRaisesRegex(Exception, message) as raised: func_check_table_access(app_state=state, **kwargs)
@@ -136,16 +137,26 @@ class TableRuleTests(unittest.TestCase):
         self.assertEqual(sorted(atom), ["email_secondary", "mobile_secondary", "password", "username"])
         self.assertEqual(atom["password"][1], "Password must be 6-120 characters and contain no spaces")
 
+    def test_users_access_lists_come_from_the_users_columns(self):
+        schema = {"table": {"users": {"column": [{"name": "id", "datatype": "bigint", "is_primary": True}, {"name": "role", "datatype": "smallint", "users_access": ["token", "private_read", "my_update_blocked"]},
+                                                 {"name": "totp_secret", "datatype": "text", "users_access": ["update_blocked"]}, {"name": "city", "datatype": "text"}, {"name": "email", "datatype": "text", "users_access": ["update_alone"]}]}}}
+        func_postgres_schema_config_validate(config_postgres_schema=schema)
+        self.assertEqual(func_postgres_users_access(config_postgres_schema=schema), {"token": ["id", "role"], "private_read": ["id", "role"], "update_alone": ["email"], "my_update_blocked": ["role"], "update_blocked": ["totp_secret"]})
+        for table, column, message in (("users", {"name": "n", "datatype": "text", "users_access": ["tokens"]}, "users_access must be a list of token"), ("users", {"name": "n", "datatype": "text", "users_access": []}, "users_access must be a list"),
+                                       ("users", {"name": "n", "datatype": "text", "users_access": ["token", "token"]}, "users_access must be a list"), ("task", {"name": "n", "datatype": "text", "users_access": ["token"]}, "users_access is only for users columns")):
+            with self.subTest(column=column), self.assertRaisesRegex(Exception, message): func_postgres_schema_config_validate(config_postgres_schema={"table": {table: {"column": [column]}}})
+        atom = func_postgres_users_access(config_postgres_schema=MASTER)
+        self.assertEqual(sorted(atom["token"]), ["deactivated_at", "deleted_at", "id", "id_ext", "permissions", "role", "username"])
+        self.assertEqual(sorted(atom["update_alone"]), ["email", "mobile", "password", "username"])
+
     def test_atom_tables_keep_their_access(self):
         rules = func_postgres_table_rule_dict(schemas={"master": MASTER})["master"]
-        for table in ("log_api", "log_users_password", "log_users_delete", "script_run", "queue_job", "otp", "users"):
-            with self.subTest(table=table): self.assertEqual(rules[table]["admin"], ["read"], "only Atom writes these")
         for table in ("users", "config", "webhook", "log_users_password", "otp", "script_run", "queue_job"): self.assertNotIn("my", rules[table])
         self.assertEqual({table for table, rule in rules.items() if "delete_all" in rule.get("my", [])}, {"test", "message", "notification"})
         self.assertEqual({table for table, rule in rules.items() if rule.get("public")}, {"test"})
         self.assertEqual((rules["log_api"]["buffer_limit"], rules["log_api"]["retention_day"], rules["otp"]["retention_day"], rules["script_run"]["retention_day"]), (1000, 7, 1, 90))
         self.assertEqual(rules["script_run"]["private_read_blocked"], ["started_by", "host", "step", "message", "peak_memory_mb"])
-        self.assertEqual({table for table, rule in rules.items() if rule.get("users_delete_skip")}, {"users", "log_users_delete"})
+        self.assertFalse(any("admin" in rule or "users_delete_skip" in rule for rule in rules.values()))
 
 
 class RoutesNeedingIdTests(unittest.IsolatedAsyncioTestCase):

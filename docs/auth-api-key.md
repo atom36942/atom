@@ -25,7 +25,7 @@ How a request is checked (middleware, right after the JWT step):
 ```
 Bearer atk_... → sha256 → api_key JOIN users (cached per worker for config_api_key_cache_sec, 60 s)
 → unknown or expired key, deleted or deactivated owner: 401
-→ request.state.user = the owner's config_column_token_encode columns + _token_type "api_key", _api_key_id, _api_key_scopes
+→ request.state.user = the owner's users_access token columns + _token_type "api_key", _api_key_id, _api_key_scopes
 → route whose auth lacks api_key: 401 · key with scopes not listing this path: 403
 → role, permission, rate-limit and the other checks run as for a JWT
 ```

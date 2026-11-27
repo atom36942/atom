@@ -18,14 +18,14 @@ A guideline, not a fixed recipe: adapt it to the feature.
    config_postgres_schema_telematics = {
    "extension": ["timescaledb", "postgis"],
    "table": {
-   "gps_point": {"admin": ["create", "read"], "buffer_limit": 1000, "column": [
+   "gps_point": {"buffer_limit": 1000, "column": [
    {"name": "device_id", "datatype": "bigint", "is_primary": True},
    {"name": "time", "datatype": "timestamptz", "is_primary": True},
    {"name": "lat", "datatype": "float8", "is_mandatory": True},
    {"name": "lng", "datatype": "float8", "is_mandatory": True},
    {"name": "speed", "datatype": "real"},
    ]},
-   "gps_point_latest": {"admin": ["read"], "column": [
+   "gps_point_latest": {"column": [
    {"name": "device_id", "datatype": "bigint", "is_primary": True},
    {"name": "time", "datatype": "timestamptz", "is_mandatory": True},
    {"name": "location", "datatype": "geography(Point,4326)", "is_mandatory": True, "index": "gist(location)"},
@@ -242,5 +242,5 @@ Atom manages the tables in the database's schema: it creates them, adds columns,
 
 Also:
 - With `config_is_postgres_schema_init` off, startup changes nothing and stops when the database differs from its schema, until `script.postgres_schema_plan --apply` runs the changes.
-- The schema cache lists the tables after the start; admin routes read (`order=time desc`) and create with `?connection=telematics` as the table's `admin` allows; update, delete and relation fetch answer 400 `table 'gps_point' has no id`; `/my/object-create` refuses it (no `created_by_id`); public and private reads only reach a table whose `public` / `private` lists `read`.
+- The schema cache lists the tables after the start; admin routes read (`order=time desc`) and create with `?connection=telematics`; update, delete and relation fetch answer 400 `table 'gps_point' has no id`; `/my/object-create` refuses it (no `created_by_id`); public and private reads only reach a table whose `public` / `private` lists `read`.
 - `script.postgres_backup` copies the master database only: back the time-series database up with database tools.

@@ -273,21 +273,16 @@ Which routes may use a table is set on the table itself ([table keys](#table-key
 
 ### Column Rules
 
-Rules by column name, the same in every table and database (a format rule is per column instead: `regex` on the column, in the schema).
+Rules by column name, the same in every table and database (a format rule is per column instead: `regex` on the column, in the schema). What the user APIs do with each `users` column is `users_access` on the column ([users columns](#users-columns-users_access)).
 
 | Key | Usage |
 |---|---|
-| `config_column_token_encode` | User columns encoded into JWT claims (`id`, `role`, `username`, etc.) |
 | `config_column_ownership_read` | Ownership columns accepted by `/my/object-read`; defaults to `created_by_id` when omitted |
 | `config_column_ownership_update` | Ownership columns accepted by `/my/object-update`; defaults to `created_by_id` when omitted |
 | `config_column_ownership_delete` | Ownership columns accepted by `/my/object-delete` and `/my/object-delete-all`; defaults to `created_by_id` when omitted. Also used by the user-deletion worker to discover user-linked rows. |
 | `config_column_admin` | Server-managed columns blocked from user mutation (`created_at`, `role`, etc.) |
-| `config_column_single_update` | `users` columns updated alone by `/my/user-update` and `/admin/user-update` (`username`, `password`, `email`, `mobile`) |
 | `config_column_audit_blocked` | Audit columns no request may set on any table, admin's included (default `created_at`, `created_by_id`, `updated_at`, `updated_by_id`, `deleted_at`, `deleted_by_id`): Atom sets them; admin create, update and CSV import refuse them |
-| `config_column_users_blocked` | `users` columns neither `/my/user-update` nor `/admin/user-update` may change (`created_*`, `updated_*`, `deleted_*`, `is_protected`, `last_active_at`, `totp_secret`, `totp_last_step`, `totp_recovery`); a project adds its own (e.g. a column only a script sets) |
-| `config_column_users_my_blocked` | `users` columns only `/admin/user-update` may change; `/my/user-update` refuses them (`role`, `permissions`, `totp_enabled_at`, `deactivated_at`, ...) |
 | `config_column_read_blocked` | Sensitive columns blocked and stripped from read responses and relations (`password`, `key_hash`, `secret`, `totp_secret`, `totp_recovery`) |
-| `config_column_users_private_read` | The only `users` columns `/private/user-read` returns, filters and sorts on (`id`, `username`, `name`, `role`, `permissions`, `created_at`, `deactivated_at`); readable by every logged-in user, checked at startup |
 
 ### Service Registries
 
@@ -367,7 +362,6 @@ Declarative schema per database: `config_postgres_schema_<name>` is applied at s
 ```python
 "task": {
 "my": ["create", "read", "update", "delete"],
-"admin": ["read", "update"],
 "retention_day": 365,
 "column": [
 {"name": "id", "datatype": "bigint", "identity": "always", "is_primary": True},
@@ -378,7 +372,7 @@ Declarative schema per database: `config_postgres_schema_<name>` is applied at s
 ]},
 ```
 
-Only `column` is required. Access is closed unless listed: a group that is missing (or `[]`) cannot touch the table, and a table in no schema is refused by every object route. A refusal is 403 naming the fix (`my delete not allowed for table: task (add "delete" to "my" of task in config_postgres_schema_master)`). Each route checks the schema of the database it runs on (`?connection=<name>`, default `master`); a read with `relation=` needs the same group's `read` on each joined table.
+Only `column` is required. Access through `/public/*`, `/private/*` and `/my/*` is closed unless listed: a group that is missing (or `[]`) cannot touch the table. The `/admin/*` object and table routes and `/admin/postgres-import` reach every table in the schema of the database they run on; who may call them is only the route's id in `users.permissions` ([auth-permission.md](auth-permission.md#admin-routes-one-id-each)). A table in no schema is refused by every object route. A refusal is 403 naming the fix (`my delete not allowed for table: task (add "delete" to "my" of task in config_postgres_schema_master)`). Each route checks the schema of the database it runs on (`?connection=<name>`, default `master`); a read with `relation=` needs the same group's `read` on each joined table.
 
 | Key | Type | Usage |
 |---|---|---|
@@ -386,14 +380,12 @@ Only `column` is required. Access is closed unless listed: a group that is missi
 | `public` | `create`, `read` | `/public/*` object and table routes: anyone, no login |
 | `private` | `read` | `/private/*` object and table routes: any logged-in user, all rows |
 | `my` | `create`, `read`, `update`, `delete`, `delete_all` | `/my/object-*`: a user's own rows (`config_column_ownership_*`) |
-| `admin` | `create`, `read`, `update`, `delete` | `/admin/*` object and table routes and `/admin/postgres-import` (its mode): root and users granted the route's id, any row |
 | `row_lock` | `update`, `delete` | A trigger refuses every `UPDATE` and/or `DELETE`, raw SQL included. Never `update` on a table Atom updates itself (`otp`, `script_run`, `log_users_delete`) |
 | `row_delete_max` | int, 1 up | A trigger fails a single `DELETE` removing more rows. Never on a table cleanup or the users-delete worker purges (they delete 5,000 at a time) |
-| `users_delete_skip` | bool | The users-delete worker leaves this table's rows alone |
 | `buffer_limit` | int, 10-5000 | Rows held for a buffered create before they are written (default `100`) |
 | `retention_day` | int, 1-36500 | `script/postgres_cleanup.py` deletes rows older than this many days (needs `created_at`) ([cleanup](#automatic-cleanup-retention_day)) |
 
-Startup refuses any other key, an action a group's routes don't have (`"private": ["delete"]`), and a write on `users` (written only through `/my/user-*` and `/admin/user-*`; `/admin/postgres-import` still imports `users`, hashing passwords). Atom's tables carry their own access in `config.py` (logs are read-only, `api_key` is created only by `/my/api-key-create`); to change one, start from Atom's: `"test": {**base_config_postgres_schema_master["table"]["test"], "public": []}`.
+Startup refuses any other key, an action a group's routes don't have (`"private": ["delete"]`), and a write on `users`. Rows of `users` change only through `/my/user-*` and `/admin/user-*`: the object routes refuse writes to it (`/admin/postgres-import` still imports `users`, hashing passwords). The users-delete worker always skips `users` and `log_users_delete` and touches only tables in `config_postgres_schema_master`. Atom's tables carry their own access in `config.py` (log tables are protected by `row_lock`); to change one, start from Atom's: `"test": {**base_config_postgres_schema_master["table"]["test"], "public": []}`.
 
 #### Column keys
 
@@ -415,6 +407,33 @@ Startup refuses any other key, an action a group's routes don't have (`"private"
 | `int_mapping` | `dict` | Labels for an integer column's codes, `{1: "Open", 2: "Done"}` (`None` for no value yet); with `in`, the codes must be the same. Served by `/info` ([labels](#labels-int_mapping)); never changes the database |
 | `is_private_read_blocked` | `bool` | `/private/*` reads may not select, filter, sort or group by this column (on top of `config_column_read_blocked`); never changes the database |
 | `generated` | `str` | SQL expression Postgres fills the column from (`GENERATED ALWAYS AS (...) STORED`); takes no `default`, `is_mandatory`, `in`, `regex`, `check`, `unique` or `old`; rebuilt when the expression changes ([crud-search.md](crud-search.md)) |
+| `users_access` | `list[str]` | `users` columns only: `token`, `private_read`, `update_alone`, `my_update_blocked`, `update_blocked` ([users columns](#users-columns-users_access)); never changes the database |
+
+#### Users columns (`users_access`)
+
+What the user APIs do with a `users` column. A column without the key is in no token and open to both updates.
+
+| Value | Meaning | Atom's columns |
+|---|---|---|
+| `token` | Written into the login token and the API-key user (`request.state.user`) | `id`, `role`, `username`, `id_ext`, `deactivated_at`, `deleted_at`, `permissions` |
+| `private_read` | The only `users` columns `/private/user-read` returns, filters and sorts on: readable by every logged-in user | `id`, `username`, `name`, `role`, `permissions`, `created_at`, `deactivated_at` |
+| `update_alone` | A login identity: changed alone in its own request (`{password}`, `{email, otp}`) | `username`, `password`, `email`, `mobile` |
+| `my_update_blocked` | Refused by `/my/user-update` and `/admin/user-create`; set with `/admin/user-update` | `role`, `permissions`, `totp_enabled_at`, `verified_at`, `verified_by_id`, `deactivated_at`, `deactivated_by_id`, `parent_id`, `source`, `id_ext`, `oidc_<provider>` (added automatically) |
+| `update_blocked` | Refused by every update route, admin's included | `created_at`, `created_by_id`, `updated_at`, `updated_by_id`, `deleted_at`, `deleted_by_id`, `is_protected`, `last_active_at`, `totp_secret`, `totp_last_step`, `totp_recovery` |
+
+```python
+# config_extend.py
+"users": {
+**base_config_postgres_schema_master["table"]["users"],
+"column": [
+*base_config_postgres_schema_master["table"]["users"]["column"],
+{"name": "report_country", "datatype": "text[]", "users_access": ["my_update_blocked"]},
+{"name": "company_id", "datatype": "bigint", "users_access": ["token", "my_update_blocked"]},
+],
+},
+```
+
+A route reads a `token` column as `request.state.user["company_id"]` (a change reaches the token at the next login). `id` is always `token` and `private_read`. Startup refuses the key outside `users`, another value or a repeat, `private_read` on `password` or a `config_column_read_blocked` column, and a setting that needs a `token` column without it (`user_check_permission` mode `token` needs `permissions`; `config_api_global_user_check_deleted` / `deactivated` `"token"` need `deleted_at` / `deactivated_at`). Atom builds `app_state.cache_users_access` (`{value: [columns]}`) at startup.
 
 #### `control`
 

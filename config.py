@@ -191,17 +191,12 @@ config_public_create_honeypot = "website"
 config_mongodb_my_create_allowed = {"test": ["post"]}
 
 # column
-config_column_token_encode = ["id", "role", "username", "id_ext" ,"deactivated_at", "deleted_at", "permissions"]
 config_column_ownership_read = ["created_by_id", "received_by_id", "assigned_to_id", "user_id"]
 config_column_ownership_update = ["created_by_id", "assigned_to_id"]
 config_column_ownership_delete = ["created_by_id", "received_by_id", "assigned_to_id"]
 config_column_admin = ["created_at", "updated_at", "created_by_id", "role", "verified_at", "verified_by_id"]
-config_column_single_update = ["username", "password", "email", "mobile"]
-config_column_users_blocked = ["created_at", "created_by_id", "updated_at", "updated_by_id", "deleted_at", "deleted_by_id", "is_protected", "last_active_at", "totp_secret", "totp_last_step", "totp_recovery"]
 config_column_audit_blocked = ["created_at", "created_by_id", "updated_at", "updated_by_id", "deleted_at", "deleted_by_id"]
-config_column_users_my_blocked = ["role", "permissions", "totp_enabled_at", "verified_at", "verified_by_id", "deactivated_at", "deactivated_by_id", "parent_id", "source", "id_ext", "oidc_google"]
 config_column_read_blocked = ["password", "key_hash", "secret", "totp_secret", "totp_recovery"]
-config_column_users_private_read = ["id", "username", "name", "role", "permissions", "created_at", "deactivated_at"]
 
 # column dict
 config_options = {
@@ -219,7 +214,6 @@ config_postgres_schema_master = {
 "public": ["create", "read"],
 "private": ["read"],
 "my": ["create", "read", "update", "delete", "delete_all"],
-"admin": ["create", "read", "update", "delete"],
 "column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
@@ -244,7 +238,6 @@ config_postgres_schema_master = {
 },
 "test_comment": {
 "my": ["create", "read", "update", "delete"],
-"admin": ["create", "read", "update", "delete"],
 "column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
@@ -256,33 +249,31 @@ config_postgres_schema_master = {
 ],
 },
 "users": {
-"admin": ["read"],
 "row_lock": ["delete"],
 "row_delete_max": 100,
-"users_delete_skip": True,
 "column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
-{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
-{"name":"created_by_id","datatype":"bigint"},
-{"name":"updated_at","datatype":"timestamptz"},
-{"name":"updated_by_id","datatype":"bigint"},
-{"name":"verified_at","datatype":"timestamptz"},
-{"name":"verified_by_id","datatype":"bigint"},
-{"name":"deactivated_at","datatype":"timestamptz"},
-{"name":"deactivated_by_id","datatype":"bigint"},
-{"name":"deleted_at","datatype":"timestamptz"},
-{"name":"deleted_by_id","datatype":"bigint"},
-{"name":"is_protected","datatype":"boolean"},
-{"name":"role","datatype":"smallint","is_mandatory": True,"index":"btree(role)"},
-{"name":"permissions","datatype":"smallint[]","default": None},
-{"name":"username","datatype":"text","unique":"username,role","regex":"^(?=.{1,120}\\Z)\\S+\\Z","regex_message":"Username must be 1-120 characters and contain no spaces"},
-{"name":"email","datatype":"text","unique":"email,role"},
-{"name":"mobile","datatype":"text","unique":"mobile,role"},
-{"name":"id_ext","datatype":"text","unique":"id_ext,role"},
-{"name":"password","datatype":"text","index":"btree(password)","regex":"^(?=.{6,120}\\Z)\\S+\\Z","regex_message":"Password must be 6-120 characters and contain no spaces"},
-{"name":"oidc_google","datatype":"text","old":"google_login_id","unique":"oidc_google,role"},
-{"name":"last_active_at","datatype":"timestamptz"},
-{"name":"name","datatype":"text","index":"gin_trgm(name)"},
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)","users_access":["private_read", "update_blocked"]},
+{"name":"created_by_id","datatype":"bigint","users_access":["update_blocked"]},
+{"name":"updated_at","datatype":"timestamptz","users_access":["update_blocked"]},
+{"name":"updated_by_id","datatype":"bigint","users_access":["update_blocked"]},
+{"name":"verified_at","datatype":"timestamptz","users_access":["my_update_blocked"]},
+{"name":"verified_by_id","datatype":"bigint","users_access":["my_update_blocked"]},
+{"name":"deactivated_at","datatype":"timestamptz","users_access":["token", "private_read", "my_update_blocked"]},
+{"name":"deactivated_by_id","datatype":"bigint","users_access":["my_update_blocked"]},
+{"name":"deleted_at","datatype":"timestamptz","users_access":["token", "update_blocked"]},
+{"name":"deleted_by_id","datatype":"bigint","users_access":["update_blocked"]},
+{"name":"is_protected","datatype":"boolean","users_access":["update_blocked"]},
+{"name":"role","datatype":"smallint","is_mandatory": True,"index":"btree(role)","users_access":["token", "private_read", "my_update_blocked"]},
+{"name":"permissions","datatype":"smallint[]","default": None,"users_access":["token", "private_read", "my_update_blocked"]},
+{"name":"username","datatype":"text","unique":"username,role","regex":"^(?=.{1,120}\\Z)\\S+\\Z","regex_message":"Username must be 1-120 characters and contain no spaces","users_access":["token", "private_read", "update_alone"]},
+{"name":"email","datatype":"text","unique":"email,role","users_access":["update_alone"]},
+{"name":"mobile","datatype":"text","unique":"mobile,role","users_access":["update_alone"]},
+{"name":"id_ext","datatype":"text","unique":"id_ext,role","users_access":["token", "my_update_blocked"]},
+{"name":"password","datatype":"text","index":"btree(password)","regex":"^(?=.{6,120}\\Z)\\S+\\Z","regex_message":"Password must be 6-120 characters and contain no spaces","users_access":["update_alone"]},
+{"name":"oidc_google","datatype":"text","old":"google_login_id","unique":"oidc_google,role","users_access":["my_update_blocked"]},
+{"name":"last_active_at","datatype":"timestamptz","users_access":["update_blocked"]},
+{"name":"name","datatype":"text","index":"gin_trgm(name)","users_access":["private_read"]},
 {"name":"country","datatype":"text","index":"gin_trgm(country)"},
 {"name":"state","datatype":"text"},
 {"name":"city","datatype":"text"},
@@ -294,16 +285,15 @@ config_postgres_schema_master = {
 {"name":"gender","datatype":"text"},
 {"name":"date_of_birth","datatype":"date"},
 {"name":"dashboard","datatype":"jsonb"},
-{"name":"source","datatype":"smallint"},
-{"name":"parent_id","datatype":"bigint"},
-{"name":"totp_secret","datatype":"text"},
-{"name":"totp_enabled_at","datatype":"timestamptz"},
-{"name":"totp_last_step","datatype":"bigint"},
-{"name":"totp_recovery","datatype":"text[]"},
+{"name":"source","datatype":"smallint","users_access":["my_update_blocked"]},
+{"name":"parent_id","datatype":"bigint","users_access":["my_update_blocked"]},
+{"name":"totp_secret","datatype":"text","users_access":["update_blocked"]},
+{"name":"totp_enabled_at","datatype":"timestamptz","users_access":["my_update_blocked"]},
+{"name":"totp_last_step","datatype":"bigint","users_access":["update_blocked"]},
+{"name":"totp_recovery","datatype":"text[]","users_access":["update_blocked"]},
 ],
 },
 "config": {
-"admin": ["create", "read", "update", "delete"],
 "row_lock": ["delete"],
 "column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
@@ -318,7 +308,6 @@ config_postgres_schema_master = {
 ],
 },
 "otp": {
-"admin": ["read"],
 "retention_day": 1,
 "column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
@@ -332,7 +321,6 @@ config_postgres_schema_master = {
 },
 "blob": {
 "my": ["create", "read", "update", "delete"],
-"admin": ["create", "read", "update", "delete"],
 "column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
@@ -346,7 +334,6 @@ config_postgres_schema_master = {
 },
 "message": {
 "my": ["create", "read", "update", "delete", "delete_all"],
-"admin": ["create", "read", "update", "delete"],
 "column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
@@ -362,7 +349,6 @@ config_postgres_schema_master = {
 },
 "notification": {
 "my": ["create", "read", "update", "delete", "delete_all"],
-"admin": ["create", "read", "update", "delete"],
 "column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
@@ -382,7 +368,6 @@ config_postgres_schema_master = {
 },
 "log_api": {
 "my": ["read"],
-"admin": ["read"],
 "row_lock": ["update"],
 "buffer_limit": 1000,
 "retention_day": 7,
@@ -407,7 +392,6 @@ config_postgres_schema_master = {
 },
 "api_key": {
 "my": ["read", "delete"],
-"admin": ["create", "read", "update", "delete"],
 "row_lock": ["update"],
 "column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
@@ -421,7 +405,6 @@ config_postgres_schema_master = {
 ],
 },
 "webhook": {
-"admin": ["create", "read", "update", "delete"],
 "column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
@@ -435,7 +418,6 @@ config_postgres_schema_master = {
 ],
 },
 "log_users_password": {
-"admin": ["read"],
 "row_lock": ["update", "delete"],
 "column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
@@ -446,7 +428,6 @@ config_postgres_schema_master = {
 ],
 },
 "script_run": {
-"admin": ["read"],
 "retention_day": 90,
 "column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
@@ -463,7 +444,6 @@ config_postgres_schema_master = {
 ],
 },
 "queue_job": {
-"admin": ["read"],
 "column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
@@ -478,9 +458,7 @@ config_postgres_schema_master = {
 },
 "log_users_delete": {
 "my": ["read"],
-"admin": ["read"],
 "row_lock": ["delete"],
-"users_delete_skip": True,
 "column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},

@@ -40,7 +40,7 @@ class RetentionConfigTests(unittest.TestCase):
             config_sql_read_limit_default=10, config_sql_read_limit_max=10, config_sql_read_relation_fetch_limit_max=10,
             config_postgres_buffer_flush_auto_sec=60, config_uvicorn_workers=1, config_request_body_max_kb=10240, config_request_form_max_kb=102400, config_api_cache_inmemory_max_kb=102400,
             config_retention_day_user_soft_deleted=retention, config_otp_expiry_sec=600,
-            config_column_users_private_read=["id", "username"], config_postgres_schema_master={"table": {"users": {"column": [{"name": "id"}, {"name": "username"}, {"name": "password"}]}, "otp": {"retention_day": 1, "column": [{"name": "created_at"}]}}})
+            config_postgres_schema_master={"table": {"users": {"column": [{"name": "id"}, {"name": "username", "users_access": ["private_read"]}, {"name": "password"}]}, "otp": {"retention_day": 1, "column": [{"name": "created_at"}]}}})
 
     def test_retention_validation(self):
         for value in (None, 1, 30):
@@ -72,12 +72,15 @@ class RetentionConfigTests(unittest.TestCase):
             with self.subTest(value=value), self.assertRaisesRegex(ValueError, "config_login_allowed_roles must be"):
                 func_check_runtime_config(app_state=state)
 
-    def test_users_private_read_columns_are_checked(self):
-        for value, message in (([], "non-empty list"), ("id", "non-empty list"), (["id", "password"], "never readable"), (["id", "mobile"], "no users column 'mobile'")):
-            state = self.state(1)
-            state.config_column_users_private_read = value
-            with self.subTest(value=value), self.assertRaisesRegex(ValueError, message):
+    def test_users_access_replaces_the_five_users_lists(self):
+        for key in ("config_column_token_encode", "config_column_users_private_read", "config_column_single_update", "config_column_users_my_blocked", "config_column_users_blocked"):
+            state = self.state(1); setattr(state, key, ["id"])
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, f"{key} removed in Atom 24.0.0: set users_access on each users column"):
                 func_check_runtime_config(app_state=state)
+        state = self.state(1)
+        state.config_postgres_schema_master = {"table": {"users": {"column": [{"name": "id"}, {"name": "password", "users_access": ["private_read"]}]}}}
+        with self.assertRaisesRegex(ValueError, "users.password: private_read never applies"):
+            func_check_runtime_config(app_state=state)
 
     def test_removed_config_sql_stops_startup_and_cache_limits_are_checked(self):
         state = self.state(1)

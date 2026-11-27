@@ -82,6 +82,7 @@ async def func_lifespan(app: FastAPI):
         cache_postgres_table_rule = app.state.func_postgres_table_rule_dict(schemas=postgres_schemas)
         cache_int_mapping = app.state.func_postgres_int_mapping(schemas=postgres_schemas, config_users_role_label=app.state.config_users_role_label, config_api=app.state.config_api)
         cache_column_regex = app.state.func_postgres_column_regex_dict(schemas=postgres_schemas)
+        cache_users_access = app.state.func_postgres_users_access(config_postgres_schema=postgres_schemas.get("master") or {})
         cache_log_api_database = app.state.func_postgres_log_database(schemas=postgres_schemas) if app.state.config_is_log_api else None
         if not app.state.config_is_read_only:
             root_user_password_hash = client_password_hasher.hash(str(app.state.config_root_user_password)) if app.state.config_root_user_password and app.state.config_is_postgres_schema_init else None
@@ -178,7 +179,7 @@ def middleware(asgi_app):
             if webhook_verify := api_cfg.get("webhook_verify"): receive = await app_state.func_webhook_verify_request(request=request, receive=receive, webhook_verify=webhook_verify, config_webhook_verify_scheme=app_state.config_webhook_verify_scheme, secret=getattr(app_state, webhook_verify["secret"], None))
             # token
             request.state.user = await app_state.func_token_decode(headers=request.headers, config_token_secret_key=app_state.config_token_secret_key, cache_token=app_state.cache_token, config_token_cache_max=app_state.config_token_cache_max)
-            if not request.state.user: request.state.user = await app_state.func_api_key_decode(headers=request.headers, client_postgres=app_state.client_postgres_dict.get("master"), cache_token=app_state.cache_token, config_token_cache_max=app_state.config_token_cache_max, config_api_key_cache_sec=app_state.config_api_key_cache_sec, config_column_token_encode=app_state.config_column_token_encode)
+            if not request.state.user: request.state.user = await app_state.func_api_key_decode(headers=request.headers, client_postgres=app_state.client_postgres_dict.get("master"), cache_token=app_state.cache_token, config_token_cache_max=app_state.config_token_cache_max, config_api_key_cache_sec=app_state.config_api_key_cache_sec, config_column_token_encode=app_state.cache_users_access["token"])
             # checks
             await app_state.func_middleware_check_auth(user_dict=request.state.user, url_path=path, auth=auth)
             user_row_read = app_state.func_middleware_user_row_reader(client_postgres=app_state.client_postgres_dict.get("master"), user_dict=request.state.user)    # one users query per request, whichever checks need it

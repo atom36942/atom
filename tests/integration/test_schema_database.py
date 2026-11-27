@@ -9,7 +9,7 @@ from tests.integration.support import drop_database
 from tests.integration.support import fetch
 from tests.integration.support import requires_postgres
 
-TELEMETRY = {"table": {"reading": {"admin": ["create", "read", "update", "delete"], "column": [{"name": "device", "datatype": "text", "is_primary": True}, {"name": "time", "datatype": "timestamptz", "is_primary": True},
+TELEMETRY = {"table": {"reading": {"column": [{"name": "device", "datatype": "text", "is_primary": True}, {"name": "time", "datatype": "timestamptz", "is_primary": True},
                                    {"name": "value", "datatype": "float8"}, {"name": "note", "datatype": "text", "index": "btree(note)"}, {"name": "updated_by_id", "datatype": "bigint"}]}},
              "sql": {"reading_seed": "INSERT INTO reading (device, time, value) VALUES ('a1', '2026-01-01T00:00:00Z', 1.5) ON CONFLICT DO NOTHING"}}
 
