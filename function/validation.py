@@ -23,31 +23,13 @@ def func_validate_restricted_columns(*, app_state: State, obj_list: list) -> Non
     if restricted_key := next((key for item in obj_list for key in item if key in config_column_admin), None):
         raise Exception(f"unauthorized update to restricted field: {restricted_key}")
 
-def func_check_table_permission(*, app_state: State, table: str, relation: list = None, scope: str = "public", action: str = "read") -> None:
-    """Validate if table and relation access is allowed for given scope ('public', 'private', 'my') and action ('read', 'create', 'delete_all')."""
-    verb_map = {"create": "creation", "read": "read", "delete_all": "delete all"}
-    verb = verb_map.get(action, action.replace("_", " "))
-    prefix = f"config_table_{scope}"
-    blocked_attr = f"{prefix}_{action}_blocked"
-    blocked_tables = getattr(app_state, blocked_attr, None)
-    if blocked_tables is not None:
-        if "*" in blocked_tables or table in blocked_tables:
-            raise Exception(f"{verb} disabled for table: {table}")
-        if relation:
-            for rel in relation:
-                parts = [p.strip() for p in rel.split(",", 4)]
-                if len(parts) >= 2 and ("*" in blocked_tables or parts[1] in blocked_tables):
-                    raise Exception(f"relation read disabled for table: {parts[1]}")
-        return
-    config_attr = f"{prefix}_{action}_allowed"
-    enabled_tables = getattr(app_state, config_attr, []) or []
-    if "*" not in enabled_tables and table not in enabled_tables:
-        raise Exception(f"{verb} disabled for table: {table}")
-    if relation:
-        for rel in relation:
-            parts = [p.strip() for p in rel.split(",", 4)]
-            if len(parts) >= 2 and "*" not in enabled_tables and parts[1] not in enabled_tables:
-                raise Exception(f"relation read disabled for table: {parts[1]}")
+def func_check_table_access(*, app_state: State, connection: str = None, table: str, group: str, action: str, relation: list = None) -> None:
+    """Refuse a table (and every table a read joins through relation) whose schema does not list action under group (public, private, my, admin) in config_postgres_schema_<connection>: a table is closed unless listed. 403."""
+    database = connection or "master"
+    rules = (getattr(app_state, "cache_postgres_table_rule", None) or {}).get(database) or {}
+    tables = [(table, action)] + [(parts[1], "read") for rel in relation or [] if len(parts := [p.strip() for p in rel.split(",", 4)]) >= 2]
+    for name, needed in tables:
+        if needed not in ((rules.get(name) or {}).get(group) or []): raise func_api_error(message=f"{group} {needed} not allowed for table: {name} (add \"{needed}\" to \"{group}\" of {name} in config_postgres_schema_{database})", status_code=403)
 
 def func_check_table_column_exists(*, app_state: State = None, cache_postgres_schema: dict = None, table: str, column: str, purpose: str = None) -> None:
     """Validate that table schema contains specified column."""
@@ -59,13 +41,10 @@ def func_check_table_column_exists(*, app_state: State = None, cache_postgres_sc
         if purpose: msg += f" for {purpose}"
         raise Exception(msg)
 
-def func_buffer_limit(*, app_state: State, table: str) -> int:
-    """Rows a table's create buffer holds before it is written: config_buffer_limit_<table>, else config_buffer_limit_default."""
-    return getattr(app_state, f"config_buffer_limit_{table}", None) or app_state.config_buffer_limit_default
-
-def func_check_table_write_blocked(*, app_state: State, table: str) -> None:
-    """Refuse a table in config_table_write_blocked (tables only Atom writes, such as logs) in every generic write API, admin's included: 403."""
-    if table in (getattr(app_state, "config_table_write_blocked", None) or []): raise func_api_error(message=f"write disabled for table: {table}", status_code=403)
+def func_buffer_limit(*, app_state: State, table: str, connection: str = None) -> int:
+    """Rows a table's create buffer holds before it is written: the table's buffer_limit in config_postgres_schema_<connection>, else 100."""
+    rule = ((getattr(app_state, "cache_postgres_table_rule", None) or {}).get(connection or "master") or {}).get(table) or {}
+    return rule.get("buffer_limit") or 100
 
 def func_check_audit_columns(*, app_state: State, obj_list: list) -> None:
     """Refuse a column of config_column_audit_blocked (who and when a row was created, updated or deleted) in any request row, admin's included: Atom sets them, so they can't be forged: 400."""

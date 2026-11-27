@@ -13,6 +13,7 @@ A request passes these gates, in order, before the route runs. Role and permissi
 | 1 | Credential | `auth`: `["jwt"]` (access token), `["api_key"]` (API key) or both; `[]` is public | 401 |
 | 2 | Role: the user's role is in the list | `"user_check_role": {"mode": "token", "roles": [2]}` | 403 `access denied` |
 | 3 | Permission: the route's own `id` is in the user's `permissions` | `"user_check_permission": {"mode": "token"}` or `{"mode": "realtime"}` | 403 `permission denied` |
+| 4 | Table (object and table routes only): the table's group lists the action | `"admin": ["read", "update"]` on the table in `config_postgres_schema_<name>` ([table keys](config.md#table-keys)) | 403 `admin update not allowed for table: ...` |
 
 ## Admin routes: one id each
 
@@ -26,9 +27,9 @@ Which to choose:
 | Write (`/admin/user-*`, `/admin/object-create`, `-update`, `-delete`, the query runners, imports, storage) | Per-user ids only: a role opens the whole route to everyone in it, including people added later, and one person can't lose it without a role change. If a whole role needs a write, write a narrow project route (one table, the columns it needs, its own id) | A user may call an admin route when its id is in their `permissions`, whatever their role; a role 1 user without the ids is refused like anyone else.
 
 - **Root** (user id 1) holds every `/admin/*` route id, set at every start by `func_root_user_permissions_sync` (one `UPDATE`, only when they differ, also with schema init off): a new admin route reaches root without a grant, and an id that left goes at the next start. Root's next login carries the new ids. A project's other permission routes are never root's (a restart removes one granted by hand).
-- **Others** get an id by `PUT /admin/user-update {"id": <user>, "permissions": [66, 72]}`. Each admin id is labelled with its path in `config_column_int_mapping["users"]["permissions"]` (`66: "/admin/object-update"`), so an admin page lists them; a project may relabel one in plain words.
+- **Others** get an id by `PUT /admin/user-update {"id": <user>, "permissions": [66, 72]}`. Each permission id is labelled with its route's path, built from `config_api` (`/info` `int_mapping.master.users.permissions`: `66: "/admin/object-update"`), so an admin page lists them.
 - **Modes**: read routes check the token (`token`: a grant applies at the next login); write routes check the users row on every call (`realtime`: a revoked id stops the next request).
-- **What a grant gives**: the whole route, as root has it. `/admin/object-update` (66) edits any row of any table (except `users` and `config_table_write_blocked`); `/admin/user-update` (70) changes any user, including their `role` and `permissions`, so someone holding 70 can make themselves admin. Grant those two only to people you would trust as admin. Every change is stamped (`updated_by_id`, `created_by_id`) and every call is in `log_api`.
+- **What a grant gives**: the whole route, as root has it. `/admin/object-update` (66) edits any row of any table whose `admin` lists `update`; `/admin/user-update` (70) changes any user, including their `role` and `permissions`, so someone holding 70 can make themselves admin. Grant those two only to people you would trust as admin. Every change is stamped (`updated_by_id`, `created_by_id`) and every call is in `log_api`.
 
 | Need | Grant |
 |---|---|
@@ -41,7 +42,7 @@ curl -X PUT "$BASE_URL/admin/object-update?table=task" -H "Authorization: Bearer
 curl -X POST "$BASE_URL/admin/object-delete" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"table": "task", "ids": [7]}'
 ```
 
-Which tier for which need: own rows only `/my/object-*` (no grant); every logged-in user reads `/private/object-read` (`config_table_private_read_allowed`); selected users act on anyone's rows: the admin route's id; a business rule (only some columns, a check across tables, a side effect): a project route with its own id.
+Which tier for which need: own rows only `/my/object-*` (no grant); every logged-in user reads `/private/object-read` (the table's `private`); selected users act on anyone's rows: the admin route's id (and the table's `admin`); a business rule (only some columns, a check across tables, a side effect): a project route with its own id.
 
 ## A project route
 
@@ -50,8 +51,8 @@ A project route works the same way, for example only some role 2 users may close
 ```python
 # config_extend.py
 "/task/close": {"id": 205, "auth": ["jwt"], "user_check_role": {"mode": "token", "roles": [2]}, "user_check_permission": {"mode": "token"}},
-"users": {**base_config_column_int_mapping["users"], "role": {1: "Admin", 2: "User"}, "permissions": {**base_config_column_int_mapping["users"]["permissions"], 205: "Task close"}},
 ```
 
 - **Granting**: only `/admin/user-update` writes `permissions`; `/my/user-update` refuses it (`config_column_users_my_blocked`) and the object routes refuse `table=users`.
-- **Startup refuses**: a mode other than `token` or `realtime`; any other key (an `action`); an id without a label in `config_column_int_mapping["users"]["permissions"]`; `token` mode without `permissions` in `config_column_token_encode`.
+- **Labels**: id 205 is labelled `/task/close` in `/info` by itself; `/admin/user-update` refuses ids of routes without `user_check_permission`.
+- **Startup refuses**: a mode other than `token` or `realtime`; any other key (an `action`); `token` mode without `permissions` in `config_column_token_encode`.

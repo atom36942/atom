@@ -85,7 +85,7 @@ class PageStandardTests(unittest.TestCase):
         self.assertIn('createObjectStore(IDB_STORE, { keyPath: "name" })', ACCOUNT)
         self.assertIn("put({ name, user_id:", ACCOUNT)
         self.assertIn("SYNC_EVERY_MS = 3 * 3600 * 1000", ACCOUNT)
-        self.assertIn('save({ info: { config_column_int_mapping:', ACCOUNT)    # labels come from /info, saved by sync
+        self.assertIn('save({ info: { int_mapping:', ACCOUNT)    # labels come from /info, saved by sync
         self.assertNotIn('"1 (admin)"', ACCOUNT)
 
     def test_the_account_words(self):
@@ -108,7 +108,7 @@ class PageStandardTests(unittest.TestCase):
         self.assertNotIn("loginDialog", dialogs)
         # Login details' Permissions: a ✓ that lists ID and Name in its own dialog, a ✗ when there are none
         account = block("analytics", "account")[0]
-        for part in ('["Permissions", permissionsCell(u)]', 'class="permissions-open"', 'class="permissions-none"', "config_column_int_mapping?.users?.permissions"):
+        for part in ('["Permissions", permissionsCell(u)]', 'class="permissions-open"', 'class="permissions-none"', "int_mapping?.master?.users?.permissions"):
             with self.subTest(part=part): self.assertIn(part, account)
         self.assertIn('class="account-item" id="syncBtn"', header)
         self.assertNotIn("sync-btn", header)

@@ -37,7 +37,7 @@ async def func_root_user_permissions_sync(*, client_postgres: asyncpg.Pool, conf
     return result != "UPDATE 0"
 
 async def func_user_update_check(*, client_postgres: asyncpg.Pool | None, obj: dict, is_admin: bool, actor_id: int | None = None, is_otp_required: bool, config_column_single_update: list, config_column_users_blocked: list, config_column_users_my_blocked: list, config_otp_expiry_sec: int, config_otp_static: int = None, config_otp_max_attempt: int = 5, config_permission_label: dict | None = None) -> dict:
-    """The columns of one user update after its rules: permissions a list of ids labelled in config_permission_label (config_column_int_mapping["users"]["permissions"]), or null; config_column_users_blocked refused for everyone (deletion has its own API), config_column_users_my_blocked refused for the user's own update,
+    """The columns of one user update after its rules: permissions a list of ids of routes with user_check_permission (config_permission_label: {id: path}), or null; config_column_users_blocked refused for everyone (deletion has its own API), config_column_users_my_blocked refused for the user's own update,
     the caller's own role, permissions or deactivation refused (actor_id: another admin must change them), a single-update column (password, email, ...) sent alone, email or mobile verified with the otp sent to the new value when is_otp_required, email lowercased."""
     obj = dict(obj)
     otp, user_id = obj.pop("otp", None), obj.pop("id", None)
@@ -49,7 +49,7 @@ async def func_user_update_check(*, client_postgres: asyncpg.Pool | None, obj: d
     if obj.get("permissions") is not None:
         permissions = obj["permissions"]
         if not isinstance(permissions, list) or any(isinstance(p, bool) or not isinstance(p, int) for p in permissions): raise Exception("permissions must be a list of route ids")
-        if unknown := sorted({p for p in permissions if p not in (config_permission_label or {})}): raise Exception(f"permissions {unknown} are not labelled in config_column_int_mapping users permissions")
+        if unknown := sorted({p for p in permissions if p not in (config_permission_label or {})}): raise Exception(f"permissions {unknown} are not ids of routes with user_check_permission in config_api")
         obj["permissions"] = sorted(set(permissions))
     if user_id == 1 and (column := next((c for c in obj if c in ("role", "deactivated_at")), None)): raise Exception(f"root user {column} cannot be updated")
     if actor_id is not None and user_id == actor_id and (column := next((c for c in obj if c in ("role", "permissions", "deactivated_at")), None)): raise func_api_error(message=f"you cannot change your own {column}: another admin must", status_code=403)
@@ -89,8 +89,8 @@ async def func_user_delete(*, client_postgres: asyncpg.Pool | None, user_id: int
     if int(user_id) == 1: raise func_api_error(message="root user cannot be deleted", status_code=403)
     try: result = await client_postgres.execute("DELETE FROM users WHERE id=$1;", user_id)
     except asyncpg.exceptions.RaiseError as error:
-        # the database's own guard: config_postgres_schema_master control table_row_delete_disable lists users
-        if "not allowed on users" in str(error): raise func_api_error(message="users delete blocked in the database: remove users from config_postgres_schema_master control table_row_delete_disable", status_code=403) from None
+        # the database's own guard: users has row_lock ["delete"] in config_postgres_schema_master
+        if "not allowed on users" in str(error): raise func_api_error(message="users delete blocked in the database: remove \"delete\" from row_lock of users in config_postgres_schema_master", status_code=403) from None
         raise
     if result == "DELETE 0": raise func_api_error(message="user not found", status_code=404)
     return "user deleted"

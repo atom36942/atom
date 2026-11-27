@@ -18,11 +18,11 @@ def where(filters):
 class GeneratedColumnTests(unittest.TestCase):
     def test_a_generated_column_takes_no_value_rules(self):
         column = {"name": "search", "datatype": "tsvector", "generated": "to_tsvector('simple', title)", "index": "gin(search)"}
-        func_postgres_schema_config_validate(config_postgres_schema={"table": {"note": [ID, {"name": "title", "datatype": "text"}, column]}})
+        func_postgres_schema_config_validate(config_postgres_schema={"table": {"note": {"column": [ID, {"name": "title", "datatype": "text"}, column]}}})
         for key, value in (("default", "''"), ("is_mandatory", True), ("unique", "search")):
             with self.subTest(key=key), self.assertRaisesRegex(Exception, "is generated"):
-                func_postgres_schema_config_validate(config_postgres_schema={"table": {"note": [ID, {**column, key: value}]}})
-        with self.assertRaisesRegex(Exception, "SQL expression"): func_postgres_schema_config_validate(config_postgres_schema={"table": {"note": [ID, {**column, "generated": " "}]}})
+                func_postgres_schema_config_validate(config_postgres_schema={"table": {"note": {"column": [ID, {**column, key: value}]}}})
+        with self.assertRaisesRegex(Exception, "SQL expression"): func_postgres_schema_config_validate(config_postgres_schema={"table": {"note": {"column": [ID, {**column, "generated": " "}]}}})
 
 
 class SearchFilterTests(unittest.TestCase):

@@ -74,11 +74,11 @@ class ProviderCheckTests(unittest.TestCase):
     def test_each_provider_gets_its_users_column_blocked_for_own_edits(self):
         values = {"config_oidc_provider": {"google": PROVIDER, "okta": PROVIDER}, "config_postgres_schema_master": config.config_postgres_schema_master, "config_column_users_my_blocked": list(config.config_column_users_my_blocked)}
         func_oidc_config_apply(values=values)
-        columns = [c for c in values["config_postgres_schema_master"]["table"]["users"] if c["name"].startswith("oidc_")]
+        columns = [c for c in values["config_postgres_schema_master"]["table"]["users"]["column"] if c["name"].startswith("oidc_")]
         self.assertEqual(columns, [{"name": "oidc_google", "datatype": "text", "old": "google_login_id", "unique": "oidc_google,role"}, {"name": "oidc_okta", "datatype": "text", "unique": "oidc_okta,role"}])
         for key in ("config_column_users_my_blocked",):
             with self.subTest(key): self.assertEqual([c for c in values[key] if c.startswith("oidc_")], ["oidc_google", "oidc_okta"])
-        self.assertNotIn("oidc_okta", [c["name"] for c in config.config_postgres_schema_master["table"]["users"]], "config.py itself is not changed")
+        self.assertNotIn("oidc_okta", [c["name"] for c in config.config_postgres_schema_master["table"]["users"]["column"]], "config.py itself is not changed")
 
 
 class VerifyTests(unittest.TestCase):

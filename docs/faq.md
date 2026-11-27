@@ -10,18 +10,17 @@ User deletion is **off by default** and needs **two switches**, because Atom gua
 | Switch | Where | Default | To enable deletion |
 |---|---|---|---|
 | `config_is_user_delete` | `.env` | `false` | `config_is_user_delete=true` |
-| `users` in `table_row_delete_disable` | `config_postgres_schema_master["control"]` | listed (trigger blocks every `DELETE` on `users`) | remove `users` from the list in `config_extend.py` (below), then restart |
+| `"delete"` in the `users` table's `row_lock` | `config_postgres_schema_master["table"]["users"]` | listed (trigger blocks every `DELETE` on `users`) | drop it in `config_extend.py` (below), then restart |
 
 ```python
 # config_extend.py, under # atom
 config_postgres_schema_master = {
 **base_config_postgres_schema_master,
-"table": {**base_config_postgres_schema_master["table"]},
-"control": {**base_config_postgres_schema_master["control"], "table_row_delete_disable": [t for t in base_config_postgres_schema_master["control"]["table_row_delete_disable"] if t != "users"]},
+"table": {**base_config_postgres_schema_master["table"], "users": {**base_config_postgres_schema_master["table"]["users"], "row_lock": []}},
 }
 ```
 
-With only the first switch on, the delete APIs answer `users delete blocked in the database: remove users from config_postgres_schema_master control table_row_delete_disable`. Leave either switch off to keep users undeletable; other tables are unaffected.
+With only the first switch on, the delete APIs answer `users delete blocked in the database: remove "delete" from row_lock of users in config_postgres_schema_master`. Leave either switch off to keep users undeletable; other tables are unaffected.
 
 Users are deleted only through `DELETE /my/user-delete` (own account, token only) and `DELETE /admin/user-delete?id=7` (one user). The root user (`id` 1) is never deleted. The generic `/my/object-delete` and `/admin/object-delete` always refuse `table=users`.
 
@@ -309,12 +308,21 @@ Do not commit secrets to `config.py`. Use `.env` for environment-specific creden
 Define the table under `config_postgres_schema_master["table"]` (or `config_postgres_schema_<name>["table"]` for another database), from `config_extend.py` so framework updates do not overwrite your customization. Start it with Atom's standard key `id` when Atom's routes should update, delete or page it by id; a table without id (time-series rows keyed by device and time) works too, see [timescaledb.md](timescaledb.md):
 
 ```python
-config_postgres_schema_master["table"]["project"] = [
+config_postgres_schema_master = {
+**base_config_postgres_schema_master,
+"table": {
+**base_config_postgres_schema_master["table"],
+"project": {"my": ["create", "read", "update", "delete"], "column": [
     {"name": "id", "datatype": "bigint", "identity": "always", "is_primary": True},
+    {"name": "created_at", "datatype": "timestamptz", "default": "now()"},
+    {"name": "created_by_id", "datatype": "bigint", "index": "btree(created_by_id,id)"},
     {"name": "title", "datatype": "varchar(200)", "is_mandatory": True},
-    {"name": "created_at", "datatype": "timestamptz", "default": "CURRENT_TIMESTAMP"},
-]
+]},
+},
+}
 ```
+
+Atom's object routes reach the table only as its `public`, `private`, `my` and `admin` lists allow ([table keys](config.md#table-keys)).
 
 Restart Atom after the change. Startup schema initialization creates the table and missing columns, then refreshes the schema cache used by generic CRUD routes. Review data types, defaults, indexes, and uniqueness rules before applying changes to production. See [extend.md](extend.md#4-add-or-change-database-tables).
 
@@ -578,7 +586,7 @@ Custom routes should check the client they depend on and return a clear error wh
 
 The prefixes represent data-access scope, not just route organization:
 
-- `/public/object-*` is anonymous and limited by `config_table_public_create_allowed` and `config_table_public_read_allowed`.
+- `/public/object-*` is anonymous and limited to tables whose schema lists `public` actions (each table lists `public`, `private`, `my` and `admin` actions; closed unless listed).
 - `/my/object-*` requires a user and scopes rows through `ownership_column = authenticated_user.id`. Read, update, and delete each validate `ownership_column` against their own configured allowlist; create always stamps `created_by_id`.
 - `/admin/object-*` can operate on any row and table, subject to its administrator route policy.
 
@@ -630,7 +638,7 @@ curl -X POST "http://localhost:8000/my/object-create?table=test&mode=buffer" \
 
 A successful response with `"message": "buffered"` means the row is accepted in memory but is **not yet committed or readable from PostgreSQL**. `"buffered released"` means that buffer group reached its limit and was inserted immediately.
 
-Pending groups are flushed when they reach the table's buffer limit, approximately every 60 seconds, by `GET /admin/sync`, and during graceful shutdown. `config_buffer_limit_<table>` (e.g. `config_buffer_limit_log_api`) overrides `config_buffer_limit_default`. Rows are grouped by table and column shape, so differently shaped objects can reach their limits independently.
+Pending groups are flushed when they reach the table's buffer limit, approximately every 60 seconds, by `GET /admin/sync`, and during graceful shutdown. A table's `buffer_limit` in its schema (Atom's `log_api`: `1000`) overrides the default of 100. Rows are grouped by table and column shape, so differently shaped objects can reach their limits independently.
 
 Use buffering for high-volume, low-urgency records where delayed visibility and possible loss during a crash or forced shutdown are acceptable. Use `mode=now` when the caller needs the inserted ID, must read the row immediately, or requires database persistence before success is returned.
 
@@ -701,7 +709,7 @@ res = await app_state.func_postgres_read(client_postgres=request.state.client_po
 - Routes without the flag reject `?connection=` with `400 connection not allowed on this route`; they always use master.
 - User, role and OTP checks always use master.
 - Writes inside read routes (mark-as-read on `/my/object-read` and `/my/message-thread`) always use master, so `?connection=` can point at a read replica.
-- `/my/api-usage` always reads the log database (`config_postgres_db_log_api`).
+- `/my/api-usage` always reads the log database (the one whose schema has `log_api`).
 
 Example API calls:
 ```bash
@@ -770,7 +778,7 @@ Also review automatic schema controls and remove or protect example data/routes 
 <details>
 <summary><strong>How can a user see their API usage?</strong></summary>
 
-Call `GET /my/api-usage?days=30` with the user's bearer token. It always reads the log database (`config_postgres_db_log_api`). The required `days` parameter defines the reporting window, and the response groups the authenticated user's `log_api` records by API path with a request count for each. This can support an account dashboard or basic usage troubleshooting.
+Call `GET /my/api-usage?days=30` with the user's bearer token. It always reads the log database (the one whose schema has `log_api`). The required `days` parameter defines the reporting window, and the response groups the authenticated user's `log_api` records by API path with a request count for each. This can support an account dashboard or basic usage troubleshooting.
 
 Because request logs are buffered, the newest calls may not appear until the buffer is flushed. Treat this as operational usage information rather than a billing-grade meter: define explicit retention, aggregation, timezone, and idempotency rules before using it for quotas or invoices. For platform-wide reporting, query `log_api` through an authorized admin workflow or export it to your observability system.
 

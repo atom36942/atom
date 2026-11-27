@@ -251,16 +251,15 @@ class PostgresIntegrationTests(unittest.IsolatedAsyncioTestCase):
     async def test_cleanup_age_boundary_and_table_isolation(self):
         from datetime import datetime
         from datetime import timedelta
-        from function.background import func_otp_cleanup
-        from function.background import func_log_api_cleanup
+        from function.background import func_table_retention_cleanup
         cutoff = datetime.now(UTC) - timedelta(days=1)
         async with self.pool.acquire() as conn:
             for created_at in (cutoff - timedelta(seconds=1), cutoff, cutoff + timedelta(seconds=1)):
                 await conn.execute("INSERT INTO otp (otp, created_at) VALUES (123456, $1)", created_at)
                 await conn.execute("INSERT INTO log_api (created_at) VALUES ($1)", created_at)
-            self.assertEqual(await func_otp_cleanup(conn=conn, cutoff=cutoff, timeout_sec=5), 1)
+            self.assertEqual(await func_table_retention_cleanup(conn=conn, table="otp", cutoff=cutoff, timeout_sec=5), 1)
             self.assertEqual(await conn.fetchval("SELECT count(*) FROM log_api"), 3)
-            self.assertEqual(await func_log_api_cleanup(conn=conn, cutoff=cutoff, timeout_sec=5), 1)
+            self.assertEqual(await func_table_retention_cleanup(conn=conn, table="log_api", cutoff=cutoff, timeout_sec=5), 1)
             self.assertEqual(await conn.fetchval("SELECT count(*) FROM otp"), 2)
             self.assertEqual(await conn.fetchval("SELECT count(*) FROM log_api"), 2)
 
@@ -301,7 +300,7 @@ class PostgresIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(code, 0)
         self.assertEqual(await self.pool.fetchval("SELECT count(*) FROM otp"), 1)
         row = await self.pool.fetchrow("SELECT started_by, status, step, message FROM script_run WHERE script = 'postgres_cleanup'")
-        self.assertEqual(dict(row), {"started_by": "schedule", "status": 2, "step": "script_run", "message": "deleted rows: otp 1, log_api 0, script_run 1"})
+        self.assertEqual(dict(row), {"started_by": "schedule", "status": 2, "step": "master.script_run", "message": "deleted rows: master.otp 1, master.log_api 0, master.script_run 1"})
         self.assertEqual([r["status"] for r in await self.pool.fetch("SELECT status FROM script_run WHERE script = 'job' ORDER BY id")], [1, 2])    # the old finished run is gone; a run still going is kept
 
     async def test_otp_success_consumes_code_and_wrong_guesses_are_capped(self):

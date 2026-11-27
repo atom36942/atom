@@ -63,7 +63,7 @@ async def func_monitor_database(*, app_state: State, connection: str, top: int =
     """Pool use of every PostgreSQL connection (which one log_api writes to), and for one database: where it is (database, host, port, user), size, cache hit ratio, connections, long-running queries, waiting locks,
     the biggest tables, and whether the server needs upgrading (func_monitor_database_upgrade)."""
     client_postgres_dict = getattr(app_state, "client_postgres_dict", {})
-    log_database = getattr(app_state, "config_postgres_db_log_api", None) if getattr(app_state, "config_is_log_api", True) else None
+    log_database = getattr(app_state, "cache_log_api_database", None)
     pools = [{"name": name, "size": pool.get_size(), "idle": pool.get_idle_size(), "min": pool.get_min_size(), "max": pool.get_max_size(), "is_log_api": name == log_database} for name, pool in client_postgres_dict.items()]
     client_postgres = client_postgres_dict.get(connection)
     if not client_postgres: return {"connection": connection, "pools": pools, "is_enabled": False}
@@ -232,7 +232,7 @@ def func_monitor_app(*, app_state: State, app_routes: list, packages: tuple = ("
         is_on = bool(value) if isinstance(value, dict) else value is not None
         clients.append({"name": name, "is_on": is_on, "detail": ", ".join(sorted(value)) if isinstance(value, dict) else ""})
     return {
-        "server": {"python": platform.python_version(), "platform": platform.platform(terse=True), "pid": os.getpid(), "workers": state.get("config_uvicorn_workers", 1), "is_prod": state.get("config_is_prod"), "is_read_only": state.get("config_is_read_only"), "atom_version": state.get("cache_atom_version"), "database": func_monitor_database_name(url=(master := state.get("config_postgres_url_master") or (state.get("config_postgres_url_dict") or {}).get("master"))), "database_url": state["func_pgweb_dsn_safe"](master) if master else "",
+        "server": {"python": platform.python_version(), "platform": platform.platform(terse=True), "pid": os.getpid(), "workers": state.get("config_uvicorn_workers", 1), "is_prod": state.get("config_is_prod"), "is_read_only": state.get("config_is_read_only"), "log_database": state.get("cache_log_api_database"), "atom_version": state.get("cache_atom_version"), "database": func_monitor_database_name(url=(master := state.get("config_postgres_url_master") or (state.get("config_postgres_url_dict") or {}).get("master"))), "database_url": state["func_pgweb_dsn_safe"](master) if master else "",
                    "routes": len(app_routes), "routes_project": project_routes, "apis_configured": len(state.get("config_api", {})), "functions": len(functions), "functions_project": project_functions},
         "packages": versions,
         "clients": clients,

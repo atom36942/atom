@@ -11,20 +11,19 @@ router = APIRouter()
 async def func_api_public_object_create(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "mode", "type": "str", "allowed": ["now", "buffer"], "default": "now"}])
-    app_state.func_check_table_write_blocked(app_state=app_state, table=oq["table"])
-    app_state.func_check_table_permission(app_state=app_state, table=oq["table"], scope="public", action="create")
+    app_state.func_check_table_access(app_state=app_state, connection=request.state.connection, table=oq["table"], group="public", action="create")
     obj_list = app_state.func_check_honeypot(app_state=app_state, obj_list=await app_state.func_extract_request_object_list(request=request))
     app_state.func_check_batch_limit(app_state=app_state, items=obj_list)
     app_state.func_validate_restricted_columns(app_state=app_state, obj_list=obj_list)
     app_state.func_check_table_column_exists(app_state=app_state, cache_postgres_schema=request.state.cache_postgres_schema, table=oq["table"], column="created_by_id", purpose="ownership tracking")
     obj_list = app_state.func_attach_user_audit_fields(request=request, obj_list=obj_list, field="created_by_id")
-    return {"status": 1, "message": await app_state.func_postgres_create(client_postgres=request.state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, buffer_postgres=app_state.buffer_postgres_create, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="reject", config_column_regex=app_state.config_column_regex, buffer_limit=app_state.func_buffer_limit(app_state=app_state, table=oq["table"]), mode=oq["mode"], table=oq["table"], obj_list=obj_list, connection=request.state.connection)}
+    return {"status": 1, "message": await app_state.func_postgres_create(client_postgres=request.state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, buffer_postgres=app_state.buffer_postgres_create, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="reject", config_column_regex=app_state.config_column_regex, buffer_limit=app_state.func_buffer_limit(app_state=app_state, table=oq["table"], connection=request.state.connection), mode=oq["mode"], table=oq["table"], obj_list=obj_list, connection=request.state.connection)}
 
 @router.get("/public/object-read")
 async def func_api_public_object_read(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "limit", "type": "int", "default": app_state.config_sql_read_limit_default}, {"name": "after", "type": "str"}, {"name": "page", "type": "int", "minimum": 1}, {"name": "order", "type": "str", "default": "id desc"}, {"name": "column", "type": "str", "default": "*"}, {"name": "relation", "type": "list", "default": []}, {"name": "filter", "type": "list", "default": []}, {"name": "group_column", "type": "str"}, {"name": "group_values", "type": "list"}])
-    app_state.func_check_table_permission(app_state=app_state, table=oq["table"], relation=oq["relation"], scope="public", action="read")
+    app_state.func_check_table_access(app_state=app_state, connection=request.state.connection, table=oq["table"], relation=oq["relation"], group="public", action="read")
     res = await app_state.func_postgres_read(config_page_offset_max=app_state.config_page_offset_max, client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=oq["filter"], limit=oq["limit"], order=oq["order"], column=oq["column"], relation=oq["relation"], config_column_read_blocked=app_state.config_column_read_blocked, after=oq.get("after"), page=oq.get("page"), group_column=oq.get("group_column"), group_values=oq.get("group_values"))
     return {"status": 1, "message": res}
 
@@ -32,7 +31,7 @@ async def func_api_public_object_read(*, request: Request):
 async def func_api_public_object_read_export(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "order", "type": "str", "default": "id desc"}, {"name": "column", "type": "str", "default": "*"}, {"name": "filter", "type": "list", "default": []}, {"name": "connection", "type": "str"}, {"name": "limit", "type": "int"}], strict=True, strict_types=True, reject_unknown=True)
-    app_state.func_check_table_permission(app_state=app_state, table=oq["table"], relation=[], scope="public", action="read")
+    app_state.func_check_table_access(app_state=app_state, connection=request.state.connection, table=oq["table"], group="public", action="read")
     generator = await app_state.func_postgres_read_export(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_export_limit=app_state.config_export_limit, table=oq["table"], filter=oq["filter"], order=oq["order"], column=oq["column"], config_column_read_blocked=app_state.config_column_read_blocked, limit=oq.get("limit"))
     return app_state.func_csv_response(content=generator, filename=f'{oq["table"]}.csv')
     
@@ -80,7 +79,7 @@ async def func_api_public_otp_send_mobile_sns_template(*, request: Request):
 async def func_api_public_table_column_groupby(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "col", "type": "list", "required": True}, {"name": "agg", "type": "str", "allowed": ["count", "sum", "avg", "min", "max"], "default": "count"}, {"name": "agg_col", "type": "str", "default": "*"}, {"name": "limit", "type": "int", "default": 1000}, {"name": "after", "type": "str"}, {"name": "page", "type": "int", "minimum": 1}, {"name": "order", "type": "str", "default": "count desc"}, {"name": "filter", "type": "list", "default": []}])
-    app_state.func_check_table_permission(app_state=app_state, table=oq["table"], scope="public", action="read")
+    app_state.func_check_table_access(app_state=app_state, connection=request.state.connection, table=oq["table"], group="public", action="read")
     res = await app_state.func_postgres_table_column_groupby_read(app_state=app_state, client_postgres=request.state.client_postgres, cache_postgres_schema=request.state.cache_postgres_schema, table=oq["table"], col=oq["col"], limit=oq["limit"], after=oq.get("after"), page=oq.get("page"), agg=oq["agg"], agg_col=oq["agg_col"], order=oq["order"], filter=oq["filter"])
     return {"status": 1, "message": res}
 
@@ -88,7 +87,7 @@ async def func_api_public_table_column_groupby(*, request: Request):
 async def func_api_public_table_column_distinct(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "col", "type": "str", "required": True}, {"name": "limit", "type": "int", "default": 1000}, {"name": "after", "type": "str"}, {"name": "page", "type": "int", "minimum": 1}, {"name": "order", "type": "str", "default": "item asc"}, {"name": "filter", "type": "list", "default": []}])
-    app_state.func_check_table_permission(app_state=app_state, table=oq["table"], scope="public", action="read")
+    app_state.func_check_table_access(app_state=app_state, connection=request.state.connection, table=oq["table"], group="public", action="read")
     res = await app_state.func_postgres_table_column_distinct_read(app_state=app_state, client_postgres=request.state.client_postgres, cache_postgres_schema=request.state.cache_postgres_schema, table=oq["table"], col=oq["col"], limit=oq["limit"], after=oq.get("after"), page=oq.get("page"), order=oq["order"], filter=oq["filter"])
     return {"status": 1, "message": res}
 

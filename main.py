@@ -77,10 +77,14 @@ async def func_lifespan(app: FastAPI):
         client_msgraph = app.state.func_client_msgraph(tenant_id=app.state.config_msgraph_tenant_id, client_id=app.state.config_msgraph_client_id, client_secret=app.state.config_msgraph_client_secret)
         client_postgres_pgweb = {}
         await app.state.func_check_postgres_connections(app_state=app.state, client_postgres_dict=client_postgres_dict)
-        # postgres schemas: each config_postgres_schema_<name> on its own database, master first
+        # postgres schemas: each config_postgres_schema_<name> on its own database, master first; its tables' rules (who may do what, buffer, labels) are read from it here
+        postgres_schemas = app.state.func_postgres_schema_dict(values=getattr(app.state, "_state", None) or vars(app.state))
+        cache_postgres_table_rule = app.state.func_postgres_table_rule_dict(schemas=postgres_schemas)
+        cache_int_mapping = app.state.func_postgres_int_mapping(schemas=postgres_schemas, config_users_role_label=app.state.config_users_role_label, config_api=app.state.config_api)
+        cache_log_api_database = app.state.func_postgres_log_database(schemas=postgres_schemas) if app.state.config_is_log_api else None
         if not app.state.config_is_read_only:
             root_user_password_hash = client_password_hasher.hash(str(app.state.config_root_user_password)) if app.state.config_root_user_password and app.state.config_is_postgres_schema_init else None
-            for name, schema in app.state.func_postgres_schema_dict(values=getattr(app.state, "_state", None) or vars(app.state)).items():
+            for name, schema in postgres_schemas.items():
                 if not (client_postgres := client_postgres_dict.get(name)): continue
                 if not app.state.config_is_postgres_schema_init: await app.state.func_postgres_schema_check(app_state=app.state, client_postgres=client_postgres, config_postgres_schema=schema, name=name)
                 else:
@@ -90,7 +94,7 @@ async def func_lifespan(app: FastAPI):
         postgres_master_schema = await app.state.func_postgres_schema_read(client_postgres=postgres_master) if postgres_master else {}
         cache_startup = await app.state.func_postgres_cache_read(client_postgres=postgres_master, is_config_table="config" in postgres_master_schema, config_cache_row_limit_config=app.state.config_cache_row_limit_config, config_cache_row_limit_users_role=app.state.config_cache_row_limit_users_role, config_cache_row_limit_users_deactivated=app.state.config_cache_row_limit_users_deactivated, config_cache_row_limit_users_deleted=app.state.config_cache_row_limit_users_deleted)
         cache_config, cache_users_role, cache_users_deactivated, cache_users_deleted = cache_startup["cache_config"], cache_startup["cache_users_role"], cache_startup["cache_users_deactivated"], cache_startup["cache_users_deleted"]
-        client_postgres_log_api = client_postgres_dict.get(app.state.config_postgres_db_log_api) if app.state.config_is_log_api else None
+        client_postgres_log_api = client_postgres_dict.get(cache_log_api_database) if cache_log_api_database else None
         # cache schema
         cache_postgres_schema_dict = {name: postgres_master_schema if name == "master" else await app.state.func_postgres_schema_read(client_postgres=pool) for name, pool in client_postgres_dict.items()}
         if postgres_master and not app.state.config_is_read_only and "permissions" in postgres_master_schema.get("users", {}): await app.state.func_root_user_permissions_sync(client_postgres=postgres_master, config_api=app.state.config_api)    # root holds every /admin route id

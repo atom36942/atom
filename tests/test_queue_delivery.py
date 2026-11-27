@@ -98,7 +98,7 @@ class PostgresDeliveryTests(unittest.TestCase):
         from tests.integration.support import drop_database
         cls.db_name, cls.url = create_database()
         cls.addClassCleanup(drop_database, cls.db_name)
-        columns = {column["name"]: column for column in config_postgres_schema_master()["table"]["queue_job"]}
+        columns = {column["name"]: column for column in config_postgres_schema_master()["table"]["queue_job"]["column"]}
         def ddl(column): return f'"{column['name']}" {column['datatype']}' + (" GENERATED ALWAYS AS IDENTITY PRIMARY KEY" if column.get("identity") else "") + (" NOT NULL" if column.get("is_mandatory") else "") + (f" DEFAULT {column['default']}" if "default" in column else "")
         cls.sql(f"CREATE TABLE queue_job ({', '.join(ddl(column) for column in columns.values())})")
 

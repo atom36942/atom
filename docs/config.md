@@ -11,7 +11,7 @@ Every `config_*` value is read once, at startup, in this order; a later one wins
 | Order | Where | For |
 |---|---|---|
 | 1 | `config.py` | Atom's defaults |
-| 2 | `config_extend.py` | the project's defaults and structure (tables, routes); git-tracked, survives `sync.py`. See [extend.md](extend.md); startup stops if its `config_api`, `config_postgres_schema_master` or `config_column_int_mapping` drops any of Atom's routes, Postgres entries (a table may move to another database's schema) or mapped codes ([what is checked](extend.md#what-startup-checks-in-config_extendpy)) |
+| 2 | `config_extend.py` | the project's defaults and structure (tables, routes); git-tracked, survives `sync.py`. See [extend.md](extend.md); startup stops if its `config_api`, `config_postgres_schema_master` or `config_users_role_label` drops any of Atom's routes, Postgres entries (a table may move to another database's schema) or role codes ([what is checked](extend.md#what-startup-checks-in-config_extendpy)) |
 | 3 | `.env` | one machine's values: secrets, URLs, flags (or the file `ATOM_ENV_FILE` names: [local run](#local-run)) |
 | 4 | environment variables | a server's settings (Azure app settings, `docker run -e`, CI); `.env` never overwrites a variable that is already set |
 
@@ -181,11 +181,12 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_token_secret_key` | HMAC secret key for signing/verifying JWT tokens *(Must change)*. With `config_is_prod` on, startup refuses keys shorter than 32 bytes; generate one with `python3 -c "import secrets; print(secrets.token_urlsafe(48))"` |
 | `config_root_html_path` | Path to static HTML file served at `/` (default: Atom's home page, which lists every page in `static/` and `static_extend/`) |
 | `config_is_home_atom_listed` | `true` (default): the home page lists Atom's pages and the project's; `false`: only the project's pages (`static_extend/`). Applied by the server in `GET /static-pages`; Atom's pages still open at `/page/<name>` |
-| `config_is_user_delete` | Enables user hard deletion through `/my/user-delete` and `/admin/user-delete` (default `False`); the database also needs `users` out of `config_postgres_schema_master` control `table_row_delete_disable` |
+| `config_is_user_delete` | Enables user hard deletion through `/my/user-delete` and `/admin/user-delete` (default `False`); the database also needs `"delete"` out of the `users` table's `row_lock` in `config_postgres_schema_master` |
 | `config_is_postgres_schema_init` | `True` (default): startup changes each database to match its `config_postgres_schema_<name>`. `False`: startup changes nothing, compares instead, and stops if a database differs, listing the changes; run them with `venv/bin/python -m script.postgres_schema_plan --apply` (for production, where schema changes should be a deliberate step). With `config_is_read_only` neither runs |
 | `config_postgres_lock_timeout_sec` | Longest wait for a table lock during schema init (default 10); past it startup stops and changes nothing. See what would change: `venv/bin/python -m script.postgres_schema_plan` |
 | `config_signup_allowed_roles` | Roles allowed for public signup, including new users created by OTP/OIDC login (default: `[]` disables signup; role `1` is always rejected). See [role settings](auth.md#signup-and-login-role-settings). |
 | `config_login_allowed_roles` | Allowed values for the supplied login `role` parameter (default: roles `1` through `20`; optional for password login) |
+| `config_users_role_label` | Each role's label, `{1: "Admin"}`; a project adds its own (`{**base_config_users_role_label, 2: "User"}`) and startup refuses one without Atom's `1`. Served by `/info` as `int_mapping.master.users.role` ([labels](#labels-int_mapping)) |
 | `config_is_otp_require_users_update` | `/admin/user-update` needs `otp` for `email`/`mobile` (default `False`); `/my/user-update` always does |
 | `config_is_read_only` | Boolean system-wide read-only mode toggle |
 | `config_is_tmp_reset` | Wipe `tmp/` at app start (default: `False`); features and scripts delete their own `tmp/<feature>/` files |
@@ -199,10 +200,9 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_is_prod` | Boolean production-mode toggle (`True` disables debug and protects endpoints) |
 | `config_is_log_api` | API logging to `log_api` (default `True`). `False` (`config_is_log_api=false` in `.env`) turns it off: no rows are written, cleanup skips it, the Monitor's Requests and Errors tabs say logging is off and `/my/api-usage` returns 503. Only routes in `config_api` are logged; to skip some of them, set `"is_log_api": False` on them (Atom does for the pages `/` and `/page/{name}`, the health checks and `/pgweb`). |
 | `config_is_log_api_all` | Also log requests that are not a `config_api` route: static files, `/favicon.ico`, unknown paths and their 404s (default `False`, which keeps them out of `log_api`). Set `True` to see all traffic while debugging. |
-| `config_is_log_api_detail` | Also store each logged request's headers, the response headers and both bodies in `log_api` (`request_header`, `response_header`, `request_body`, `response_body`; default `False`). Only text bodies are kept, by their `Content-Type`: JSON (`application/json`, `+json`), XML (`application/xml`, `+xml`), `text/*` and `multipart/mixed`; CSV exports, event streams, forms, uploads, files and compressed bodies are only named (`[skipped: text/csv, 52311 bytes]`), never copied. `query_param` keeps every value. Secret header and query names are always masked (`Authorization`, `Cookie`, `Set-Cookie`, keys, tokens); bodies are stored as sent unless `config_is_log_api_detail_mask` is on. For debugging: rows get much larger, and bodies hold users' data; lower `config_retention_day_table_log_api` while it is on (it deletes them with the rest). |
+| `config_is_log_api_detail` | Also store each logged request's headers, the response headers and both bodies in `log_api` (`request_header`, `response_header`, `request_body`, `response_body`; default `False`). Only text bodies are kept, by their `Content-Type`: JSON (`application/json`, `+json`), XML (`application/xml`, `+xml`), `text/*` and `multipart/mixed`; CSV exports, event streams, forms, uploads, files and compressed bodies are only named (`[skipped: text/csv, 52311 bytes]`), never copied. `query_param` keeps every value. Secret header and query names are always masked (`Authorization`, `Cookie`, `Set-Cookie`, keys, tokens); bodies are stored as sent unless `config_is_log_api_detail_mask` is on. For debugging: rows get much larger, and bodies hold users' data; lower `log_api`'s `retention_day` while it is on (it deletes them with the rest). |
 | `config_log_api_detail_max_kb` | The most kept per body with `config_is_log_api_detail` (`64`); a longer body is cut and marked with its full size. |
 | `config_is_log_api_detail_mask` | With `config_is_log_api_detail`, also mask secrets inside the bodies: JSON fields and XML elements named password, token, OTP, secret or key become `[REDACTED]` (`False`, for speed: about 2-5 ms per 64 KB body, after the reply is sent). Turn it on when the bodies carry credentials. |
-| `config_postgres_db_log_api` | Named Postgres database for API logging (default: `master`); its `config_postgres_schema_<name>` holds `log_api` |
 | `config_uvicorn_workers` | Server processes started by `python main.py` (default: `1`). Above `1`, every `inmemory` cache, rate limit and user check in `config_api` must switch to `redis` (user checks may also use `realtime` or `token`), and startup warns if workers x pools x `config_postgres_pool_max_size` can exceed Postgres `max_connections` |
 
 ### Limits, OTP & Auth
@@ -224,9 +224,6 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_oidc_provider` | Single sign-on providers, `{name: {issuer, client_id, jwks_uri?, tenants?, link_email?}}` (JSON in `.env`); each adds the users column `oidc_<name>`. `{}` (default): `/auth/login-oidc` answers "OIDC not configured" ([auth-oidc.md](auth-oidc.md)) |
 | `config_schedule_timezone` | Time zone of every `config_schedule_*` time (`UTC`; a zone name such as `Asia/Kolkata`) ([schedule.md](schedule.md)) |
 | `config_schedule_script_<script>` | When `script/<script>.py` or `script_extend/<script>.py` runs by itself: `off`, `every 6h`, `daily 02:00`, `every 3d 02:00`, `weekly sun 02:00` or `monthly 1 02:00`. Atom's: `config_schedule_script_postgres_cleanup` (`every 1h`), `config_schedule_script_postgres_backup` (`off`) ([schedule.md](schedule.md)) |
-| `config_retention_day_table_otp` | OTP row retention in days (`1`); `None` skips it. Must exceed OTP expiry. Deleted by `script/postgres_cleanup.py` on `config_schedule_script_postgres_cleanup` |
-| `config_retention_day_table_log_api` | API-log row retention in days (`7`); `None` skips it. Deleted by `script/postgres_cleanup.py` on `config_schedule_script_postgres_cleanup` |
-| `config_retention_day_table_script_run` | Days a finished `script_run` row is kept (`90`); `None` keeps them. Deleted by `script/postgres_cleanup.py` on `config_schedule_script_postgres_cleanup`; a run still going is never deleted |
 | `config_retention_day_user_soft_deleted` | Days before soft-deleted users' data is purged by `script/worker_users_delete.py` (`30`) |
 | `config_access_token_expires_sec` | JWT Access Token lifetime in seconds |
 | `config_refresh_token_expires_sec` | JWT Refresh Token lifetime in seconds |
@@ -241,8 +238,6 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_blob_limit_upload` | Maximum files allowed per upload request (default: `100`) |
 | `config_blob_expire_sec_upload` | Presigned upload URL lifetime in seconds (`3600`) |
 | `config_blob_expire_sec_preview` | Presigned preview URL lifetime in seconds (`360000`) |
-| `config_buffer_limit_default` | In-memory buffer size before flushing rows to Postgres (`100`) |
-| `config_buffer_limit_<table>` | One table's buffer size, e.g. `config_buffer_limit_log_api` (`1000`); 10 to 5000. A name with no table in any `config_postgres_schema_<name>` stops startup |
 | `config_buffer_rows_max` | Max rows pending in each in-memory buffer during an outage (`100000`, at least `1000`). When full, `mode=buffer` creates return `503 buffer full, retry later` and API-log rows drop the oldest (counted as `buffer_dropped` on the Monitor page's Background tab) |
 | `config_postgres_buffer_flush_auto_sec` | Timer interval in seconds to auto-flush write buffers (`60`) |
 | `config_postgres_buffer_flush_auto_sec_<name>` | The same for one database's buffered rows (`config_postgres_url_<name>` must exist), e.g. `2` for device data while master keeps `60` ([database.md](database.md#periodic-background-flush-loop)) |
@@ -269,18 +264,12 @@ Disabled (`None`) by default; activated automatically when connection credential
 
 ### Table Access Control
 
+Which routes may use a table is set on the table itself ([table keys](#table-keys)).
+
 | Key | Usage |
 |---|---|
-| `config_table_exclude_from_users_delete` | Exact table names excluded from the user-deletion worker's soft deletion, restoration, and permanent purging |
-| `config_table_write_blocked` | Tables only Atom writes (`log_api`, `log_users_password`, `log_users_delete`, `script_run`, `otp`, `spatial_ref_sys`): every generic write API refuses them with 403, admin's included (`/admin/object-create`, `-update`, `-delete`, `/admin/postgres-import`, `/my/object-create`, `-update`, `-delete`, `-delete-all`, `/public/object-create`); reads and exports still work |
-| `config_table_my_create_blocked` | Tables refused on user `/my/object-create` endpoint |
-| `config_table_my_read_blocked` | Tables refused on user `/my/object-read` endpoint |
-| `config_table_my_delete_all_allowed` | Tables supporting `/my/object-delete-all` through any column in `config_column_ownership_delete` that exists in the table; defaults to `created_by_id` |
-| `config_table_public_create_allowed` | Tables accessible on unauthenticated public create route |
 | `config_public_create_honeypot` | Hidden form field (`"website"`) that only bots fill: `/public/object-create` refuses a row where it has a value and drops it when empty; the form adds it off-screen with `tabindex="-1"` and `autocomplete="off"`; `None` turns it off |
-| `config_table_public_read_allowed` | Tables accessible on unauthenticated public read route |
 | `config_mongodb_my_create_allowed` | MongoDB collections writable on `/my/object-create-mongodb`, as `{database: [collection, ...]}`; empty disables the route |
-| `config_table_private_read_allowed` | Tables accessible on authenticated private read route |
 
 ### Column Rules
 
@@ -296,7 +285,6 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_column_users_blocked` | `users` columns neither `/my/user-update` nor `/admin/user-update` may change (`created_*`, `updated_*`, `deleted_*`, `is_protected`, `last_active_at`, `totp_secret`, `totp_last_step`, `totp_recovery`); a project adds its own (e.g. a column only a script sets) |
 | `config_column_users_my_blocked` | `users` columns only `/admin/user-update` may change; `/my/user-update` refuses them (`role`, `permissions`, `totp_enabled_at`, `deactivated_at`, ...) |
 | `config_column_read_blocked` | Sensitive columns blocked and stripped from read responses and relations (`password`, `key_hash`, `secret`, `totp_secret`, `totp_recovery`) |
-| `config_column_private_read_blocked` | Per table, the columns `/private/*` reads may not select, filter, sort or group by, on top of `config_column_read_blocked` (Atom: `script_run`'s `started_by`, `host`, `step`, `message`, `peak_memory_mb`, so any user may read the run list but not the server details); extend it in `config_extend.py` (`{**base, "invoice": ["cost"]}`) |
 | `config_column_users_private_read` | The only `users` columns `/private/user-read` returns, filters and sorts on (`id`, `username`, `name`, `role`, `permissions`, `created_at`, `deactivated_at`); readable by every logged-in user, checked at startup |
 
 ### Service Registries
@@ -361,18 +349,51 @@ The role, deactivated and deleted checks share one `users` query per request (`f
 
 ### `config_postgres_schema_master` and `config_postgres_schema_<name>`
 
-Declarative schema per database: `config_postgres_schema_<name>` is applied at startup to the database of `config_postgres_url_<name>`, master first. `config_postgres_schema_master` (Atom's tables) is required; add one for another database in `config_extend.py` (`config_postgres_schema_telematics = {...}`). A database gets exactly what its schema lists, nothing of Atom's. Startup stops when a schema names a database without a URL, or when API logging is on and `log_api` is not in the schema of `config_postgres_db_log_api`'s database, or is in another one too ([database.md](database.md)).
+Declarative schema per database: `config_postgres_schema_<name>` is applied at startup to the database of `config_postgres_url_<name>`, master first. `config_postgres_schema_master` (Atom's tables) is required; add one for another database in `config_extend.py` (`config_postgres_schema_telematics = {...}`). A database gets exactly what its schema lists, nothing of Atom's. API logs go to the database whose schema has `log_api`. Startup stops when a schema names a database without a URL, or when API logging is on and `log_api` is in no schema or in two ([database.md](database.md)).
 
 #### Top-Level Dict Keys
 
 | Key | Type | Usage |
 |---|---|---|
 | `extension` | `list[str]` | PostgreSQL extensions to install on startup (`["postgis", "pg_trgm", "btree_gin", "vector"]`); each is optional: one the server lacks or the user may not install is skipped with a warning, and a column that needs it stops startup naming it |
-| `table` | `dict[str, list[dict]]` | Table schemas defined as list of column specification dicts |
+| `table` | `dict[str, dict]` | One object per table: its columns and who may use it ([table keys](#table-keys)) |
 | `control` | `dict` | Safety flags and auto-migration control settings |
 | `sql` | `dict[str, str]` | Raw custom SQL executed during schema startup initialization |
 
-#### Table Column Specification Dict Keys (`config_postgres_schema_master["table"][<table_name>]`)
+#### Table keys
+
+```python
+"task": {
+"my": ["create", "read", "update", "delete"],
+"admin": ["read", "update"],
+"retention_day": 365,
+"column": [
+{"name": "id", "datatype": "bigint", "identity": "always", "is_primary": True},
+{"name": "created_at", "datatype": "timestamptz", "default": "now()", "index": "btree(created_at)"},
+{"name": "created_by_id", "datatype": "bigint", "index": "btree(created_by_id,id)"},
+{"name": "status", "datatype": "smallint", "in": (1, 2), "int_mapping": {1: "Open", 2: "Done"}},
+{"name": "note", "datatype": "text", "is_private_read_blocked": True},
+]},
+```
+
+Only `column` is required. Access is closed unless listed: a group that is missing (or `[]`) cannot touch the table, and a table in no schema is refused by every object route. A refusal is 403 naming the fix (`my delete not allowed for table: task (add "delete" to "my" of task in config_postgres_schema_master)`). Each route checks the schema of the database it runs on (`?connection=<name>`, default `master`); a read with `relation=` needs the same group's `read` on each joined table.
+
+| Key | Type | Usage |
+|---|---|---|
+| `column` | `list[dict]` | The columns ([column keys](#column-keys)) |
+| `public` | `create`, `read` | `/public/*` object and table routes: anyone, no login |
+| `private` | `read` | `/private/*` object and table routes: any logged-in user, all rows |
+| `my` | `create`, `read`, `update`, `delete`, `delete_all` | `/my/object-*`: a user's own rows (`config_column_ownership_*`) |
+| `admin` | `create`, `read`, `update`, `delete` | `/admin/*` object and table routes and `/admin/postgres-import` (its mode): root and users granted the route's id, any row |
+| `row_lock` | `update`, `delete` | A trigger refuses every `UPDATE` and/or `DELETE`, raw SQL included. Never `update` on a table Atom updates itself (`otp`, `script_run`, `log_users_delete`) |
+| `row_delete_max` | int, 1 up | A trigger fails a single `DELETE` removing more rows. Never on a table cleanup or the users-delete worker purges (they delete 5,000 at a time) |
+| `users_delete_skip` | bool | The users-delete worker leaves this table's rows alone |
+| `buffer_limit` | int, 10-5000 | Rows held for a buffered create before they are written (default `100`) |
+| `retention_day` | int, 1-36500 | `script/postgres_cleanup.py` deletes rows older than this many days (needs `created_at`) ([cleanup](#automatic-cleanup-retention_day)) |
+
+Startup refuses any other key, an action a group's routes don't have (`"private": ["delete"]`), and a write on `users` (written only through `/my/user-*` and `/admin/user-*`; `/admin/postgres-import` still imports `users`, hashing passwords). Atom's tables carry their own access in `config.py` (logs are read-only, `api_key` is created only by `/my/api-key-create`); to change one, start from Atom's: `"test": {**base_config_postgres_schema_master["table"]["test"], "public": []}`.
+
+#### Column keys
 
 | Column Spec Key | Type | Usage & Description |
 |---|---|---|
@@ -388,6 +409,8 @@ Declarative schema per database: `config_postgres_schema_<name>` is applied at s
 | `index` | `str` | Index spec (`"btree(email)"`, `"gin_trgm(title)"`, `"gist(coordinate)"`, `"hnsw(embedding)"` for a vector column); several joined by `\|`; a btree column may add its sort order, so a list sorted that way reads in index order: `"btree(score desc nulls last,id)"` for `ORDER BY score desc nulls last, id` |
 | `in` | `tuple` | Allowed integer value set (e.g. `(1, 2, 3, 4)`) |
 | `old` | `str` | Renames existing column from `old` to `name` safely without dropping data |
+| `int_mapping` | `dict` | Labels for an integer column's codes, `{1: "Open", 2: "Done"}` (`None` for no value yet); with `in`, the codes must be the same. Served by `/info` ([labels](#labels-int_mapping)); never changes the database |
+| `is_private_read_blocked` | `bool` | `/private/*` reads may not select, filter, sort or group by this column (on top of `config_column_read_blocked`); never changes the database |
 | `generated` | `str` | SQL expression Postgres fills the column from (`GENERATED ALWAYS AS (...) STORED`); takes no `default`, `is_mandatory`, `in`, `regex`, `check`, `unique` or `old`; rebuilt when the expression changes ([crud-search.md](crud-search.md)) |
 
 #### `control`
@@ -403,9 +426,6 @@ Auto-migration and safety guards in `config_postgres_schema_master["control"]`.
 | `is_log_users_delete` | `True` | Automatically logs user soft/hard deletion actions into `log_users_delete` |
 | `is_root_user_create` | `True` | Automatically seeds initial root admin user on startup |
 | `is_root_user_delete_disabled` | `True` | Protects root admin user account from deletion |
-| `table_row_delete_disable` | `["users", ...]` | Tables where row deletion is entirely prohibited |
-| `table_row_update_disable` | `["log_api", "log_users_password"]` | Append-only tables: a trigger refuses every `UPDATE`, from any API, script or the admin SQL runner. Never a table Atom updates itself (`otp`, `script_run`, `log_users_delete`) |
-| `table_row_delete_disable_bulk` | `[["users", 100]]` | `[table, max_rows]` pairs: a single `DELETE` removing more rows fails. Listed tables only; never `log_api`, `otp` or tables the users-delete worker purges (they delete in batches of 5000) |
 
 ---
 
@@ -441,64 +461,47 @@ config_options = {**base_config_options, "city": "files_extend/city.txt"}
 
 ---
 
-### `config_column_int_mapping`
+### Labels (`int_mapping`)
 
-Human-readable labels for integer-coded database columns. Atom ships only the codes its own code writes:
+Labels for integer-coded columns live on the column (`int_mapping`, [column keys](#column-keys)). Atom labels the codes its own code writes:
 
-| Table / Column Key | Integer Code | String Label / Meaning |
-|---|---|---|
-| `users.role` | `1` | Admin |
-| `log_users_delete.worker_status` | `None` | Pending |
-| `log_users_delete.worker_status` | `1` | Processing |
-| `log_users_delete.worker_status` | `2` | Completed |
-| `log_users_delete.worker_status` | `3` | Failed |
-| `log_users_delete.worker_status` | `4` | Dead |
-| `log_users_delete.type` | `1` | User Soft Deleted |
-| `log_users_delete.type` | `2` | User Restored |
-| `log_users_delete.type` | `3` | User Hard Deleted |
-| `blob.type` | `1` | File |
-| `blob.type` | `2` | Presigned Url |
+| Table / Column | Codes |
+|---|---|
+| `users.role` | `1` Admin (`config_users_role_label`) |
+| `users.permissions` | every `config_api` route with `user_check_permission`: its `id` → its path |
+| `blob.type` | `1` File, `2` Presigned Url |
+| `script_run.status` | `1` Running, `2` Done, `3` Failed |
+| `queue_job.status` | `1` Waiting, `2` Failed |
+| `log_users_delete.type` | `1` User Soft Deleted, `2` User Restored, `3` User Hard Deleted |
+| `log_users_delete.worker_status` | `None` Pending, `1` Processing, `2` Completed, `3` Failed, `4` Dead |
 
-Projects add their own tables and columns (roles, statuses, types) in `config_extend.py` with `{**base_config_column_int_mapping, ...}`. Startup stops if `config_extend.py` drops any of the codes above; their labels may be renamed and codes added. Pages show labels only from `/info` (saved by their sync, [frontend.md](frontend.md)), never written in the page. Labels are display text only: they do not grant access (role `1` is admin because routes check `roles: [1]`, not because of a label).
-
-Mappings use the lookup order `config_column_int_mapping[table][column][value]`.
-
-### Permission labels
-
-A permission ID is a `config_api` route `id` (routes with `user_check_permission`). Atom labels its own (`59`, `60`, `61`, `62`, `86`); a project keeps them and adds its own in `config_extend.py`; startup refuses a permission route without a label:
+A project labels its roles in `config_users_role_label` and its own columns with `int_mapping`:
 
 ```python
 # config_extend.py
-config_column_int_mapping = {
-**base_config_column_int_mapping,
-"users": {**base_config_column_int_mapping["users"], "role": {1: "Admin", 2: "User"}, "permissions": {**base_config_column_int_mapping["users"]["permissions"], 205: "Task delete", 206: "Task export"}},
-}
+config_users_role_label = {**base_config_users_role_label, 2: "User"}
 ```
 
-Assigned IDs are stored in the `users` column `{"name": "permissions", "datatype": "smallint[]", "default": None}`. See [Per-User Permissions](auth-permission.md) for the flow.
+Permission labels are not written anywhere: each is the route's path, so a new route with `user_check_permission` is labelled by itself. Pages show labels only from `/info` (saved by their sync, [frontend.md](frontend.md)), never written in the page. Labels are display text only: they do not grant access (role `1` is admin because routes check `roles: [1]`, not because of a label). Assigned permission ids are stored in `users.permissions` (`smallint[]`); see [Per-User Permissions](auth-permission.md).
 
 ### `/info` Response Keys
-
-`GET /info` returns the whole mapping in `message.config_column_int_mapping`, including any permission labels the project defines (`...users.permissions`). There is no nested `config` object.
 
 | Key under `message` | Source / Meaning |
 |---|---|
 | `api_list` | Paths of all registered routes |
-| `config_column_int_mapping` | `config_column_int_mapping` (formerly returned as `mapping`) |
+| `int_mapping` | Every label, database → table → column → `{code: label}`, built at startup from every `config_postgres_schema_<name>` (`config.py` merged with `config_extend.py`) |
 | `options` | `config_options` |
 | `export_limit` | `config_export_limit`: the most rows any CSV export sends, for a page to show ("Up to 1,000,000 rows") |
 
-Permission IDs are integers in Python, but JSON object keys are strings: clients read entries such as `message.config_column_int_mapping.users.permissions["205"]`. This public catalog describes available actions; it does not list the current user's assigned permissions.
+A page reads `info.int_mapping.<db>.<table>.<column>[code]`, e.g. `info.int_mapping.master.users.role[2]`. Codes are integers in Python but strings as JSON keys (`info.int_mapping.master.users.permissions["205"]`). This public catalog describes available actions; it does not list the current user's assigned permissions.
 
 ---
 
-📚 [Back to README](../readme.md)
+### Automatic cleanup (`retention_day`)
 
-### Automatic OTP, API-log and script-run cleanup
+`script/postgres_cleanup.py` runs on `config_schedule_script_postgres_cleanup` (every hour by default, [schedule.md](schedule.md)) and, in every database, permanently deletes the rows of each table with `retention_day` older than that many days, in batches of up to 5,000 with 0.1-second pauses, until none are left. Each run is a row in `script_run`, one step per table (`<db>.<table>`). Atom's defaults: `otp` 1, `log_api` 7, `script_run` 90 (a run still going is kept, whatever its age); a table without `retention_day` is kept. Successful OTP verification still deletes its code immediately; expiry alone does not delete it. `config_schedule_script_postgres_cleanup = "off"` stops it; `otp`'s retention must exceed `config_otp_expiry_sec`.
 
-`script/postgres_cleanup.py` runs on `config_schedule_script_postgres_cleanup` (every hour by default, [schedule.md](schedule.md)) and permanently deletes only rows older than each retention cutoff, in batches of up to 5,000 with 0.1-second pauses, until none are left; each run is a row in `script_run`. OTP and `script_run` rows are in the master database (`script_run` keeps a run still going, whatever its age); API logs in the database `config_postgres_db_log_api` names, and only while `config_is_log_api` is on. Successful OTP verification still deletes its code immediately; expiry alone does not delete it. `config_schedule_script_postgres_cleanup = "off"` stops both; a retention of `None` stops one.
-
-#### Sizing `config_retention_day_table_log_api`
+#### Sizing `log_api`'s `retention_day`
 
 Atom writes one `log_api` row per request, so the table holds roughly requests per day × retention days. Rows take about 150–200 bytes plus indexes:
 
@@ -508,6 +511,10 @@ Atom writes one `log_api` row per request, so the table holds roughly requests p
 | 1M requests/day | 7M | ~2.5 GB |
 | 10M requests/day | 70M | ~25 GB |
 
-The default of 7 days covers the Monitor page's longest range and keeps the table small. `/my/api-usage?days=N` reads this table, so users see at most that many days; for audits or problems found weeks later, raise it in `config_extend.py` or `.env` (for example `config_retention_day_table_log_api=30`). For high traffic, also consider keeping logs off the main database with `config_postgres_db_log_api` pointing at a separate `config_postgres_url_<name>`. Load tests create log rows too; they are removed once they pass the retention cutoff.
+The default of 7 days covers the Monitor page's longest range and keeps the table small. `/my/api-usage?days=N` reads this table, so users see at most that many days; for audits or problems found weeks later, raise it in `config_extend.py` (`"log_api": {**base_config_postgres_schema_master["table"]["log_api"], "retention_day": 30}`). For high traffic, also consider keeping logs off the main database: move `log_api` into another database's `config_postgres_schema_<name>` ([database.md](database.md#5-api-logging--telemetry-log_api)). Load tests create log rows too; they are removed once they pass the retention cutoff.
 
-Both tables have a `created_at` index in the schema configuration. When `config_postgres_db_log_api` is not `master`, `log_api` moves into that database's `config_postgres_schema_<name>` and out of master's ([database.md](database.md#5-api-logging--telemetry-log_api)); startup stops while it is missing there or left in another schema. A retention of `None` means no cleanup queries for that table. Deleted space can be reused by PostgreSQL after vacuuming; deletion does not necessarily shrink the database files on disk.
+Deleted space can be reused by PostgreSQL after vacuuming; deletion does not necessarily shrink the database files on disk.
+
+---
+
+📚 [Back to README](../readme.md)

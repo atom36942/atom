@@ -87,7 +87,7 @@ class WebhookTests(unittest.TestCase):
         self.assertIn("https", self.message(self.client.post("/admin/webhook-create", json={"url": "http://partner.test/hook", "events": ["a"]}, headers=self.admin), 400))
         self.assertIn("invalid webhook event", self.message(self.client.post("/admin/webhook-create", json={"url": URL, "events": ["Bad Event"]}, headers=self.admin), 400))
         self.assertEqual(self.client.post("/admin/webhook-create", json={"url": URL, "events": ["a"]}, headers=self.alice).status_code, 403)
-        self.assertEqual(self.client.post("/my/object-create", params={"table": "webhook"}, json={"url": URL, "events": ["a"], "secret": "x"}, headers=self.alice).status_code, 400)
+        self.assertEqual(self.client.post("/my/object-create", params={"table": "webhook"}, json={"url": URL, "events": ["a"], "secret": "x"}, headers=self.alice).status_code, 403)
 
     def test_send_queues_one_delivery_per_active_subscriber_and_delivers_it_signed(self):
         self.webhook_add(["shipment.delivered", "shipment.created"])

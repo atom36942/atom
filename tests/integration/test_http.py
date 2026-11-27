@@ -20,8 +20,8 @@ from tests.integration.support import requires_postgres
 
 LOG_API_ON_REPORTS = """from config import config_postgres_schema_master as base_config_postgres_schema_master
 config_postgres_schema_master = {**base_config_postgres_schema_master, "table": {k: v for k, v in base_config_postgres_schema_master["table"].items() if k != "log_api"}}
-config_postgres_schema_reports = {"table": {"log_api": base_config_postgres_schema_master["table"]["log_api"]}}
-"""    # API logs go to the reports database: log_api out of master's schema, into reports'
+config_postgres_schema_reports = {"table": {"log_api": base_config_postgres_schema_master["table"]["log_api"], "report": {"admin": ["read"], "column": [{"name": "id", "datatype": "bigint", "identity": "always", "is_primary": True}, {"name": "title", "datatype": "text"}]}}}
+"""    # API logs go to the reports database: log_api out of master's schema, into reports'; its report table admins may read
 
 
 @requires_postgres
@@ -47,7 +47,7 @@ class HttpIntegrationTests(unittest.TestCase):
 
     @classmethod
     def database_env(cls):
-        return {"config_postgres_url_master": cls.url, "config_postgres_url_reports": cls.reports_url, "config_postgres_db_log_api": "reports"}
+        return {"config_postgres_url_master": cls.url, "config_postgres_url_reports": cls.reports_url}
 
     def auth(self, token=None):
         return {"Authorization": f"Bearer {token or self.token}"}
@@ -142,7 +142,7 @@ class HttpIntegrationTests(unittest.TestCase):
         self.assertEqual(read.status_code, 200, read.text)
         self.assertEqual([r["title"] for r in read.json()["message"]["obj_list"]], ["from reports"])
         master = self.client.get("/admin/object-read", params={"table": "report"}, headers=self.auth(self.admin_token))
-        self.assertEqual(master.status_code, 400, master.text)    # report only exists in the reports database
+        self.assertEqual(master.status_code, 403, master.text)    # report is only in the reports database's schema
 
     def test_unknown_postgres_is_404(self):
         response = self.client.get("/admin/object-read", params={"connection": "nope", "table": "test"}, headers=self.auth(self.admin_token))
@@ -190,7 +190,7 @@ class HttpIntegrationTests(unittest.TestCase):
     def test_only_successful_responses_are_cached(self):
         params = {"table": "no_such_table"}
         first, second = self.client.get("/public/object-read", params=params), self.client.get("/public/object-read", params=params)
-        self.assertEqual((first.status_code, second.status_code), (400, 400))
+        self.assertEqual((first.status_code, second.status_code), (403, 403))
         self.assertNotEqual(second.headers.get("x-cache"), "hit")
 
     def test_security_headers_on_errors_and_unknown_paths(self):

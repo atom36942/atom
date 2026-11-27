@@ -138,7 +138,7 @@ async def func_blob_upload_file(*, app_state: State, service: str, container: st
         output[item.filename] = file_url
         blob_list.append({"created_by_id": user_id, "type": 1, "service": service, "file_url": file_url})
     if blob_list:
-        await app_state.func_postgres_create(client_postgres=app_state.client_postgres_dict.get("master"), client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema_dict.get("master", {}), buffer_postgres=app_state.buffer_postgres_create, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table="blob", obj_list=blob_list)
+        await app_state.func_postgres_create(client_postgres=app_state.client_postgres_dict.get("master"), client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema_dict.get("master", {}), buffer_postgres=app_state.buffer_postgres_create, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.func_buffer_limit(app_state=app_state, table="blob"), mode="now", table="blob", obj_list=blob_list)
     return output
 
 async def func_blob_upload_url(*, app_state: State, service: str, container: str, count: int, user_id: int = None) -> list:
@@ -168,7 +168,7 @@ async def func_blob_upload_url(*, app_state: State, service: str, container: str
             output.append({"upload_url": sas_url, "key": file_key, "file_url": file_url})
         blob_list.append({"created_by_id": user_id, "type": 2, "service": service, "file_url": file_url})
     if blob_list:
-        await app_state.func_postgres_create(client_postgres=app_state.client_postgres_dict.get("master"), client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema_dict.get("master", {}), buffer_postgres=app_state.buffer_postgres_create, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table="blob", obj_list=blob_list)
+        await app_state.func_postgres_create(client_postgres=app_state.client_postgres_dict.get("master"), client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema_dict.get("master", {}), buffer_postgres=app_state.buffer_postgres_create, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.func_buffer_limit(app_state=app_state, table="blob"), mode="now", table="blob", obj_list=blob_list)
     return output
 
 async def func_blob_containers_read(*, client_s3: Any, client_azure_blob: Any, service: str) -> list:

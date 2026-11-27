@@ -39,14 +39,15 @@ One feature, one name in every folder (`<f>`); a big one splits into `<f>_<part>
 ## Backend ([backend.md](docs/backend.md))
 Enforced:
 - Atom owns every unsuffixed path (`function/`, `router/`, `docs/`, `script/`, `static/`, `files/`, `config.py`, `main.py`, `sync.py`, `AGENTS.md`, ...); sync overwrites them. A project's code lives only in `*_extend` paths, `config_extend.py` and `.env`.
-- Every route has a `config_api` entry: a unique `id` (a project's from 200) and `auth` (`[]`, `["jwt"]`, `["api_key"]` or both); `/admin/*` needs `user_check_permission` (the route's id in `users.permissions`; root holds every one) or `user_check_role`, and every permission id a label in `config_column_int_mapping`.
-- `func_*` names are unique across `function/` and `function_extend/`; `config_extend.py` has sections `# base`, `# atom`, `# extend` and only extends Atom's dicts (dropping an Atom route, table or code fails).
+- Every route has a `config_api` entry: a unique `id` (a project's from 200) and `auth` (`[]`, `["jwt"]`, `["api_key"]` or both); `/admin/*` needs `user_check_permission` (the route's id in `users.permissions`; root holds every one) or `user_check_role`; a permission id's label is its route's path.
+- `func_*` names are unique across `function/` and `function_extend/`; `config_extend.py` has sections `# base`, `# atom`, `# extend` and only extends Atom's dicts (dropping an Atom route, table or role code fails).
+- Each table in `config_postgres_schema_<name>` is `{"column": [...]}` plus who may use it through Atom's object routes (`public`, `private`, `my`, `admin`: lists of actions, closed unless listed) and its `row_lock`, `retention_day`, `buffer_limit`; labels are `int_mapping` on the column ([config.md](docs/config.md#table-keys)).
 - Settings are typed: `config_is_<what>` is true or false, `config_schedule_script_<script>` a schedule; anything else stops startup.
 - `script.check` fails on: a secret in code or docs (only in `.env`); Postgres through anything but asyncpg (`psycopg`, `sqlalchemy`); `.env` missing from `.gitignore`; a pool or SDK client opened in `function_extend/` or `router_extend/` (use Atom's; a script is its own process and may open its own); a role or permission check in `router_extend/` (`config_api` does it).
 
 Rules:
 - User id and role come only from `request.state.user`.
-- Rows only through `func_check_table_permission` and `func_postgres_create/read/update/delete`; hand-written SQL only for what they can't express, values bound as `$1`, Postgres only through asyncpg.
+- Rows only through `func_check_table_access` and `func_postgres_create/read/update/delete`; hand-written SQL only for what they can't express, values bound as `$1`, Postgres only through asyncpg.
 - Reuse Atom's `func_*` helpers (search `function/` first); never edit `main.py` (startup hook: `func_extend`).
 - Users go through Atom's routes (`/admin/user-*`, `/my/user-*`): never a project user API ([auth.md](docs/auth.md)).
 - `users.permissions` holds only route ids; any other access (which rows a user sees: countries, companies) is its own admin-only `users` column read on each request ([auth-permission.md](docs/auth-permission.md)).
@@ -75,7 +76,7 @@ Defaults (the working code: `static/analytics.html`, the full flow, and `static/
 - Escape data before `innerHTML`; nothing secret in a URL; hiding a button is not access control (`config_api` refuses).
 - Each page is standalone: one localStorage key and one IndexedDB database named after it; logout clears both, in every tab.
 - Login with the page's one role (`/auth/login-username-password`), then `/my/profile` and its user check; renew with `/my/token-refresh` before expiry; a refused renewal or a deactivated or deleted account logs out with a plain message.
-- Labels and limits from `/info` (`config_column_int_mapping`, `export_limit`), never written in the page; reference data refreshed on a timer and on request.
+- Labels and limits from `/info` (`int_mapping.<db>.<table>.<column>`, `export_limit`), never written in the page; reference data refreshed on a timer and on request.
 - Lists page after a cursor with no total count; search asks the server; export streams from `/<feature>/export` up to `export_limit`; counts and totals in SQL: the browser never downloads a table that grows.
 - One page per app; pages share no CSS or JS files; no script or style from another site; a viewport meta tag.
 

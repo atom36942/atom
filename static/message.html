@@ -424,12 +424,12 @@ const Page = (() => {
   };
   // sync: new token, the user, the settings (/info), then the page's data (PAGE.refresh); synced_at when it finishes. step(i) names the step for the Sync dialog
   const syncSteps = () => ["Renewing login…", "Loading your profile…", "Loading settings…", ...(PAGE.refresh ? ["Downloading data…"] : [])];
-  // GET /info (public) → info = {config_column_int_mapping, export_limit}: labels and settings come from the server, never from the page
+  // GET /info (public) → info = {int_mapping, export_limit}: labels and settings come from the server, never from the page
   const infoLoad = async (session = sessionId) => {
     const response = await fetch("/info"), body = await response.json().catch(() => ({}));
     if (!response.ok || body.status !== 1) throw new Error("Sync failed. Please try again.");
     if (session !== sessionId) return;    // logged out while it downloaded: nothing is saved
-    save({ info: { config_column_int_mapping: body.message.config_column_int_mapping || {}, export_limit: Number(body.message.export_limit) || 0 } });
+    save({ info: { int_mapping: body.message.int_mapping || {}, export_limit: Number(body.message.export_limit) || 0 } });
   };
   // the settings and the page's data, one download at a time (a page with no cache yet calls it too): /info, PAGE.refresh, then synced_at, then PAGE.onSynced
   // sessionId changes at every logout, so a download that finishes after one saves nothing
@@ -545,12 +545,12 @@ const Page = (() => {
 
   /* -- account menu: My profile, Login details, Sync, Settings, Logout -- */
   const menuToggle = open => { const isOpen = open ?? el("accountMenu").hidden; el("accountMenu").hidden = !isOpen; el("accountBtn").setAttribute("aria-expanded", String(isOpen)) };
-  const roleText = role => { if (role == null) return "-"; const label = read().info?.config_column_int_mapping?.users?.role?.[role]; return esc(label ? `${role} (${label})` : String(role)) };    // "1 (Admin)": the number first, the label from /info in brackets; only the number before the first sync
+  const roleText = role => { if (role == null) return "-"; const label = read().info?.int_mapping?.master?.users?.role?.[role]; return esc(label ? `${role} (${label})` : String(role)) };    // "1 (Admin)": the number first, the label from /info in brackets; only the number before the first sync
   // the route ids as stored, comma separated ("136, 137"); "None" when there are none: a user tells the developer the numbers, the labels are in the backend
-  // Permissions: a ✓ when the user holds any (a click lists them: ID and Name from /info config_column_int_mapping.users.permissions, "-" without one), a ✗ when none
+  // Permissions: a ✓ when the user holds any (a click lists them: ID and Name from /info int_mapping.master.users.permissions, "-" without one), a ✗ when none
   const permissionsCell = u => { const ids = Array.isArray(u.permissions) ? u.permissions : []; return ids.length ? `<button type="button" class="permissions-open" data-user="${esc(String(u.id))}" data-permissions="${esc(ids.join(","))}" aria-label="Show permissions" data-tip="Show permissions">✓</button>` : '<span class="permissions-none" data-tip="No permissions">✗</span>' };
   const permissionsOpen = button => {
-    const names = read().info?.config_column_int_mapping?.users?.permissions || {}, ids = button.dataset.permissions.split(",").map(Number).sort((x, y) => x - y);
+    const names = read().info?.int_mapping?.master?.users?.permissions || {}, ids = button.dataset.permissions.split(",").map(Number).sort((x, y) => x - y);
     el("permissionsSub").textContent = `ID ${button.dataset.user}`;
     el("permissionsBody").innerHTML = `<table class="permissions-table"><thead><tr><th>ID</th><th>Name</th></tr></thead><tbody>${ids.map(id => `<tr><td>${id}</td><td>${esc(names[id] ?? "-")}</td></tr>`).join("")}</tbody></table>`;
     el("permissionsDialog").showModal();

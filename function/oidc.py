@@ -31,12 +31,12 @@ def func_oidc_config_apply(*, values: dict) -> None:
     if not isinstance(providers, dict): raise ValueError("config_oidc_provider must be a dict of provider name to settings")
     for name, provider in providers.items(): func_oidc_provider_check(name=name, provider=provider)
     postgres = values.get("config_postgres_schema_master")
-    if not providers or not isinstance(postgres, dict) or "users" not in postgres.get("table", {}): return
-    users = list(postgres["table"]["users"])
+    if not providers or not isinstance(postgres, dict) or not isinstance(postgres.get("table", {}).get("users"), dict): return
+    users = list(postgres["table"]["users"].get("column") or [])
     names = {c.get("name") for c in users}
     columns = [f"oidc_{name}" for name in providers if f"oidc_{name}" not in names]
     users += [{"name": c, "datatype": "text", "unique": f"{c},role"} for c in columns]
-    values["config_postgres_schema_master"] = {**postgres, "table": {**postgres["table"], "users": users}}
+    values["config_postgres_schema_master"] = {**postgres, "table": {**postgres["table"], "users": {**postgres["table"]["users"], "column": users}}}
     for key in ("config_column_users_my_blocked",):
         if isinstance(values.get(key), (list, tuple)): values[key] = [*values[key], *(c for c in [f"oidc_{name}" for name in providers] if c not in values[key])]
 

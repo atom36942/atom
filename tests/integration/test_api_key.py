@@ -97,7 +97,7 @@ class ApiKeyTests(unittest.TestCase):
         created = self.create()
         carol = app_login(self.client, path="/auth/signup-username-password", body={"role": 5, "username": "carol", "password": "carol-pass"})
         self.assertEqual(self.message(self.client.post("/my/object-delete", json={"table": "api_key", "ids": [created["id"]]}, headers=self.bearer(carol))), "0 ids deleted")
-        self.assertEqual(self.client.post("/my/object-create", params={"table": "api_key"}, json={"name": "x", "key_hash": "h", "key_prefix": "p"}, headers=self.bearer(self.alice)).status_code, 400)
+        self.assertEqual(self.client.post("/my/object-create", params={"table": "api_key"}, json={"name": "x", "key_hash": "h", "key_prefix": "p"}, headers=self.bearer(self.alice)).status_code, 403)
         updated = self.client.put("/my/object-update", params={"table": "api_key"}, json={"id": created["id"], "name": "renamed"}, headers=self.bearer(self.alice))
         self.assertNotEqual(updated.status_code, 200, updated.text)    # the database refuses every UPDATE of api_key
         self.assertEqual(fetch(self.url, "SELECT name FROM api_key WHERE id=$1", created["id"]), [{"name": "test"}])

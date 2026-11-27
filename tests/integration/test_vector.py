@@ -35,7 +35,8 @@ class VectorTests(unittest.TestCase):
         cls.app, cls.client = cls.handle["app"], cls.handle["client"]
         state = cls.app.state
         cls.call = lambda fn, **kwargs: cls.client.portal.call(functools.partial(fn, **kwargs))
-        cls.call(state.func_postgres_schema_tables_init, app_state=state, client_postgres=state.client_postgres_dict["master"], tables={"doc": DOC})
+        cls.call(state.func_postgres_schema_tables_init, app_state=state, client_postgres=state.client_postgres_dict["master"], tables={"doc": {"column": DOC}})
+        state.cache_postgres_table_rule["master"]["doc"] = {"admin": ["create", "read", "update", "delete"], "private_read_blocked": []}    # the table the test adds, open to admin like a project table
         state.cache_postgres_schema_dict["master"] = cls.call(state.func_postgres_schema_read, client_postgres=state.client_postgres_dict["master"])
         for path in ("/admin/object-create", "/admin/object-read", "/admin/object-read-export"): state.config_api[path]["rate_limit"] = None
         cls.admin = {"Authorization": "Bearer " + app_login(cls.client, path="/auth/login-username-password", body={"username": "admin", "password": "root-test-password"})}

@@ -23,7 +23,7 @@ class QueueChannelTests(unittest.TestCase):
 
     def test_unknown_channel_stops_before_connecting(self):
         with patch("function.queues.func_run_broker") as run_broker, self.assertRaisesRegex(Exception, "unknown channel: func_postgres_create"):
-            func_consumer_run(queue="redis", channel="func_postgres_create", broker_settings={}, postgres_url="postgresql://x", config_column_regex={}, config_buffer_limit_default=1, config_buffer_rows_max=1)
+            func_consumer_run(queue="redis", channel="func_postgres_create", broker_settings={}, postgres_url="postgresql://x", config_column_regex={}, config_buffer_rows_max=1)
         run_broker.assert_not_called()
 
     def test_each_broker_script_runs_its_own_broker(self):
@@ -51,7 +51,7 @@ class QueueChannelConnectionTests(unittest.IsolatedAsyncioTestCase):
     def context(self):
         import asyncio
         return {"client_postgres_dict": {"master": "master-pool"}, "cache_postgres_schema_dict": {"master": {}}, "postgres_url_dict": {"master": "postgresql://m", "telemetry": "postgresql://t"},
-                "lock_postgres_open": asyncio.Lock(), "client_password_hasher": None, "config_column_regex": {}, "buffer_postgres_create": {}, "config_buffer_rows_max": 10, "config_buffer_limit_default": 10}
+                "lock_postgres_open": asyncio.Lock(), "client_password_hasher": None, "config_column_regex": {}, "buffer_postgres_create": {}, "config_buffer_rows_max": 10, "config_postgres_table_rule": {"telemetry": {"reading": {"buffer_limit": 500}}}}
 
     async def test_a_job_writes_to_the_database_its_request_used(self):
         from function import func_consumer_object_create

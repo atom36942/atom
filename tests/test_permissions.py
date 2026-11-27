@@ -4,9 +4,8 @@ import unittest
 from unittest.mock import AsyncMock
 from unittest.mock import patch
 
-from function import func_check_table_permission
+from function import func_check_table_access
 from function import func_check_table_not_users
-from function import func_check_table_write_blocked
 from function import func_middleware_api_user_check_fill
 from function import func_user_update_check
 from function import func_user_update
@@ -22,49 +21,34 @@ from function import func_middleware_check_user_deleted
 
 
 class PermissionTests(unittest.IsolatedAsyncioTestCase):
-    def test_table_and_relation_allowlists(self):
-        state = SimpleNamespace(config_table_public_read_allowed=["product"])
-        func_check_table_permission(app_state=state, table="product")
-        for table, relation in [("users", None), ("product", ["user,users,id,created_by_id"])]:
-            with self.subTest(table=table, relation=relation), self.assertRaisesRegex(Exception, "disabled"):
-                func_check_table_permission(app_state=state, table=table, relation=relation)
-        with self.assertRaisesRegex(Exception, "disabled"):
-            func_check_table_permission(app_state=SimpleNamespace(), table="product")
-
-    def test_blocklist_takes_precedence_over_wildcard_allowlist(self):
-        state = SimpleNamespace(config_table_public_read_blocked=["users"], config_table_public_read_allowed=["*"])
-        func_check_table_permission(app_state=state, table="product")
-        with self.assertRaisesRegex(Exception, "disabled"):
-            func_check_table_permission(app_state=state, table="users")
-        with self.assertRaisesRegex(Exception, "relation read disabled"):
-            func_check_table_permission(app_state=state, table="product", relation=["user,users,id,created_by_id"])
-        state.config_table_public_read_blocked = ["*"]
-        with self.assertRaisesRegex(Exception, "disabled"):
-            func_check_table_permission(app_state=state, table="product")
+    def test_a_table_is_closed_unless_its_schema_lists_the_action(self):
+        state = SimpleNamespace(cache_postgres_table_rule={"master": {"product": {"public": ["read"]}, "users": {"admin": ["read"]}}})
+        func_check_table_access(app_state=state, table="product", group="public", action="read")
+        for kwargs in ({"table": "users", "group": "public", "action": "read"}, {"table": "product", "group": "public", "action": "read", "relation": ["user,users,id,created_by_id"]}, {"table": "product", "group": "public", "action": "create"}, {"table": "orders", "group": "my", "action": "read"}):
+            with self.subTest(kwargs=kwargs), self.assertRaisesRegex(Exception, "not allowed for table"): func_check_table_access(app_state=state, **kwargs)
+        with self.assertRaisesRegex(Exception, "not allowed for table: product"):
+            func_check_table_access(app_state=SimpleNamespace(), table="product", group="public", action="read")    # no rules at all: closed
 
     def test_restricted_fields_checked_across_entire_batch(self):
         with self.assertRaisesRegex(Exception, "restricted field: role"):
             func_validate_restricted_columns(app_state=SimpleNamespace(config_column_admin={"role"}),
                                              obj_list=[{"name": "ok"}, {"role": 1}])
 
-    def test_tables_only_atom_writes_are_refused_with_403(self):
-        state = SimpleNamespace(config_table_write_blocked=["log_api"])
-        func_check_table_write_blocked(app_state=state, table="orders")
-        with self.assertRaisesRegex(Exception, "write disabled for table: log_api") as caught:
-            func_check_table_write_blocked(app_state=state, table="log_api")
-        self.assertEqual(caught.exception.status_code, 403)
-        func_check_table_write_blocked(app_state=SimpleNamespace(), table="log_api")    # a project without the setting: no block
-
-    def test_every_generic_write_api_checks_the_write_blocked_tables(self):
+    def test_every_generic_object_api_checks_the_table_access(self):
         import inspect
         import router.admin
         import router.my
+        import router.private
         import router.public
-        writes = {"/admin/object-create", "/admin/object-update", "/admin/object-delete", "/admin/postgres-import", "/my/object-create", "/my/object-update", "/my/object-delete", "/my/object-delete-all", "/public/object-create"}
-        found = {route.path: route.endpoint for module in (router.admin, router.my, router.public) for route in module.router.routes if route.path in writes}
-        self.assertEqual(set(found), writes)
-        for path, endpoint in found.items():
-            self.assertIn("func_check_table_write_blocked", inspect.getsource(endpoint), path)
+        routes = {"/admin/object-create": "admin create", "/admin/object-read": "admin read", "/admin/object-read-export": "admin read", "/admin/table-column-groupby": "admin read", "/admin/table-column-distinct": "admin read", "/admin/object-update": "admin update", "/admin/object-delete": "admin delete", "/admin/postgres-import": "admin",
+                  "/my/object-create": "my create", "/my/object-read": "my read", "/my/object-read-export": "my read", "/my/object-update": "my update", "/my/object-delete": "my delete", "/my/object-delete-all": "my delete_all",
+                  "/private/object-read": "private read", "/private/object-read-export": "private read", "/private/table-column-groupby": "private read", "/private/table-column-distinct": "private read",
+                  "/public/object-create": "public create", "/public/object-read": "public read", "/public/object-read-export": "public read", "/public/table-column-groupby": "public read", "/public/table-column-distinct": "public read"}
+        found = {route.path: inspect.getsource(route.endpoint) for module in (router.admin, router.my, router.private, router.public) for route in module.router.routes if route.path in routes}
+        self.assertEqual(set(found), set(routes))
+        for path, access in routes.items():
+            group, _, action = access.partition(" ")
+            with self.subTest(path=path): self.assertIn(f'group="{group}"' + (f', action="{action}")' if action else ""), found[path])
 
     def test_global_user_checks_fill_every_route_with_a_credential_unless_it_sets_its_own(self):
         config_api = {"/public": {"id": 1, "auth": []}, "/my/x": {"id": 2, "auth": ["jwt"]}, "/admin/x": {"id": 3, "auth": ["jwt"], "user_check_role": {"mode": "token", "roles": [1]}},
@@ -84,10 +68,13 @@ class PermissionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((config.config_api_global_user_check_deleted, config.config_api_global_user_check_deactivated), ("token", "token"))
         self.assertTrue({"deleted_at", "deactivated_at"} <= set(config.config_column_token_encode))
 
-    def test_atom_tables_nobody_edits_are_in_the_defaults(self):
+    def test_atom_tables_nobody_edits_are_locked(self):
         import config
-        self.assertTrue({"log_api", "log_users_password", "log_users_delete", "script_run", "otp"} <= set(config.config_table_write_blocked))
-        self.assertEqual(config.config_postgres_schema_master["control"]["table_row_update_disable"], ["log_api", "log_users_password", "api_key"])
+        tables = config.config_postgres_schema_master["table"]
+        for table in ("log_api", "log_users_password", "log_users_delete", "script_run", "otp", "queue_job"):
+            with self.subTest(table=table): self.assertEqual(tables[table]["admin"], ["read"])
+        self.assertEqual(sorted(name for name, spec in tables.items() if "update" in spec.get("row_lock", [])), ["api_key", "log_api", "log_users_password"])
+        self.assertEqual(sorted(name for name, spec in tables.items() if "delete" in spec.get("row_lock", [])), ["config", "log_users_delete", "log_users_password", "users"])
 
     def test_generic_object_apis_refuse_the_users_table(self):
         func_check_table_not_users(table="orders")
@@ -123,7 +110,7 @@ class PermissionTests(unittest.IsolatedAsyncioTestCase):
         labels = {205: "Task delete", 206: "Task export"}
         self.assertEqual(await self.update_check({"id": 1, "permissions": [206, 205, 205]}, is_admin=True, config_permission_label=labels), {"permissions": [205, 206]})
         self.assertEqual(await self.update_check({"id": 7, "permissions": None}, is_admin=True, config_permission_label=labels), {"permissions": None})
-        for value, message in [([207], "not labelled"), (["205"], "list of route ids"), ([True], "list of route ids"), ("205", "list of route ids")]:
+        for value, message in [([207], "not ids of routes with user_check_permission"), (["205"], "list of route ids"), ([True], "list of route ids"), ("205", "list of route ids")]:
             with self.subTest(value=value), self.assertRaisesRegex(Exception, message):
                 await self.update_check({"id": 7, "permissions": value}, is_admin=True, config_permission_label=labels)
         with self.assertRaisesRegex(Exception, "permissions can be updated only by an admin"):

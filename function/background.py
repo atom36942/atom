@@ -73,14 +73,10 @@ async def func_inmemory_cache_cleanup_periodic_task(*, cache_api_response: dict,
         except Exception as e: func_runtime_error_record(runtime_error_count=runtime_error_count, key="cleanup", error=e)
     return
 
-async def func_otp_cleanup(*, conn: asyncpg.Connection, cutoff, timeout_sec: float) -> int:
-    """Delete at most 5,000 OTP rows older than cutoff; leave current codes untouched (script/postgres_cleanup.py calls it until done)."""
-    result = await conn.execute("DELETE FROM otp WHERE id IN (SELECT id FROM otp WHERE created_at < $1 ORDER BY created_at LIMIT 5000 FOR UPDATE SKIP LOCKED)", cutoff, timeout=timeout_sec)
-    return int(result.split()[-1])
-
-async def func_log_api_cleanup(*, conn: asyncpg.Connection, cutoff, timeout_sec: float) -> int:
-    """Delete at most 5,000 old API logs from the supplied logging database."""
-    result = await conn.execute("DELETE FROM log_api WHERE id IN (SELECT id FROM log_api WHERE created_at < $1 ORDER BY created_at LIMIT 5000 FOR UPDATE SKIP LOCKED)", cutoff, timeout=timeout_sec)
+async def func_table_retention_cleanup(*, conn: asyncpg.Connection, table: str, cutoff, timeout_sec: float) -> int:
+    """Delete at most 5,000 rows of table created before cutoff (the table's retention_day in its schema; script/postgres_cleanup.py calls it until done). script_run keeps a run still going. Rows are found by (tableoid, ctid), so tables without id and partitioned ones work too."""
+    keep = " AND status <> 1" if table == "script_run" else ""
+    result = await conn.execute(f'DELETE FROM "{table}" WHERE (tableoid, ctid) IN (SELECT tableoid, ctid FROM "{table}" WHERE created_at < $1{keep} ORDER BY created_at LIMIT 5000 FOR UPDATE SKIP LOCKED)', cutoff, timeout=timeout_sec)    # noqa: S608 - table names come from config_postgres_schema, not requests
     return int(result.split()[-1])
 
 @asynccontextmanager

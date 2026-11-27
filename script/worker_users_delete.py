@@ -12,10 +12,10 @@ import asyncpg
 import boto3
 from azure.core.exceptions import ResourceNotFoundError
 from dotenv import load_dotenv
-from config import config_table_exclude_from_users_delete
 from config import config_column_ownership_delete
 from config import config_retention_day_user_soft_deleted
 from function import func_client_postgres
+from function import func_config_read
 from function import func_client_azure_blob
 
 # config
@@ -53,11 +53,11 @@ async def schema_column_read(*, conn: asyncpg.Connection) -> dict:
     for row in rows: schema.setdefault(row["table_name"], set()).add(row["column_name"])
     return schema
 
-def owned_table_list(*, schema: dict, table_exclude: list, ownership_column_list: list) -> list:
-    """(table, ownership columns, has is_protected) for every table a user's rows can be soft-deleted in."""
+def owned_table_list(*, schema: dict, table_include: set, ownership_column_list: list) -> list:
+    """(table, ownership columns, has is_protected) for every table a user's rows can be soft-deleted in: only tables of config_postgres_schema_master without users_delete_skip."""
     tables = []
     for table, columns in schema.items():
-        if table in table_exclude: continue
+        if table not in table_include: continue
         ownership_columns = [col for col in ownership_column_list if col in columns]
         if "deleted_at" not in columns or not ownership_columns: continue
         tables.append((table, ownership_columns, "is_protected" in columns))
@@ -139,10 +139,10 @@ async def retained_blob_row_purge(*, conn: asyncpg.Connection, clients: dict, re
         await asyncio.sleep(0.05)
     return total_deleted
 
-async def worker_run_once(*, pool, clients: dict, table_exclude: list, ownership_column_list: list, retention_day: int) -> int:
+async def worker_run_once(*, pool, clients: dict, table_include: set, ownership_column_list: list, retention_day: int) -> int:
     """Claims and processes one batch of tasks, then purges rows past the retention window; returns the tasks claimed."""
     async with pool.acquire() as conn:
-        owned_tables = owned_table_list(schema=await schema_column_read(conn=conn), table_exclude=table_exclude, ownership_column_list=ownership_column_list)
+        owned_tables = owned_table_list(schema=await schema_column_read(conn=conn), table_include=table_include, ownership_column_list=ownership_column_list)
         async with conn.transaction(): tasks = await task_claim(conn=conn, batch_limit=USERS_DELETE_BATCH_LIMIT)
     if tasks: print(f"[users-delete-worker] claimed {len(tasks)} task(s)")
     for task in tasks:
@@ -162,13 +162,13 @@ async def worker_run_once(*, pool, clients: dict, table_exclude: list, ownership
     if purged: print(f"[users-delete-worker] purged {purged} retained deleted row(s)")
     return len(tasks)
 
-async def worker_loop(*, postgres_url, storage, table_exclude, ownership_column_list, retention_day):
+async def worker_loop(*, postgres_url, storage, table_include, ownership_column_list, retention_day):
     pool = await func_client_postgres(dsn=postgres_url, min_size=1, max_size=5)
     clients = storage_client_open(**storage)
     try:
         idle_count = 0
         while True:
-            if await worker_run_once(pool=pool, clients=clients, table_exclude=table_exclude, ownership_column_list=ownership_column_list, retention_day=retention_day):
+            if await worker_run_once(pool=pool, clients=clients, table_include=table_include, ownership_column_list=ownership_column_list, retention_day=retention_day):
                 idle_count = 0
                 await asyncio.sleep(1)
                 continue
@@ -182,7 +182,8 @@ async def worker_loop(*, postgres_url, storage, table_exclude, ownership_column_
 def main():
     print("Starting Users Delete Worker Script...")
     storage = {"aws_region": config_aws_s3_region_name, "aws_key_id": config_aws_access_key_id, "aws_secret": config_aws_secret_access_key, "azure_name": config_azure_account_name, "azure_key": config_azure_account_key}
-    asyncio.run(worker_loop(postgres_url=postgres_url_master, storage=storage, table_exclude=config_table_exclude_from_users_delete, ownership_column_list=config_column_ownership_delete, retention_day=config_retention_day_user_soft_deleted))
+    table_include = {table for table, spec in ((func_config_read().get("config_postgres_schema_master") or {}).get("table") or {}).items() if isinstance(spec, dict) and not spec.get("users_delete_skip")}
+    asyncio.run(worker_loop(postgres_url=postgres_url_master, storage=storage, table_include=table_include, ownership_column_list=config_column_ownership_delete, retention_day=config_retention_day_user_soft_deleted))
 
 # main
 if __name__ == "__main__":

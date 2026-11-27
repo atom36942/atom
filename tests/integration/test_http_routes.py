@@ -102,7 +102,7 @@ class HttpRouteTests(unittest.TestCase):
         # a user granted one route id gets that route only
         [row_id] = self.message(self.client.post("/my/object-create", params={"table": "test"}, json={"title": "alice's"}, headers=self.auth(self.alice)))
         self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": [66]}, headers=self.auth(self.admin)))    # /admin/object-update
-        self.assertEqual(self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": [999]}, headers=self.auth(self.admin)), 400).count("not labelled"), 1)
+        self.assertEqual(self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": [999]}, headers=self.auth(self.admin)), 400).count("not ids of routes with user_check_permission"), 1)
         bob = app_login(self.client, path="/auth/login-username-password", body={"username": "bob", "password": "bob-pass"})
         self.assertEqual(self.message(self.client.put("/admin/object-update", params={"table": "test"}, json={"id": row_id, "title": "by bob"}, headers=self.auth(bob))), [row_id])
         self.assertEqual(fetch(self.url, "SELECT title, created_by_id, updated_by_id FROM test WHERE id = $1", row_id), [{"title": "by bob", "created_by_id": self.alice_id, "updated_by_id": self.bob_id}])
@@ -185,7 +185,7 @@ class HttpRouteTests(unittest.TestCase):
 
     def test_object_read_export_rejects_bad_input_before_streaming(self):
         self.assertEqual(self.client.get("/my/object-read-export", params={"table": "test"}).status_code, 401)
-        self.assertEqual(self.message(self.client.get("/my/object-read-export", params={"table": "users"}, headers=self.auth(self.alice)), 400), "read disabled for table: users")
+        self.assertEqual(self.message(self.client.get("/my/object-read-export", params={"table": "users"}, headers=self.auth(self.alice)), 403), "my read not allowed for table: users (add \"read\" to \"my\" of users in config_postgres_schema_master)")
         self.assertEqual(self.message(self.client.get("/my/object-read-export", params={"table": "test", "page": 2}, headers=self.auth(self.alice)), 400), "request contains unknown parameters")
         self.assertEqual(self.message(self.client.get("/my/object-read-export", params={"table": "test", "limit": 0}, headers=self.auth(self.alice)), 400), "Rows must be between 1 and 1,000,000.")
         self.assertEqual(self.client.get("/my/object-read-export", params={"table": "test", "column": "password"}, headers=self.auth(self.alice)).status_code, 400)
@@ -196,7 +196,7 @@ class HttpRouteTests(unittest.TestCase):
         public = self.client.get("/public/object-read-export", params={"table": "test", "column": "id,title"})
         self.assertEqual(public.status_code, 200, public.text)
         self.assertIn("shared-export", {r["title"] for r in csv_rows(public)})
-        self.assertEqual(self.message(self.client.get("/public/object-read-export", params={"table": "users"}), 400), "read disabled for table: users")
+        self.assertEqual(self.message(self.client.get("/public/object-read-export", params={"table": "users"}), 403), "public read not allowed for table: users (add \"read\" to \"public\" of users in config_postgres_schema_master)")
         self.assertEqual(self.client.get("/private/object-read-export", params={"table": "test"}).status_code, 401)
         private = self.client.get("/private/object-read-export", params={"table": "test", "column": "id,title"}, headers=self.auth(self.bob))
         self.assertIn("shared-export", {r["title"] for r in csv_rows(private)})
@@ -223,10 +223,10 @@ class HttpRouteTests(unittest.TestCase):
 
     def test_public_and_private_reads_respect_table_allowlists(self):
         self.message(self.client.post("/public/object-create", params={"table": "test"}, json={"title": "public row"}))
-        self.assertEqual(self.message(self.client.post("/public/object-create", params={"table": "task"}, json={"title": "x"}), 400), "creation disabled for table: task")
+        self.assertEqual(self.message(self.client.post("/public/object-create", params={"table": "task"}, json={"title": "x"}), 403), "public create not allowed for table: task (add \"create\" to \"public\" of task in config_postgres_schema_master)")
         titles = [r["title"] for r in self.message(self.client.get("/private/object-read", params={"table": "test"}, headers=self.auth(self.alice)))["obj_list"]]
         self.assertIn("public row", titles)
-        self.assertEqual(self.message(self.client.get("/private/object-read", params={"table": "users"}, headers=self.auth(self.alice)), 400), "read disabled for table: users")
+        self.assertEqual(self.message(self.client.get("/private/object-read", params={"table": "users"}, headers=self.auth(self.alice)), 403), "private read not allowed for table: users (add \"read\" to \"private\" of users in config_postgres_schema_master)")
         users = self.message(self.client.get("/private/user-read", headers=self.auth(self.alice)))["obj_list"]
         self.assertTrue({"alice", "bob"} <= {u["username"] for u in users})
         self.assertEqual({k for u in users for k in u}, {"id", "username", "name", "role", "permissions", "created_at", "deactivated_at"})
@@ -393,7 +393,7 @@ class HttpRouteTests(unittest.TestCase):
             return [str(w.message) for w in caught if "Unclosed file" in str(w.message)]
         upload = lambda table: self.client.post("/admin/postgres-import", data={"mode": "create", "table": table}, files={"file": ("rows.csv", b"title\nimported\n", "text/csv")}, headers=self.auth(self.admin))
         self.assertEqual(unclosed_files(lambda: self.assertEqual(upload("test").status_code, 200)), [])
-        self.assertEqual(unclosed_files(lambda: self.assertEqual(upload("missing_table").status_code, 400)), [])
+        self.assertEqual(unclosed_files(lambda: self.assertEqual(upload("missing_table").status_code, 403)), [])
         self.assertEqual(fetch(self.url, "SELECT count(*) AS n FROM test WHERE title = 'imported'"), [{"n": 1}])
 
     # background mode
@@ -468,7 +468,7 @@ class HttpRouteTests(unittest.TestCase):
 
     def test_log_database_outage_is_counted_buffered_and_recovered(self):
         before = self.runtime_status()["error_count"]
-        requests_sent = self.client.app.state.config_buffer_limit_log_api + 5    # enough to fill the buffer, so a request writes too
+        requests_sent = self.client.app.state.cache_postgres_table_rule["master"]["log_api"]["buffer_limit"] + 5    # enough to fill the buffer, so a request writes too
         info_logged = lambda: fetch(self.url, "SELECT count(*) AS n FROM log_api WHERE path = '/info'")[0]["n"]
         time.sleep(1.2)    # let earlier requests flush so the baseline is complete
         logged_before = info_logged()
@@ -498,7 +498,7 @@ class HttpRouteTests(unittest.TestCase):
             deadline = time.time() + 5
             while time.time() < deadline and "background_task error" not in log.getvalue(): time.sleep(0.05)
         self.assertIn("background_task error #", log.getvalue())
-        self.assertIn("Exception(\"table 'no_such_table' not found\")", log.getvalue())
+        self.assertIn("my create not allowed for table: no_such_table", log.getvalue())
         self.assertEqual(self.runtime_status()["error_count"]["background_task"], count_before + 1)
         self.assertEqual(self.message(self.client.get("/health")), "ok")
 

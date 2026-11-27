@@ -27,7 +27,7 @@ Atom's own:
 
 | Setting | Default | Script |
 |---|---|---|
-| `config_schedule_script_postgres_cleanup` | `every 1h` | `script/postgres_cleanup.py`: deletes OTP, API-log and finished `script_run` rows older than `config_retention_day_table_otp` (1), `config_retention_day_table_log_api` (7) and `config_retention_day_table_script_run` (90); a retention of `None` skips that table |
+| `config_schedule_script_postgres_cleanup` | `every 1h` | `script/postgres_cleanup.py`: in every database, deletes the rows of each table with `retention_day` older than that many days (Atom's: `otp` 1, `log_api` 7, finished `script_run` 90); a table without it is kept |
 | `config_schedule_script_postgres_backup` | `off` | `script/postgres_backup.py`: every table of the master database to CSV, with its columns and indexes, from one snapshot, into `tmp/postgres_backup/<date_time>/`; keeps 7 days. Useful before changing data; on hosts whose disk is reset on deploy (Azure App Service, containers) it is a working copy, not disaster recovery |
 
 ## Write one

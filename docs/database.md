@@ -53,19 +53,22 @@ curl -H "Authorization: Bearer $TOKEN" "http://localhost:8000/admin/postgres-sch
 
 Each database has its own schema: `config_postgres_schema_<name>` is applied at startup to the database of `config_postgres_url_<name>`, master first. `config_postgres_schema_master` holds Atom's tables; a project adds one for another database in `config_extend.py`, and that database gets exactly what its schema lists (nothing of Atom's, no `users`). A schema naming a database without a URL stops startup.
 
+Each table is an object: `column` (required) and who may use it through Atom's object routes (`public`, `private`, `my`, `admin`; closed unless listed), plus `row_lock`, `row_delete_max`, `users_delete_skip`, `buffer_limit` and `retention_day`. The schema is the one place a table's structure, access and labels are set; the keys are in [config.md](config.md#table-keys).
+
 When `config_is_postgres_schema_init = True`, Atom inspects and automatically migrates each database on startup:
 - Creates the PostgreSQL extensions of its `extension` part.
 - Creates missing tables declared in its `table` part, with their primary key: `id`, several columns (`device`, `time`), or none.
 - Adds missing columns and alters types if necessary.
 - Installs unique constraints, checks and indexes from the column specs.
-- Where the `users` table is (master): seeds the root admin user (`admin` / `role: 1`) and attaches the root protection trigger.
+- Attaches Atom's triggers (truncate, `updated_at`, `is_protected`, `row_lock`, `row_delete_max`) only to the tables that database's schema lists.
+- Only in the database whose schema has `users` (master): seeds the root admin user (`admin` / `role: 1`) and attaches the root protection and `users` triggers.
 - Runs its `sql` part last (for example `create_hypertable`, [timescaledb.md](timescaledb.md)).
 
 ```python
 # config_extend.py: a second database, telematics (config_postgres_url_telematics in .env)
 config_postgres_schema_telematics = {
 "extension": ["timescaledb"],
-"table": {"reading": [{"name": "device", "datatype": "text", "is_primary": True}, {"name": "time", "datatype": "timestamptz", "is_primary": True}, {"name": "speed", "datatype": "real"}]},
+"table": {"reading": {"admin": ["read"], "column": [{"name": "device", "datatype": "text", "is_primary": True}, {"name": "time", "datatype": "timestamptz", "is_primary": True}, {"name": "speed", "datatype": "real"}]}},
 "sql": {"reading_hypertable": "SELECT create_hypertable('reading', 'time', if_not_exists => TRUE)"},
 }
 ```
@@ -109,7 +112,7 @@ Atom can buffer high-volume write requests in application memory and insert them
 ### The Two Runtime Buffers:
 Lifespan initializes two independent buffer dictionaries on `app.state`:
 1. **`buffer_postgres_create`**: Holds records submitted via object-create APIs with `mode=buffer`, and by project code calling `func_postgres_create(mode="buffer")`.
-2. **`buffer_postgres_log_api`**: Holds request audit records produced by the HTTP middleware, for the `config_postgres_db_log_api` database.
+2. **`buffer_postgres_log_api`**: Holds request audit records produced by the HTTP middleware, for the database whose schema has `log_api`.
 
 Each buffered row keeps its database: the buffer key is `<connection>|<table>|<columns>|<on_conflict>`, and a flush writes each database's rows through that database's pool (`client_postgres_dict[<connection>]`). A database whose pool is missing, or whose insert fails, keeps its rows for the next flush (counted under `buffer_flush` on the Monitor page's Background tab, which lists each buffer with its database); the other databases are still written.
 
@@ -138,7 +141,7 @@ await app_state.func_postgres_create(client_postgres=app_state.client_postgres_d
 Rows are taken out of the buffer before each insert, so concurrent requests never insert the same rows twice or lose rows added meanwhile. A failed insert puts its rows back at the front for the next flush.
 
 ### Periodic Background Flush Loop:
-Atom runs a periodic background task (`func_postgres_buffer_flush_periodic_task`) draining both buffers, each database every `config_postgres_buffer_flush_auto_sec_<name>` seconds when set, else every `config_postgres_buffer_flush_auto_sec` (default 60s): for example `config_postgres_buffer_flush_auto_sec_telemetry=2` writes device points every 2 seconds while master keeps its minute. A name without a `config_postgres_url_<name>` stops startup. Each flush acquires `runtime_lock_postgres_buffer_flush` to serialize flushes and ensure no lost writes. A buffer is also written when one key reaches its row limit (`config_buffer_limit_<table>`, else `config_buffer_limit_default`), on `GET /admin/sync` and once more at shutdown.
+Atom runs a periodic background task (`func_postgres_buffer_flush_periodic_task`) draining both buffers, each database every `config_postgres_buffer_flush_auto_sec_<name>` seconds when set, else every `config_postgres_buffer_flush_auto_sec` (default 60s): for example `config_postgres_buffer_flush_auto_sec_telemetry=2` writes device points every 2 seconds while master keeps its minute. A name without a `config_postgres_url_<name>` stops startup. Each flush acquires `runtime_lock_postgres_buffer_flush` to serialize flushes and ensure no lost writes. A buffer is also written when one key reaches its row limit (the table's `buffer_limit`, else 100), on `GET /admin/sync` and once more at shutdown.
 
 Buffered rows live in the process's memory: rows not yet flushed are lost if the process crashes. Keep the interval short for data a sender won't send again, and fill gaps from the sender's history API with `on_conflict="nothing"`.
 
@@ -160,12 +163,10 @@ To keep high-volume log writes from contending with business transactions, route
 # .env
 config_postgres_url_master=postgresql://atom:pass@primary-db:5432/atom
 config_postgres_url_logs=postgresql://logger:pass@logs-db:5432/atom_logs
-config_postgres_db_log_api=logs
 ```
-Then move the `log_api` table into that database's schema, explicitly, in `config_extend.py`: out of master's schema, into the logs one (the same definition, not a copy):
+Then move the `log_api` table into that database's schema in `config_extend.py`: out of master's schema, into the logs one (the same definition, not a copy). The database whose schema has `log_api` gets the logs:
 ```python
-config_postgres_db_log_api = "logs"
 config_postgres_schema_master = {**base_config_postgres_schema_master, "table": {k: v for k, v in base_config_postgres_schema_master["table"].items() if k != "log_api"}}
 config_postgres_schema_logs = {"table": {"log_api": base_config_postgres_schema_master["table"]["log_api"]}}
 ```
-Startup stops while API logging is on and `log_api` is not in the schema of `config_postgres_db_log_api`'s database, or is in another one too. Atom resolves `app.state.client_postgres_log_api = app.state.client_postgres_dict["logs"]` and routes log writes, cleanup and `/my/api-usage` to it.
+Startup stops while API logging is on and `log_api` is in no schema, or in two. `/admin/monitor?view=app` shows it as `log_database`. Atom resolves `app.state.client_postgres_log_api = app.state.client_postgres_dict["logs"]` and routes log writes, cleanup and `/my/api-usage` to it.

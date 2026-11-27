@@ -21,6 +21,7 @@ class ConnectionWriteIntegrationTests(unittest.TestCase):
         fetch(cls.other_url, "CREATE TABLE reading (time timestamptz NOT NULL, device text NOT NULL, value double precision, PRIMARY KEY (device, time))")    # like a hypertable: no id, the key includes time
         cls.handle = app_start(env={"config_postgres_url_master": cls.url, "config_postgres_url_telemetry": cls.other_url, "config_postgres_buffer_flush_auto_sec_telemetry": "1", "config_postgres_buffer_flush_auto_sec": "3600"})
         cls.app, cls.client = cls.handle["app"], cls.handle["client"]
+        cls.app.state.cache_postgres_table_rule["telemetry"] = {"note": {"admin": ["create", "read", "update", "delete"], "private_read_blocked": []}}    # as config_postgres_schema_telemetry would list note (its tables are made above)
         cls.admin = {"Authorization": f"Bearer {app_login(cls.client, path='/auth/login-username-password', body={'username': 'admin', 'password': 'root-test-password'})}"}
         cls.user = {"Authorization": f"Bearer {app_login(cls.client, path='/auth/signup-username-password', body={'role': 5, 'username': 'bob', 'password': 'bob-pass'})}"}
 
@@ -41,7 +42,7 @@ class ConnectionWriteIntegrationTests(unittest.TestCase):
         self.assertEqual(self.count(self.other_url, "SELECT count(*) AS n FROM note WHERE title = 'direct'"), 1)
         self.assertEqual(self.client.put("/admin/object-update", params={"table": "note", "connection": "telemetry"}, json={"id": note_id, "title": "changed"}, headers=self.admin).status_code, 200)
         self.assertEqual(self.count(self.other_url, "SELECT count(*) AS n FROM note WHERE title = 'changed'"), 1)
-        self.assertEqual(self.client.post("/admin/object-create", params={"table": "note"}, json={"title": "x"}, headers=self.admin).json()["message"], "table 'note' not found", "without connection: master, which has no note table")
+        self.assertEqual(self.client.post("/admin/object-create", params={"table": "note"}, json={"title": "x"}, headers=self.admin).json()["message"], "admin create not allowed for table: note (add \"create\" to \"admin\" of note in config_postgres_schema_master)", "without connection: master, whose schema has no note table")
 
     def test_buffered_rows_are_flushed_to_their_own_database_on_its_interval(self):
         response = self.client.post("/admin/object-create", params={"table": "note", "connection": "telemetry", "mode": "buffer"}, json={"title": "buffered"}, headers=self.admin)

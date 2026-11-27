@@ -11,9 +11,11 @@ Endpoints are split into **access tiers** (`/my/*`, `/public/*`, `/private/*`, `
 | Scope Tier | Base Path | Target Audience | Ownership Enforcement |
 | :--- | :--- | :--- | :--- |
 | **User** | `/my/object-*` | Authenticated users | Create stamps the creator; read, update, and delete default to creator ownership and accept an operation-approved `ownership_column`. |
-| **Public** | `/public/object-*` | Anonymous / Unauthenticated | Restricted by `config_table_public_read_allowed`. |
-| **Private** | `/private/object-*` | Any logged-in user | Reads tables in `config_table_private_read_allowed`. |
-| **Admin** | `/admin/object-*` | Superadmins (`role: 1`) | Unrestricted table access across database. |
+| **Public** | `/public/object-*` | Anonymous / Unauthenticated | All rows. |
+| **Private** | `/private/object-*` | Any logged-in user | All rows, read only. |
+| **Admin** | `/admin/object-*` | Root and users granted the route's id | Any row. |
+
+Each table lists what each tier may do on it (`"public": ["read"]`, `"my": ["create", "read"]`, ...) in its `config_postgres_schema_<name>`; a tier or action not listed is refused with 403, and so is a table in no schema ([table keys](config.md#table-keys)). A `relation=` read needs the same tier's `read` on every joined table.
 
 ---
 
@@ -39,7 +41,7 @@ Create does not accept `ownership_column`; `/my/object-create` always stamps `cr
 | **Update** | `PUT /my/object-update` | `PUT /my/object-update?ownership_column=assigned_to_id` | Updates matching owned/assigned records; stamps `updated_by_id`. |
 | **Delete (IDs)** | `POST /my/object-delete` | `POST /my/object-delete?ownership_column=received_by_id` | Deletes specific IDs matching ownership. |
 | **Delete (All)** | `DELETE /my/object-delete-all` | `DELETE /my/object-delete-all?ownership_column=received_by_id` | Bulk wipes matching user rows (allowlist guarded). |
-| **Self Delete** | `POST /my/object-delete` with `table="users"` | *(N/A)* | Self-account deletion (`id == current_user.id`). |
+| **Self Delete** | `DELETE /my/user-delete` | *(N/A)* | Self-account deletion (the object routes refuse `table=users`). |
 
 The server validates that the requested ownership column is allowed for that operation and exists on the requested table. It then adds `<ownership_column> = current_user.id` to the SQL condition. A caller may choose the ownership relationship but cannot choose the user ID. Table permissions remain a separate authorization layer.
 
@@ -389,7 +391,7 @@ Use these before writing a project route; most screens need nothing else.
 | Create, change, delete your own rows | `/my/object-create`, `/my/object-update`, `/my/object-delete` | `table`; update and delete only the caller's rows |
 | Selected users read, change or delete anyone's rows (a support team, a shared task list) | `/admin/object-create`, `-read`, `-read-export`, `-update`, `-delete` | `table`; the user holds that route's id in `users.permissions` |
 
-Pick the tier by who calls: `/my` (own rows), `/private` (any logged-in user, tables in `config_table_private_read_allowed`), `/permission` (users granted the table's action), `/public` (no login), `/admin` (role 1). Hide columns with `config_column_read_blocked`. Write a project route only for joins, several different lists in one statement, computed filters or business checks.
+Pick the tier by who calls: `/my` (own rows), `/private` (any logged-in user, all rows), `/public` (no login), `/admin` (root and users granted the route's id); the table must list that tier's action. Hide columns with `config_column_read_blocked`. Write a project route only for joins, several different lists in one statement, computed filters or business checks.
 
 ---
 
@@ -424,7 +426,7 @@ The effective condition is `id = 135 AND assigned_to_id = current_user.id`. If o
 
 ### Anyone's rows, for selected users (the admin object routes)
 
-A user granted an admin object route's id may call it, whatever their role: 67 `/admin/object-read`, 65 `-create`, 66 `-update`, 72 `-delete`; nobody but root holds them until granted. The route works on every table except `users` and `config_table_write_blocked`; protected columns cannot change, `created_by_id`/`updated_by_id` is the caller, the batch limit applies. A grant is the whole route, every table ([auth-permission.md](auth-permission.md#admin-routes-one-id-each)).
+A user granted an admin object route's id may call it, whatever their role: 67 `/admin/object-read`, 65 `-create`, 66 `-update`, 72 `-delete`; nobody but root holds them until granted. The route works on every table whose `admin` lists the action (`users` is never written through it); protected columns cannot change, `created_by_id`/`updated_by_id` is the caller, the batch limit applies. A grant is the whole route, every table ([auth-permission.md](auth-permission.md#admin-routes-one-id-each)).
 
 ```bash
 # grant a user update and delete of anyone's rows (an admin, PUT /admin/user-update)
@@ -442,14 +444,14 @@ Body contains an explicit array of integer `ids`:
 ```json
 {"table": "test", "ids": [1, 2, 3]}
 ```
-For ordinary tables, deletes rows where `id = ANY()` AND `created_by_id = current_user.id` by default. The `users` table follows the account deletion rules below.
+For ordinary tables, deletes rows where `id = ANY()` AND `created_by_id = current_user.id` by default; the table must list `delete` in its `my` keys. `table=users` is refused: a user deletes their account with `DELETE /my/user-delete`.
 
 ### 2. Delete Consumer / Owned Records (`POST /my/object-delete?ownership_column=received_by_id`)
 Pass the optional `ownership_column` query parameter to select a column from `config_column_ownership_delete`; it defaults to `created_by_id` when omitted. Keep `table` and `ids` in the JSON body, for example `{"table": "message", "ids": [1, 2, 3]}`. Rows must match both a supplied ID and `<ownership_column> = current_user.id`. For `table="users"`, omit `ownership_column`; the own-account deletion checks apply instead.
 
 ### 3. Bulk Wipe User Records (`DELETE /my/object-delete-all`)
 Wipes all records belonging to the current user in a table in batches capped by `config_batch_item_limit` (currently 1,000; fallback 5,000 when unset or zero) to prevent database locks and gateway timeouts on very large tables. Guarded by:
-- The table must be in `config_table_my_delete_all_allowed`.
+- The table's `my` must list `delete_all`.
 - The ownership column must be in `config_column_ownership_delete` and exist in the table.
 
 The optional `ownership_column` query parameter defaults to `created_by_id`. Rows must belong to the logged-in user through the selected column. Bulk deletion of `users` is always rejected.

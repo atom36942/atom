@@ -9,8 +9,8 @@ How a page works with Atom: the routes it calls, the login and token flow, stora
 
 ## Defaults
 - Security: escape every value from the database or another system before `innerHTML`; nothing secret or personal in a URL. Hiding a button is not access control: `config_api` and the routes refuse what a user may not do, so a page may show or hide controls as it likes.
-- Use Atom's routes before writing one: login `/auth/login-*`, renewal `/my/token-refresh`, the user `/my/profile`, password and profile changes `/my/user-update`, own rows `/my/object-*`, selected users' rows the admin object routes (granted per route), labels and limits `/info` (`config_column_int_mapping`, `export_limit`), files `/public/blob-upload-*`, messages `/my/message-*`, users `/admin/user-create` and `/admin/user-update`, granted by id ([user-management.md](user-management.md)).
-- Labels (a role, a status) come from `/info` `config_column_int_mapping`, never written in the page; before `/info` loads, show the number.
+- Use Atom's routes before writing one: login `/auth/login-*`, renewal `/my/token-refresh`, the user `/my/profile`, password and profile changes `/my/user-update`, own rows `/my/object-*`, selected users' rows the admin object routes (granted per route), labels and limits `/info` (`int_mapping`, `export_limit`), files `/public/blob-upload-*`, messages `/my/message-*`, users `/admin/user-create` and `/admin/user-update`, granted by id ([user-management.md](user-management.md)).
+- Labels (a role, a status) come from `/info` `int_mapping`, database → table → column → code (`info.int_mapping.master.users.role[2]`), never written in the page; before `/info` loads, show the number.
 - One page per app; state such as a tab goes in the query (`/page/<name>?tab=<tab>`), not a sub-path. Pages never share CSS or JS files, so each changes on its own path.
 - Calls that don't need each other's result go out together (`Promise.all`); one screen task, one route.
 - No script or style from another site: the page works without outside servers. A viewport meta tag, so it works on a phone.

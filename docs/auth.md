@@ -113,7 +113,7 @@ Rows of `users` are written only through these APIs; the generic object APIs (`/
 | API | Query | Body | Rules |
 |---|---|---|---|
 | `POST /admin/user-create` | | `{role, username, password, ...columns}` | The three required; any other `users` column (profile fields, a project's own columns) is set in the same insert, except those in `config_column_users_my_blocked`, `config_column_single_update` and `config_column_users_blocked` (sign-up, login, verification, permissions, system: set them with an update) and `id`, `deactivated_at`; returns `{"id": ...}` |
-| `PUT /admin/user-update` | | `{id, ...users columns}`, or several as `{"obj_list": [{id, ...}, ...]}` | Up to `config_batch_item_limit` users, ids unique, each with its own columns and checked by the same rules; one transaction, so a missing id (404) or any refused user updates none. `email`/`mobile` need `otp` only when `config_is_otp_require_users_update` is on. The root user's `role` and `deactivated_at` cannot change. `permissions` must be route ids labelled in `config_column_int_mapping["users"]["permissions"]` |
+| `PUT /admin/user-update` | | `{id, ...users columns}`, or several as `{"obj_list": [{id, ...}, ...]}` | Up to `config_batch_item_limit` users, ids unique, each with its own columns and checked by the same rules; one transaction, so a missing id (404) or any refused user updates none. `email`/`mobile` need `otp` only when `config_is_otp_require_users_update` is on. The root user's `role` and `deactivated_at` cannot change. `permissions` must be ids of routes with `user_check_permission` in `config_api` |
 | `DELETE /admin/user-delete` | `id` | | One user; never the root user |
 | `PUT /my/user-update` | | `{...own users columns}` | Own row from the token (an `id`, if sent, must be the user's own). `email`/`mobile` always need `otp` (sent to the new value with `/public/otp-send-email` or `-mobile`). Columns in `config_column_users_my_blocked` (`role`, `permissions`, `deactivated_at`, ...) are refused |
 | `DELETE /my/user-delete` | | | Own account; token only |
@@ -139,7 +139,7 @@ A page handles it the same way in every case:
 - On a 403 with either message, or a profile with `deactivated_at` or `deleted_at`: log out, clear its storage, and say which, e.g. "Your account is deactivated. Please contact your admin." or "Your account was deleted. Please contact your admin." (never "Session expired").
 - No extra request for it: the page's regular sync (token renewal, then `/my/profile`, e.g. every 3 hours) catches a block on an open page. The server keeps accepting an access token issued before the block until it expires (`config_access_token_expires_sec`, 7 days); use `realtime` on routes that must stop at once.
 
-Deleting needs two switches, because the database guards `users` too: `config_is_user_delete=true` and `users` removed from `config_postgres_schema_master["control"]["table_row_delete_disable"]` (default on: the API then answers "users delete blocked in the database"). The root user (`id` 1) is never deleted.
+Deleting needs two switches, because the database guards `users` too: `config_is_user_delete=true` and `"delete"` removed from the `users` table's `row_lock` in `config_postgres_schema_master` (default on: the API then answers "users delete blocked in the database"). The root user (`id` 1) is never deleted.
 
 ## 5. OTP Flow
 

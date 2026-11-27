@@ -54,7 +54,7 @@ async def func_postgres_import(*, app_state: State, mode: str, table: str, file:
                 if mode in ("create", "update"): func_check_audit_columns(app_state=app_state, obj_list=ol)
                 if mode == "create" and created_by_id is not None and "created_by_id" in cache_postgres_schema.get(table, {}): ol = [{**obj, "created_by_id": created_by_id} for obj in ol]
                 if mode == "create":
-                    await app_state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=conn, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=cache_postgres_schema, buffer_postgres=app_state.buffer_postgres_create, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table=table, obj_list=ol)
+                    await app_state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=conn, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=cache_postgres_schema, buffer_postgres=app_state.buffer_postgres_create, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.func_buffer_limit(app_state=app_state, table=table), mode="now", table=table, obj_list=ol)
                 elif mode == "update":
                     await app_state.func_postgres_update(client_postgres=client_postgres, client_postgres_conn=conn, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=cache_postgres_schema, config_column_regex=app_state.config_column_regex, table=table, obj_list=ol, created_by_id=None)
                 elif mode == "delete":

@@ -25,7 +25,7 @@ PASSWORD_HASH = "$argon2id$v=19$m=1024,t=1,p=1$c2FsdHNhbHQ$aGFzaGhhc2hoYXNoaGFza
 
 def title_as_varchar(config):
     changed = copy.deepcopy(config)
-    next(col for col in changed["table"]["test"] if col["name"] == "title")["datatype"] = "varchar(500)"
+    next(col for col in changed["table"]["test"]["column"] if col["name"] == "title")["datatype"] = "varchar(500)"
     return changed
 
 
@@ -53,7 +53,7 @@ class SchemaPlanTests(unittest.IsolatedAsyncioTestCase):
     async def test_every_name_for_a_type_matches_what_postgres_reports(self):
         types = ["timestamp", "timestamptz", "time", "timetz", "double precision", "float", "real", "char(2)", "character(2)", "int2", "int4", "int8", "integer", "smallint", "bigint", "decimal(10,2)", "numeric(10,2)", "boolean", "varchar(20)", "bit varying(8)"]
         config = copy.deepcopy(self.config)
-        config["table"]["type_names"] = [{"name": "id", "datatype": "bigint", "identity": "always", "is_primary": True}, *[{"name": f"c{i}", "datatype": datatype} for i, datatype in enumerate(types)]]
+        config["table"]["type_names"] = {"column": [{"name": "id", "datatype": "bigint", "identity": "always", "is_primary": True}, *[{"name": f"c{i}", "datatype": datatype} for i, datatype in enumerate(types)]]}
         await func_postgres_schema_init(app_state=self.app_state, client_postgres=self.pool, config_postgres_schema=config, root_user_password_hash=PASSWORD_HASH)
         plan = await func_postgres_schema_plan(app_state=self.app_state, client_postgres=self.pool, config_postgres_schema=config)
         self.assertEqual([step["sql"] for step in plan if not step["is_routine"]], [], "an unchanged column is never rewritten")

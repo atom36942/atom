@@ -39,8 +39,8 @@ class RetentionConfigTests(unittest.TestCase):
         return SimpleNamespace(config_query_runner_read_limit=10, config_export_limit=10,
             config_sql_read_limit_default=10, config_sql_read_limit_max=10, config_sql_read_relation_fetch_limit_max=10,
             config_postgres_buffer_flush_auto_sec=60, config_uvicorn_workers=1, config_request_body_max_kb=10240, config_request_form_max_kb=102400, config_api_cache_inmemory_max_kb=102400,
-            config_retention_day_table_otp=retention, config_retention_day_table_log_api=retention, config_retention_day_user_soft_deleted=retention, config_retention_day_table_script_run=retention, config_otp_expiry_sec=600,
-            config_column_users_private_read=["id", "username"], config_postgres_schema_master={"table": {"users": [{"name": "id"}, {"name": "username"}, {"name": "password"}]}})
+            config_retention_day_user_soft_deleted=retention, config_otp_expiry_sec=600,
+            config_column_users_private_read=["id", "username"], config_postgres_schema_master={"table": {"users": {"column": [{"name": "id"}, {"name": "username"}, {"name": "password"}]}, "otp": {"retention_day": 1, "column": [{"name": "created_at"}]}}})
 
     def test_retention_validation(self):
         for value in (None, 1, 30):
@@ -49,8 +49,8 @@ class RetentionConfigTests(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 func_check_runtime_config(app_state=self.state(value))
         state = self.state(1)
-        state.config_otp_expiry_sec = 86400
-        with self.assertRaises(ValueError):
+        state.config_otp_expiry_sec = 86400    # the otp table's retention_day (1) must outlast a code
+        with self.assertRaisesRegex(ValueError, "otp retention_day must exceed the OTP expiry window"):
             func_check_runtime_config(app_state=state)
 
     def test_users_private_read_columns_are_checked(self):
@@ -77,9 +77,14 @@ class RetentionConfigTests(unittest.TestCase):
     def test_old_retention_names_stop_startup(self):
         state = self.state(1)
         state.config_otp_retention_day = 1
-        with self.assertRaisesRegex(ValueError, "config_otp_retention_day was renamed to config_retention_day_table_otp"):
+        with self.assertRaisesRegex(ValueError, "config_otp_retention_day was renamed to retention_day on the otp table"):
             func_check_runtime_config(app_state=state)
-        for old_key, new_key in (("config_retention_day_otp", "config_retention_day_table_otp"), ("config_retention_day_users_delete", "config_retention_day_user_soft_deleted")):
+        for key in ("config_retention_day_table_otp", "config_retention_day_table_log_api"):    # 23.0.0: a table's retention is retention_day on the table
+            state = self.state(1)
+            setattr(state, key, 1)
+            with self.assertRaisesRegex(ValueError, f"{key} removed in Atom 23.0.0: set retention_day on each table"):
+                func_check_runtime_config(app_state=state)
+        for old_key, new_key in (("config_retention_day_otp", "retention_day on the otp table"), ("config_retention_day_users_delete", "config_retention_day_user_soft_deleted")):
             state = self.state(1)
             setattr(state, old_key, 1)
             with self.assertRaisesRegex(ValueError, f"{old_key} was renamed to {new_key}"):

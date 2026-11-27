@@ -24,7 +24,7 @@ ROWS = [
 ]
 
 SEARCH_ON_TEST = """from config import config_postgres_schema_master as base_config_postgres_schema_master
-config_postgres_schema_master = {**base_config_postgres_schema_master, "table": {**base_config_postgres_schema_master["table"], "test": [*base_config_postgres_schema_master["table"]["test"], {"name": "search", "datatype": "tsvector", "generated": "setweight(to_tsvector('english', coalesce(title, '')), 'A') || setweight(to_tsvector('english', coalesce(description, '')), 'B')", "index": "gin(search)"}]}}
+config_postgres_schema_master = {**base_config_postgres_schema_master, "table": {**base_config_postgres_schema_master["table"], "test": {**base_config_postgres_schema_master["table"]["test"], "column": [*base_config_postgres_schema_master["table"]["test"]["column"], {"name": "search", "datatype": "tsvector", "generated": "setweight(to_tsvector('english', coalesce(title, '')), 'A') || setweight(to_tsvector('english', coalesce(description, '')), 'B')", "index": "gin(search)"}]}}}
 """    # a project's searchable table: test gets a weighted search column (title A, description B), read through /admin/object-read (root holds its id)
 
 
@@ -97,7 +97,7 @@ class SearchTests(unittest.TestCase):
         plan = lambda config: self.client.portal.call(functools.partial(state.func_postgres_schema_plan, app_state=state, client_postgres=state.client_postgres_dict["master"], config_postgres_schema=config))
         self.assertEqual([step["sql"] for step in plan(state.config_postgres_schema_master) if not step["is_routine"]], [], "nothing to change")
         changed = copy.deepcopy(state.config_postgres_schema_master)
-        column = next(c for c in changed["table"]["test"] if c["name"] == "search")
+        column = next(c for c in changed["table"]["test"]["column"] if c["name"] == "search")
         column["generated"] = "to_tsvector('simple', coalesce(title, ''))"
         sql = [step["sql"] for step in plan(changed)]
         self.assertTrue(any('DROP COLUMN "search"' in s for s in sql) and any("GENERATED ALWAYS AS (to_tsvector('simple'" in s for s in sql), sql)

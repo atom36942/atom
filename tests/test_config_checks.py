@@ -19,12 +19,12 @@ URL = "postgresql://user@localhost:5432/db"
 
 def state(**changes):
     return SimpleNamespace(**({"config_postgres_pool_min_size": 1, "config_postgres_pool_max_size": 5, "config_postgres_url_dict": {},
-                               "config_postgres_db_log_api": "master"} | changes))
+                               } | changes))
 
 
 class IndexSortOrderTests(unittest.TestCase):
     def validate(self, index):
-        func_postgres_schema_config_validate(config_postgres_schema={"table": {"item": [{"name": "id", "datatype": "bigint", "is_primary": True}, {"name": "score", "datatype": "text", "index": index}]}})
+        func_postgres_schema_config_validate(config_postgres_schema={"table": {"item": {"column": [{"name": "id", "datatype": "bigint", "is_primary": True}, {"name": "score", "datatype": "text", "index": index}]}}})
 
     def test_a_btree_column_may_name_its_sort_order(self):
         for index in ("btree(score desc nulls last,id)", "btree(score asc,id)", "btree(score nulls first)", "btree(score,id)", "gin_trgm(score)"): self.validate(index)
@@ -36,7 +36,7 @@ class IndexSortOrderTests(unittest.TestCase):
 
 class ConfigExtendKeepsAtomTests(unittest.TestCase):
     BASE = SimpleNamespace(config_api={"/health": {"id": 1}, "/info": {"id": 2}}, config_postgres_schema_master={"extension": ["postgis", "pg_trgm"], "table": {"users": [], "log_api": []}, "control": {"is_index_drop": True}, "sql": {}},
-                           config_column_int_mapping={"blob": {"type": {1: "File", 2: "Presigned Url"}}, "log_users_delete": {"worker_status": {None: "Pending", 1: "Processing"}}})
+                           config_users_role_label={1: "Admin"})
 
     def check(self, **extend):
         func_check_config_extend_keeps_atom(config_module=self.BASE, config_extend_module=SimpleNamespace(**extend))
@@ -58,12 +58,10 @@ class ConfigExtendKeepsAtomTests(unittest.TestCase):
         with self.assertRaisesRegex(Exception, r"drops 2 of Atom's entries \(extension.pg_trgm, control.is_index_drop\)"):
             self.check(config_postgres_schema_master={**base, "extension": ["postgis"], "control": {}})
 
-    def test_int_mapping_keeps_atom_codes_but_labels_and_additions_are_free(self):
-        self.check(config_column_int_mapping={**self.BASE.config_column_int_mapping, "blob": {"type": {1: "Upload", 2: "Signed link", 3: "Mine"}}, "users": {"role": {1: "Admin"}}})
-        with self.assertRaisesRegex(Exception, r"config_column_int_mapping drops 2 of Atom's codes \(blob.type 2, log_users_delete.worker_status None\); fix: keep Atom's codes, labels may change"):
-            self.check(config_column_int_mapping={"blob": {"type": {1: "File"}}, "log_users_delete": {"worker_status": {1: "Processing"}}})
-        with self.assertRaisesRegex(Exception, r"drops 4 of Atom's codes"):
-            self.check(config_column_int_mapping={"blob": ["not", "a", "dict"]})    # an odd value gets the same clear message
+    def test_role_labels_keep_atom_codes_but_labels_and_additions_are_free(self):
+        self.check(config_users_role_label={1: "Owner", 2: "User"})
+        with self.assertRaisesRegex(Exception, r"config_users_role_label drops 1 of Atom's codes \(1\); fix: \{\*\*base_config_users_role_label, 2: \"User\"\}"):
+            self.check(config_users_role_label={2: "User"})
 
     def test_dropping_atom_routes_or_tables_stops_startup(self):
         with self.assertRaisesRegex(Exception, r"config_api drops 2 of Atom's routes \(/health, /info\); fix: \{\*\*base_config_api, \.\.\.\}"):
@@ -155,16 +153,9 @@ class DatabaseConfigCheckTests(unittest.TestCase):
         with self.assertRaisesRegex(Exception, "invalid config_mssql_url_dict name"):
             func_check_database_config(app_state=state(config_mssql_url_dict={"1erp": "SERVER=e"}))
 
-    def test_log_api_database_must_exist(self):
-        with self.assertRaisesRegex(Exception, "config_postgres_db_log_api 'audit' not found"):
-            func_check_database_config(app_state=state(config_postgres_url_dict={"master": URL}, config_postgres_db_log_api="audit"))
-        for off in (None, ""):    # API logging off: no log database to find
-            func_check_database_config(app_state=state(config_postgres_url_dict={"master": URL}, config_postgres_db_log_api=off))
-        func_check_database_config(app_state=state(config_postgres_url_dict={"master": URL}, config_postgres_db_log_api="audit", config_is_log_api=False))
-
     def test_log_database_must_have_log_api_table(self):
-        log_state = lambda schema, **changes: SimpleNamespace(**({"config_postgres_db_log_api": "logs", "config_is_read_only": False, "client_postgres_dict": {"master": object(), "logs": object()}, "cache_postgres_schema_dict": {"master": {}, "logs": schema}, "config_is_log_api": True} | changes))
-        with self.assertRaisesRegex(Exception, "config_postgres_db_log_api 'logs' has no log_api table"):
+        log_state = lambda schema, **changes: SimpleNamespace(**({"cache_log_api_database": "logs", "config_is_read_only": False, "client_postgres_dict": {"master": object(), "logs": object()}, "cache_postgres_schema_dict": {"master": {}, "logs": schema}, "config_is_log_api": True} | changes))
+        with self.assertRaisesRegex(Exception, "database logs has no log_api table"):
             func_check_log_api_table(app_state=log_state({"other": {}}))
         func_check_log_api_table(app_state=log_state({"log_api": {}}))
         func_check_log_api_table(app_state=log_state({}, config_is_read_only=True))    # no logging in read-only mode
@@ -173,7 +164,7 @@ class DatabaseConfigCheckTests(unittest.TestCase):
 
     def test_removed_settings_stop_startup(self):
         limits = dict.fromkeys(("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_uvicorn_workers", "config_request_body_max_kb", "config_request_form_max_kb", "config_api_cache_inmemory_max_kb"), 100)
-        state = lambda: SimpleNamespace(**limits, config_retention_day_table_otp=None, config_retention_day_table_log_api=None, config_buffer_limit_default=100, config_buffer_rows_max=1000)
+        state = lambda: SimpleNamespace(**limits, config_buffer_rows_max=1000)
         func_check_runtime_config(app_state=state())
         for key in ("config_permission_table", "config_permission_user_roles", "config_permission_user_column_blocked", "config_permission_user_create_roles", "config_permission_table_write_allowed"):
             with self.subTest(key=key), self.assertRaisesRegex(Exception, f"{key} removed in Atom 22.0.0 with the /permission routes: grant a user the id of the /admin route"): func_check_runtime_config(app_state=SimpleNamespace(**vars(state()), **{key: []}))
@@ -182,7 +173,7 @@ class DatabaseConfigCheckTests(unittest.TestCase):
 
     def test_buffer_rows_max_must_be_an_integer_of_at_least_1000(self):
         limits = dict.fromkeys(("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_uvicorn_workers", "config_request_body_max_kb", "config_request_form_max_kb", "config_api_cache_inmemory_max_kb"), 100)
-        runtime_state = lambda value: SimpleNamespace(**limits, config_retention_day_table_otp=None, config_retention_day_table_log_api=None, config_buffer_limit_default=100, config_buffer_rows_max=value)
+        runtime_state = lambda value: SimpleNamespace(**limits, config_buffer_rows_max=value)
         for value in (1000, 100000):
             func_check_runtime_config(app_state=runtime_state(value))
         for value in (999, "100000", True):
@@ -211,7 +202,6 @@ class AdminPermissionCheckTests(unittest.TestCase):
         app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)
         app.get("/admin/x")(lambda: None)
         app.state.config_api = {"/admin/x": {"id": 205, "auth": ["jwt"], **cfg}}
-        app.state.config_column_int_mapping = {"users": {"permissions": {205: "X"}}}
         app.state.config_column_token_encode = ["id", "role", "permissions"]
         app.state.config_uvicorn_workers = 1
         return app
@@ -229,7 +219,6 @@ class GroupGateCheckTests(unittest.TestCase):
         app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)
         app.get(path)(lambda: None)
         app.state.config_api = {path: {"id": 205, **cfg}}
-        app.state.config_column_int_mapping = {"users": {"permissions": {205: "X"}}}
         app.state.config_column_token_encode = ["id", "role", "permissions"]
         app.state.config_uvicorn_workers = 1
         return app
@@ -244,7 +233,6 @@ class PermissionConfigCheckTests(unittest.TestCase):
         app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)
         app.get("/x")(lambda: None)
         app.state.config_api = {"/x": {"id": 205, "auth": ["jwt"], **cfg}}
-        app.state.config_column_int_mapping = {"users": {"permissions": labels if labels is not None else {205: "Task delete"}}}
         app.state.config_column_token_encode = list(token_encode)
         app.state.config_uvicorn_workers = 1
         return app
@@ -257,7 +245,6 @@ class PermissionConfigCheckTests(unittest.TestCase):
             ({"user_check_permission": {"mode": "inmemory"}}, None, ("permissions",), "allowed: token, realtime"),
             ({"user_check_permission": {"mode": "token", "id": 9}}, None, ("permissions",), "invalid user_check_permission"),
             ({"user_check_permission": True}, None, ("permissions",), "invalid user_check_permission"),
-            ({"user_check_permission": {"mode": "token"}}, {}, ("permissions",), "label id 205"),
             ({"user_check_permission": {"mode": "token"}}, None, ("id", "role"), "add permissions to config_column_token_encode"),
         ]:
             with self.subTest(cfg=cfg, labels=labels), self.assertRaisesRegex(Exception, message):
@@ -346,7 +333,7 @@ class WorkerConfigCheckTests(unittest.TestCase):
 
     def test_production_rejects_short_token_secret(self):
         limits = dict.fromkeys(("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_uvicorn_workers", "config_request_body_max_kb", "config_request_form_max_kb", "config_api_cache_inmemory_max_kb"), 100)
-        check = lambda **values: func_check_runtime_config(app_state=SimpleNamespace(**limits, config_retention_day_table_otp=None, config_retention_day_table_log_api=None, config_buffer_limit_default=100, config_buffer_rows_max=1000, **values))
+        check = lambda **values: func_check_runtime_config(app_state=SimpleNamespace(**limits, config_buffer_rows_max=1000, **values))
         for secret in ("short", 123456, "x" * 31):
             with self.subTest(secret=secret), self.assertRaisesRegex(Exception, "at least 32 bytes"):
                 check(config_is_prod=True, config_token_secret_key=secret)
@@ -356,7 +343,7 @@ class WorkerConfigCheckTests(unittest.TestCase):
 
     def test_keep_alive_must_be_a_positive_integer(self):
         limits = dict.fromkeys(("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_uvicorn_workers", "config_request_body_max_kb", "config_request_form_max_kb", "config_api_cache_inmemory_max_kb"), 100)
-        check = lambda value: func_check_runtime_config(app_state=SimpleNamespace(**limits, config_retention_day_table_otp=None, config_retention_day_table_log_api=None, config_buffer_limit_default=100, config_buffer_rows_max=1000, config_uvicorn_timeout_keep_alive_sec=value))
+        check = lambda value: func_check_runtime_config(app_state=SimpleNamespace(**limits, config_buffer_rows_max=1000, config_uvicorn_timeout_keep_alive_sec=value))
         for value in (0, True, "75", 1.5):
             with self.subTest(value=value), self.assertRaisesRegex(Exception, "config_uvicorn_timeout_keep_alive_sec"): check(value)
         check(75)
@@ -366,13 +353,13 @@ class WorkerConfigCheckTests(unittest.TestCase):
         for key in ("config_request_body_max_kb", "config_request_form_max_kb"):
             for value in (0, True, None):
                 with self.subTest(key=key, value=value), self.assertRaisesRegex(Exception, key):
-                    func_check_runtime_config(app_state=SimpleNamespace(**{**limits, key: value}, config_retention_day_table_otp=None, config_retention_day_table_log_api=None, config_buffer_limit_default=100, config_buffer_rows_max=1000))
+                    func_check_runtime_config(app_state=SimpleNamespace(**{**limits, key: value}, config_buffer_rows_max=1000))
 
     def test_workers_must_be_a_positive_integer(self):
         limits = dict.fromkeys(("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_request_body_max_kb", "config_request_form_max_kb", "config_api_cache_inmemory_max_kb"), 100)
         for value in (0, True, None):
             with self.subTest(value=value), self.assertRaisesRegex(Exception, "config_uvicorn_workers"):
-                func_check_runtime_config(app_state=SimpleNamespace(**limits, config_uvicorn_workers=value, config_retention_day_table_otp=None, config_retention_day_table_log_api=None, config_buffer_limit_default=100, config_buffer_rows_max=1000))
+                func_check_runtime_config(app_state=SimpleNamespace(**limits, config_uvicorn_workers=value, config_buffer_rows_max=1000))
 
 
 
@@ -389,9 +376,9 @@ class StartupCheckTableIdTests(unittest.TestCase):
             for columns in ([{"name": "title", "datatype": "text"}], [{"name": "title", "datatype": "text"}, {"name": "id", "datatype": "bigint", "is_primary": True}],
                             [{"name": "time", "datatype": "timestamptz", "is_primary": True}, {"name": "device", "datatype": "text", "is_primary": True}, {"name": "value", "datatype": "float8"}]):
                 with self.subTest(columns=columns):
-                    state.config_postgres_schema_master = {**original, "table": {**original["table"], "note": columns}}
+                    state.config_postgres_schema_master = {**original, "table": {**original["table"], "note": {"column": columns}}}
                     main.app.state.func_check(app=main.app)
-            state.config_postgres_schema_master = {**original, "table": {**original["table"], "note": [{"name": "id", "datatype": "text", "is_primary": True}]}}
+            state.config_postgres_schema_master = {**original, "table": {**original["table"], "note": {"column": [{"name": "id", "datatype": "text", "is_primary": True}]}}}
             with self.assertRaisesRegex(Exception, r"config_postgres_schema_master: note.id must be an integer column"): main.app.state.func_check(app=main.app)
         finally:
             state.config_postgres_schema_master = original
