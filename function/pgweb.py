@@ -41,6 +41,8 @@ def func_pgweb_regclass(table: str) -> str:
 
 PGWEB_FILTER_OPS = ("=", "<>", ">", "<", ">=", "<=", "LIKE", "ILIKE", "IS NULL", "IS NOT NULL")
 PGWEB_FILTER_MAX = 10    # conditions in one filter
+PGWEB_RESULT_MAX_ROWS = 10000    # the query runner shows at most this many rows ...
+PGWEB_RESULT_MAX_BYTES = 16 * 1024 * 1024    # ... and at most this much data (as JSON), whichever comes first; Download streams every row
 PGWEB_CUT_BYTES = 16384    # a grid cell over this size comes as a preview; the page reads the whole row when it needs the real value
 PGWEB_CUT_PREVIEW = 1000    # characters in a cut value's preview (the grid shows 500)
 
@@ -510,14 +512,22 @@ async def func_pgweb_query(*, pool: asyncpg.Pool, sql: str, is_confirmed: bool =
     (a script would run its other statements, which Explain promises not to).
     SQL that reads rows runs as SELECT * FROM (<sql>) LIMIT 10001 in one cached statement: no cursor, so PostgreSQL may use parallel workers (it never does for a cursor:
     count(*) of 1M rows 17 vs 37 ms), no transaction, and a query run again takes one round trip. Read-only mode on the read-only pool (pool.atom_read_only) needs no transaction either;
-    on another pool it runs in a read-only transaction. Other SQL (writes, DDL, scripts, EXPLAIN, SHOW) is prepared and run as typed."""
+    on another pool it runs in a read-only transaction. Other SQL (writes, DDL, scripts, EXPLAIN, SHOW) is prepared and run as typed.
+    Rows come back up to PGWEB_RESULT_MAX_ROWS and PGWEB_RESULT_MAX_BYTES, so a result never outgrows the browser: {"truncated": True, "limit": "rows" or "size"} says it was cut."""
     func_pgweb_write_check(sql=sql, is_confirmed=is_confirmed, is_read_only=is_read_only)
-    result_limit = 10000
+    result_limit = PGWEB_RESULT_MAX_ROWS
     body = None if is_explain else func_pgweb_select_body(sql)
     read_only_tx = bool(is_read_only) and not getattr(pool, "atom_read_only", False)
     def rows(records):
         out = func_pgweb_pack(records[:result_limit])
-        out["truncated"] = len(records) > result_limit
+        out["truncated"], out["limit"] = len(records) > result_limit, "rows" if len(records) > result_limit else None
+        size = 0
+        for index, row in enumerate(out["rows"]):    # a page the browser can hold: big values could make 10,000 rows hundreds of MB
+            size += len(func_pgweb_orjson_dumps(row))
+            if size > PGWEB_RESULT_MAX_BYTES:
+                out["rows"] = out["rows"][:index]
+                out["truncated"], out["limit"] = True, "size"
+                break
         return out
     async with func_postgres_acquire_clean(client_postgres=pool) as conn:
         backend_pid = conn.get_server_pid()    # known since the connection opened: no round trip

@@ -50,7 +50,7 @@ class PgwebQueryTests(unittest.IsolatedAsyncioTestCase):
     async def test_reads_rows_with_their_limit_and_keeps_names_and_order(self):
         out = await self.query("select id, title from item order by id desc;")
         self.assertEqual((len(out["rows"]), out["truncated"], out["rows"][0][0]), (10000, True, 10006))
-        self.assertEqual(await self.query("select 1 as a, 2 as a -- trailing comment"), {"cols": ["a", "a"], "rows": [[1, 2]], "truncated": False})
+        self.assertEqual(await self.query("select 1 as a, 2 as a -- trailing comment"), {"cols": ["a", "a"], "rows": [[1, 2]], "truncated": False, "limit": None})
         self.assertEqual((await self.query("values (1, 'x')"))["rows"], [[1, "x"]])
 
     async def test_sql_that_cannot_be_wrapped_runs_as_typed(self):
@@ -83,3 +83,16 @@ class PgwebQueryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await self.csv("SHOW standard_conforming_strings"), "standard_conforming_strings\r\non\r\n")
         with self.assertRaisesRegex(Exception, "one row-returning statement"): await self.csv("select 1; select 2")
         with self.assertRaisesRegex(Exception, "does not exist"): await self.csv("select * from missing")
+
+    async def test_a_result_stops_at_the_row_or_size_limit(self):
+        import function.pgweb as pgweb
+        out = await self.query("select id, title from item order by id")
+        self.assertEqual((len(out["rows"]), out["truncated"], out["limit"]), (10000, True, "rows"))
+        small = await self.query("select id from item where id <= 3 order by id")
+        self.assertEqual((small["truncated"], small["limit"]), (False, None))
+        original = pgweb.PGWEB_RESULT_MAX_BYTES
+        pgweb.PGWEB_RESULT_MAX_BYTES = 2000    # about 100 small rows
+        try: capped = await self.query("select id, title from item order by id")
+        finally: pgweb.PGWEB_RESULT_MAX_BYTES = original
+        self.assertEqual((capped["truncated"], capped["limit"]), (True, "size"))
+        self.assertTrue(0 < len(capped["rows"]) < 200)
