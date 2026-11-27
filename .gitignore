@@ -13,7 +13,7 @@
 !config_extend.py
 !docker-compose.yml
 !main.py
-!readme.md
+!README.md
 !requirements.txt
 !ruff.toml
 !sync.py

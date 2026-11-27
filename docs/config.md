@@ -517,4 +517,4 @@ Deleted space can be reused by PostgreSQL after vacuuming; deletion does not nec
 
 ---
 
-📚 [Back to README](../readme.md)
+📚 [Back to README](../README.md)

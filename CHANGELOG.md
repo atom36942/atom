@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [23.0.1] - 2026-11-27
+
+- **`readme.md` is now `README.md`,** the conventional name. Sync renames a project's `readme.md` with `git mv` (Git keeps its history and the new case, on macOS too), then writes Atom's; the `.gitignore` line is `!README.md`. The `readme.md` in each `*_extend` folder stays.
+
 ## [23.0.0] - 2026-11-27
 
 **Upgrade (projects must change):** each table in `config_postgres_schema_<name>` is an object: `"task": {"my": ["create", "read"], "admin": ["create", "read", "update", "delete"], "column": [...]}` (the old column list goes in `column`). Move each removed setting onto its table: `config_table_public_create_allowed`, `_public_read_allowed` → `"public"`; `config_table_private_read_allowed` → `"private"`; `config_table_my_create_blocked`, `_my_read_blocked`, `_my_delete_all_allowed` → `"my"`; `config_table_write_blocked` → `"admin": ["read"]`; `config_table_exclude_from_users_delete` → `"users_delete_skip": True`; `config_buffer_limit_default`, `config_buffer_limit_<table>` → `"buffer_limit"`; `config_retention_day_table_<table>` → `"retention_day"`; `control.table_row_update_disable`, `table_row_delete_disable`, `table_row_delete_disable_bulk` → `"row_lock"`, `"row_delete_max"`; `config_column_int_mapping` → `"int_mapping"` on each column, with role labels in `config_users_role_label` (`{**base_config_users_role_label, 2: "User"}`); `config_column_private_read_blocked` → `"is_private_read_blocked": True` on the column; `config_postgres_db_log_api` is gone (the database whose schema has `log_api` gets the logs). Pages read labels from `/info` `int_mapping.<db>.<table>.<column>` (was `config_column_int_mapping.<table>.<column>`). Startup names the replacement for every removed setting.

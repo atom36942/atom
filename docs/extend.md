@@ -384,4 +384,4 @@ In `# logic`, write one small helper per step, named `noun_verb`, with keyword-o
 
 ---
 
-📚 [Back to README](../readme.md)
+📚 [Back to README](../README.md)

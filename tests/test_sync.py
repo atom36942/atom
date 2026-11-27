@@ -128,7 +128,7 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(len(versions), len(re.findall(r"^## ", changelog, re.M)), "every ## heading in CHANGELOG.md is a version: ## [X.Y.Z] - YYYY-MM-DD")
 
     def test_readme_shows_the_release_badge(self):
-        readme = Path(sync.__file__).with_name("readme.md").read_text()
+        readme = Path(sync.__file__).with_name("README.md").read_text()
         self.assertIn("https://img.shields.io/github/v/release/atom36942/atom", readme.split("\n\n", 2)[1], "the version shows as the release badge, first in the badge line")
 
     def test_version_change_lines(self):
@@ -300,6 +300,16 @@ class SyncTests(unittest.TestCase):
                     self.assertEqual(path.read_text(), content)
                 state = json.loads((self.root / sync.STATE_PATH).read_text())
                 self.assertNotIn("extra/notes.html", state["files"])
+
+    def test_a_renamed_root_file_moves_to_its_new_name(self):
+        self.git(self.root, "mv", "README.md", "readme.md")    # a project from before the rename
+        self.commit(self.root)
+        sync.rename_retired_files(root=self.root)
+        self.assertIn("README.md", os.listdir(self.root))
+        self.assertNotIn("readme.md", os.listdir(self.root))
+        self.assertIn("R  readme.md -> README.md", self.git(self.root, "status", "--porcelain").decode(), "git mv: Git records the rename, new case included")
+        sync.rename_retired_files(root=self.root)    # nothing left to move: no change
+        self.assertEqual(os.listdir(self.root).count("README.md"), 1)
 
     def test_missing_extend_paths_are_created_and_existing_ones_kept(self):
         self.run_sync()

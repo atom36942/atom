@@ -44,7 +44,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 # setting
 # Atom's version: raised by hand when a change is worth a new number (no tags); a project's sync.py shows the version it has
-ATOM_VERSION = "23.0.0"
+ATOM_VERSION = "23.0.1"
 REPO_URL = "https://github.com/atom36942/atom.git"
 # Single files replaced from upstream on every sync.
 SYNC_FILES = [
@@ -55,7 +55,7 @@ SYNC_FILES = [
     "CHANGELOG.md",
     "config.py",
     "main.py",
-    "readme.md",
+    "README.md",
     "ruff.toml",
     "sync.py",
 ]
@@ -525,8 +525,21 @@ def sync_venv(*, root):
     shutil.rmtree(venv_old, ignore_errors=True)
     print("venv rebuilt: it matches requirements.txt exactly.")
 
+# Root files Atom renamed: the project's file under the old name moves to the new one before the update writes it.
+RENAMED_FILES = {"readme.md": "README.md"}
+
+def rename_retired_files(*, root):
+    """Move each RENAMED_FILES old name to its new one: git mv when Git tracks it (Git keeps the history, and the new case even on a case-insensitive disk), else a plain rename."""
+    names = set(os.listdir(root))    # the names as written on disk, case included
+    for old, new in RENAMED_FILES.items():
+        if old not in names: continue
+        try: git("mv", "-f", "--", old, new, root=root)
+        except subprocess.CalledProcessError: os.rename(root / old, root / new)
+        print(f" -> renamed {old} to {new}")
+
 def apply_revision(*, root, revision, is_venv_sync=False, is_outdated_check=True):
     plan = prepare_update(root=root, revision=revision)
+    rename_retired_files(root=root)
     apply_update(root=root, plan=plan)
     create_extend_paths(root=root)
     print("Files synced successfully!")

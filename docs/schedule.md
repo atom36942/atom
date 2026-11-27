@@ -84,4 +84,4 @@ The script runs on the app's machine and shares its CPU and memory. Run it once 
 
 ---
 
-📚 [Back to README](../readme.md)
+📚 [Back to README](../README.md)

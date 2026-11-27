@@ -81,7 +81,7 @@ Defaults (the working code: `static/analytics.html`, the full flow, and `static/
 - One page per app; pages share no CSS or JS files; no script or style from another site; a viewport meta tag.
 
 ## Optional features
-Built only when an app needs them, each with its own doc: user management ([user-management.md](docs/user-management.md)), messaging, file storage, queues, schedules, Redis, ClickHouse and more (the list in [readme.md](readme.md)).
+Built only when an app needs them, each with its own doc: user management ([user-management.md](docs/user-management.md)), messaging, file storage, queues, schedules, Redis, ClickHouse and more (the list in [README.md](README.md)).
 
 ## Where the detail is
 | Area | Doc |

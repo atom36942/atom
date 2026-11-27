@@ -180,4 +180,4 @@ There is currently no automatic fallback from a configured Redis mode to another
 
 ---
 
-📚 [Configuration](config.md) · [Middleware](about.md) · [Workers](queue.md) · [Back to README](../readme.md)
+📚 [Configuration](config.md) · [Middleware](about.md) · [Workers](queue.md) · [Back to README](../README.md)

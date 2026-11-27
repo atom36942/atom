@@ -397,4 +397,4 @@ name but do not enforce a separate per-user container allowlist. Do not share th
 same storage credentials/key namespace across unrelated applications. See the
 [security audit](audit.md) for the reviewed protections and remaining limits.
 
-[Back to README](../readme.md)
+[Back to README](../README.md)
