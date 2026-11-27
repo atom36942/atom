@@ -136,7 +136,6 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
 .hist-main{flex:1;min-width:0}
 .hist-sql{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:11.5px Menlo,Monaco,Consolas,"Courier New",monospace}
 .hist-meta{margin-top:2px;font-size:10.5px;color:var(--dim)}
-.hist.err .hist-meta::before{content:"";display:inline-block;width:6px;height:6px;margin-right:5px;border-radius:50%;background:var(--err);vertical-align:1px}    /* failed: a red dot */
 .hist-head{display:flex;align-items:center;justify-content:space-between;height:28px;padding:0 6px 0 12px;font-size:11px;font-weight:700;color:var(--dim);border-bottom:1px solid var(--row-line)}
 .hist-head .hist-clear{width:22px;height:22px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:3px;background:transparent;color:var(--dim)}
 .hist-head .hist-clear:hover{color:var(--err);background:var(--bg)}
@@ -1384,12 +1383,12 @@ function renderTreeBatch(reset=false){
     empty.textContent=term?`No matching ${meta.plural}`:`No ${meta.plural} in public`; box.appendChild(empty);
   }
 }
-/* ==== SQL history: queries run with Execute, newest first, in this browser only (localStorage), one list per database ==== */
+/* ==== SQL history: queries that ran with Execute (never a failed one), newest first, in this browser only (localStorage), one list per database ==== */
 // the last SQL_HISTORY_MAX per database, each up to SQL_HISTORY_SQL_MAX characters, for the last SQL_HISTORY_DBS databases used; the same SQL run again moves to the top
 const SQL_HISTORY_KEY='pgweb-sql-history', SQL_HISTORY_MAX=50, SQL_HISTORY_SQL_MAX=10000, SQL_HISTORY_DBS=10;
 function sqlHistoryDb(){ const p=dbParts(S.connectionUrl); return p?`${p.host}:${p.port}/${p.db}`:(S.db||''); }
 function sqlHistoryAll(){ try{ const all=JSON.parse(localStorage.getItem(SQL_HISTORY_KEY)); return all&&typeof all==='object'?all:{}; }catch{ return {}; } }
-function sqlHistory(){ const list=sqlHistoryAll()[sqlHistoryDb()]; return Array.isArray(list)?list:[]; }
+function sqlHistory(){ const list=sqlHistoryAll()[sqlHistoryDb()]; return Array.isArray(list)?list.filter(item=>item.ok!==false):[]; }    // only queries that ran (failed ones saved before are left out)
 function sqlHistorySave(list){
   const all=sqlHistoryAll(), db=sqlHistoryDb();
   delete all[db]; if(list.length) all[db]=list;    // written last: the databases least recently used drop off first
@@ -1414,11 +1413,11 @@ function drawHistory(){
     head.appendChild(clear); box.appendChild(head);
   }
   for(const item of items){
-    const row=el('div','obj hist'+(item.ok===false?' err':''));
+    const row=el('div','obj hist');
     const main=el('div','hist-main');
     main.append(el('div','hist-sql',item.sql.replace(/\s+/g,' ')),
-                el('div','hist-meta',[ago(item.at),item.ok===false?'failed':`${(item.rows??0).toLocaleString()}${item.truncated?'+':''} ${item.rows===1&&!item.truncated?'row':'rows'}`,item.ms!=null?`${Math.round(item.ms).toLocaleString()} ms`:''].filter(Boolean).join(' · ')));
-    row.title=(item.sql.length>2000?item.sql.slice(0,2000)+'…':item.sql)+(item.error?`\n\nFailed: ${item.error}`:'')+'\n\nClick to load it into the editor (it does not run)';
+                el('div','hist-meta',[ago(item.at),`${(item.rows??0).toLocaleString()}${item.truncated?'+':''} ${item.rows===1&&!item.truncated?'row':'rows'}`,item.ms!=null?`${Math.round(item.ms).toLocaleString()} ms`:''].filter(Boolean).join(' · ')));
+    row.title=(item.sql.length>2000?item.sql.slice(0,2000)+'…':item.sql)+'\n\nClick to load it into the editor (it does not run)';
     const del=iconButton('trash','Delete this query from the history','obj-copy');
     del.onclick=e=>{ e.stopPropagation(); sqlHistorySave(sqlHistory().filter(x=>x.sql!==item.sql)); drawHistory(); };
     row.append(main,del);
@@ -2929,7 +2928,6 @@ async function runQuery(confirmed){
       const message=S.readOnly && /read.only|read-only/i.test(err.message)
         ? 'Blocked by read-only mode' : err.message;
       $('qmsg').className=''; $('qmsg').textContent=''; showQueryError('Query failed',message);
-      sqlHistoryAdd(sql,{ok:false,ms:performance.now()-t0,error:String(message).slice(0,300)});
     }
   } finally { finishQuery(queryId); }
 }
