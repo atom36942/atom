@@ -216,11 +216,11 @@ class AdminPermissionCheckTests(unittest.TestCase):
         app.state.config_uvicorn_workers = 1
         return app
 
-    def test_admin_routes_need_a_permission_only(self):
-        for cfg in ({"user_check_permission": {"mode": "token"}}, {"user_check_permission": {"mode": "realtime"}}):
-            with self.subTest(cfg=cfg): func_check_api_config(app=self.app(cfg))
-        for cfg in ({}, {"user_check_role": {"mode": "token", "roles": [1]}}):
-            with self.subTest(cfg=cfg), self.assertRaisesRegex(Exception, "admin routes need user_check_permission"): func_check_api_config(app=self.app(cfg))
+    def test_admin_routes_need_a_permission_or_a_role(self):
+        for cfg in ({"user_check_permission": {"mode": "token"}}, {"user_check_permission": {"mode": "realtime"}}, {"user_check_role": {"mode": "token", "roles": [1, 2]}}, {"user_check_role": {"mode": "token", "roles": [2]}, "user_check_permission": {"mode": "token"}}):
+            with self.subTest(cfg=cfg): func_check_api_config(app=self.app(cfg))    # a project may open an admin route to a role instead of per-user grants
+        for cfg in ({}, {"user_check_deactivated": {"mode": "token"}}):
+            with self.subTest(cfg=cfg), self.assertRaisesRegex(Exception, "admin routes need user_check_permission or user_check_role"): func_check_api_config(app=self.app(cfg))
         with self.assertRaisesRegex(Exception, "invalid user_check_permission"): func_check_api_config(app=self.app({"user_check_permission": {"mode": "token", "action": "read"}}))    # an id, no action
 
 

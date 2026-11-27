@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [22.1.0] - 2026-11-27
+
+- **Admin routes may use a role instead:** startup no longer requires `user_check_permission` on an `/admin/*` route; it requires a permission or a role check (either), so none opens to every logged-in user. Atom's admin routes keep the permission (granted per user); a project may open one to a whole role in `config_extend.py`, e.g. `"user_check_role": {"mode": "token", "roles": [1, 2]}` without `user_check_permission` (keep role 1 so root still gets in). A role suits read-only admin routes; write routes stay per-user ids, or a narrow project route for a whole role ([docs/auth-permission.md](docs/auth-permission.md#admin-routes-one-id-each)).
+
 ## [22.0.0] - 2026-11-27
 
 **Upgrade (projects must change):** the `/permission/*` routes are gone; a user is granted the id of the `/admin/*` route instead. A page that called `/permission/object-update`, `-delete`, `-read`, `-create` or `/permission/user-create`, `-update` calls the same `/admin/*` route (`/admin/object-delete` takes `table` in the body: `{"table", "ids"}`). Remove `config_permission_table`, `config_permission_user_roles` and `config_permission_user_column_blocked` from `config_extend.py` (startup stops while one is set). In the data, replace the old ids in `users.permissions` with the admin route ids: 61 → 69 (`/admin/user-create`), 62 → 70 (`/admin/user-update`), a table's update id → 66 (`/admin/object-update`), its delete id → 72 (`/admin/object-delete`), its read id → 67 (`/admin/object-read`); users log in again.

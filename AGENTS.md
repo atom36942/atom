@@ -39,7 +39,7 @@ One feature, one name in every folder (`<f>`); a big one splits into `<f>_<part>
 ## Backend ([backend.md](docs/backend.md))
 Enforced:
 - Atom owns every unsuffixed path (`function/`, `router/`, `docs/`, `script/`, `static/`, `files/`, `config.py`, `main.py`, `sync.py`, `AGENTS.md`, ...); sync overwrites them. A project's code lives only in `*_extend` paths, `config_extend.py` and `.env`.
-- Every route has a `config_api` entry: a unique `id` (a project's from 200) and `auth` (`[]`, `["jwt"]`, `["api_key"]` or both); `/admin/*` needs `user_check_permission` (the route's id in `users.permissions`; root holds every one), and every permission id a label in `config_column_int_mapping`.
+- Every route has a `config_api` entry: a unique `id` (a project's from 200) and `auth` (`[]`, `["jwt"]`, `["api_key"]` or both); `/admin/*` needs `user_check_permission` (the route's id in `users.permissions`; root holds every one) or `user_check_role`, and every permission id a label in `config_column_int_mapping`.
 - `func_*` names are unique across `function/` and `function_extend/`; `config_extend.py` has sections `# base`, `# atom`, `# extend` and only extends Atom's dicts (dropping an Atom route, table or code fails).
 - Settings are typed: `config_is_<what>` is true or false, `config_schedule_script_<script>` a schedule; anything else stops startup.
 - `script.check` fails on: a secret in code or docs (only in `.env`); Postgres through anything but asyncpg (`psycopg`, `sqlalchemy`); `.env` missing from `.gitignore`; a pool or SDK client opened in `function_extend/` or `router_extend/` (use Atom's; a script is its own process and may open its own); a role or permission check in `router_extend/` (`config_api` does it).

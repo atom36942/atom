@@ -144,7 +144,7 @@ Every Atom route belongs to one group, by its first path segment. The groups app
 | 3 | `/my/*` | The user's own things: profile, own rows, messages, files, own account | Yes | Rows are limited to the user's own (ownership) |
 | 4 | `/public/*` | Anyone, no login: public tables, OTP, small tools | No | Tables in `config_table_public_*`; rate limit on OTP and password-hash |
 | 5 | `/private/*` | Any logged-in user, any role: shared lists, counts, users, email, uploads | Yes | None beyond the token (tables in `config_table_private_read_allowed`) |
-| 6 | `/admin/*` | The backend admin: every table, users, SQL, imports, storage, monitor | Yes | The route's id in `users.permissions` on every route (startup refuses one without it); root holds every one, others are granted per route (Atom's sample: 6, SQL writes) |
+| 6 | `/admin/*` | The backend admin: every table, users, SQL, imports, storage, monitor | Yes | The route's id in `users.permissions` on every Atom route (a project may use a role instead; startup refuses a route with neither); root holds every one, others are granted per route (Atom's sample: 6, SQL writes) |
 
 A route with a role, permission, deactivated or deleted check needs a non-empty `auth` (startup refuses it otherwise). On every route with a credential Atom also refuses deactivated and deleted users (the global checks). A project adds its own group (`/<app>/*`, e.g. `/order/*`) in `config_extend.py` with its role, and permission where only some users may act. Before writing one, check whether one of Atom's routes already does it ([crud.md](crud.md#which-route-for-which-screen)).
 

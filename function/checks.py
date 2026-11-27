@@ -213,7 +213,7 @@ def func_check_api_config(*, app: FastAPI) -> None:
             for role in roles: int_check(role, f"{path} user_check_role role", 1)
             if mode == "redis": requires_redis_user_state = True
             if mode == "inmemory": inmemory_list.append(f"{path} user_check_role")
-        if path.startswith("/admin/") and "user_check_permission" not in cfg: raise Exception(f"{path}: admin routes need user_check_permission (the user holds the route id in users.permissions; root holds every one)")
+        if path.startswith("/admin/") and not (cfg.get("user_check_permission") or cfg.get("user_check_role")): raise Exception(f"{path}: admin routes need user_check_permission or user_check_role (Atom's use the permission; an admin route never opens to every logged-in user)")
         if "webhook_verify" in cfg:
             verify = cfg["webhook_verify"]
             if not isinstance(verify, dict) or set(verify) != {"scheme", "secret"}: raise Exception(f'{path} invalid webhook_verify: expected {{"scheme": <name in config_webhook_verify_scheme>, "secret": <config_ setting holding the secret>}}')

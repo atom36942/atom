@@ -16,7 +16,14 @@ A request passes these gates, in order, before the route runs. Role and permissi
 
 ## Admin routes: one id each
 
-Every `/admin/*` route has `user_check_permission` and no role check (startup refuses an admin route without it). A user may call an admin route when its id is in their `permissions`, whatever their role; a role 1 user without the ids is refused like anyone else.
+Every Atom `/admin/*` route has `user_check_permission` and no role check. A project may change that in `config_extend.py`: replace it with a role (`"user_check_role": {"mode": "token", "roles": [1, 2]}`: every user of those roles, no grants; keep 1 in the list so root still gets in) or add a role next to it (both must pass). Startup only refuses an admin route with neither, so none opens to every logged-in user.
+
+Which to choose:
+
+| Route | Use |
+|---|---|
+| Read-only (`/admin/object-read`, `-read-export`, `/admin/monitor`, `/admin/table-column-*`, `/admin/postgres-info`, `-schema`) | A role is fine when a whole team should see the data |
+| Write (`/admin/user-*`, `/admin/object-create`, `-update`, `-delete`, the query runners, imports, storage) | Per-user ids only: a role opens the whole route to everyone in it, including people added later, and one person can't lose it without a role change. If a whole role needs a write, write a narrow project route (one table, the columns it needs, its own id) | A user may call an admin route when its id is in their `permissions`, whatever their role; a role 1 user without the ids is refused like anyone else.
 
 - **Root** (user id 1) holds every `/admin/*` route id, set at every start by `func_root_user_permissions_sync` (one `UPDATE`, only when they differ, also with schema init off): a new admin route reaches root without a grant, and an id that left goes at the next start. Root's next login carries the new ids. A project's other permission routes are never root's (a restart removes one granted by hand).
 - **Others** get an id by `PUT /admin/user-update {"id": <user>, "permissions": [66, 72]}`. Each admin id is labelled with its path in `config_column_int_mapping["users"]["permissions"]` (`66: "/admin/object-update"`), so an admin page lists them; a project may relabel one in plain words.
