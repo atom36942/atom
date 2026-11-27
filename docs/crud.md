@@ -13,7 +13,6 @@ Endpoints are split into **access tiers** (`/my/*`, `/public/*`, `/private/*`, `
 | **User** | `/my/object-*` | Authenticated users | Create stamps the creator; read, update, and delete default to creator ownership and accept an operation-approved `ownership_column`. |
 | **Public** | `/public/object-*` | Anonymous / Unauthenticated | Restricted by `config_table_public_read_allowed`. |
 | **Private** | `/private/object-*` | Any logged-in user | Reads tables in `config_table_private_read_allowed`. |
-| **Permission** | `/permission/object-*` | Users granted the table's action (any role) | Create, read, update and delete any row (not only the caller's), only the tables and actions in `config_permission_table`, each needing its own permission id. |
 | **Admin** | `/admin/object-*` | Superadmins (`role: 1`) | Unrestricted table access across database. |
 
 ---
@@ -388,7 +387,7 @@ Use these before writing a project route; most screens need nothing else.
 | CSV download of a list | `object-read-export` | the same as the list |
 | Users of the app (user management) | `/private/user-read` | `filter`, `limit`, `after`; columns from `config_column_users_private_read` |
 | Create, change, delete your own rows | `/my/object-create`, `/my/object-update`, `/my/object-delete` | `table`; update and delete only the caller's rows |
-| Selected users read, change or delete anyone's rows (a support team, a shared task list) | `/permission/object-create`, `-read`, `-read-export`, `-update`, `-delete` | `table`; the user holds `config_permission_table[table][action]` |
+| Selected users read, change or delete anyone's rows (a support team, a shared task list) | `/admin/object-create`, `-read`, `-read-export`, `-update`, `-delete` | `table`; the user holds that route's id in `users.permissions` |
 
 Pick the tier by who calls: `/my` (own rows), `/private` (any logged-in user, tables in `config_table_private_read_allowed`), `/permission` (users granted the table's action), `/public` (no login), `/admin` (role 1). Hide columns with `config_column_read_blocked`. Write a project route only for joins, several different lists in one statement, computed filters or business checks.
 
@@ -423,17 +422,13 @@ curl -X PUT "http://localhost:8000/my/object-update?table=task&ownership_column=
 The effective condition is `id = 135 AND assigned_to_id = current_user.id`. If ownership does not match, the returned updated-ID list does not contain that ID. Supplying an ownership column that is not allowed for updates, or that does not exist on the table, is rejected. For `table=users`, `ownership_column` is not supported; self-update account-ID checks apply instead.
 
 
-### Anyone's rows, for selected users (`/permission/object-*`)
+### Anyone's rows, for selected users (the admin object routes)
 
-Off until a table is in `config_permission_table`, and then only for users holding the id of that table and action in `users.permissions`; nobody but root holds them until granted. Same requests as the `/my` routes (`?table=` on every one, delete's body `{"ids": [...]}`), without the owner filter. The same guards stay: `users` and `config_table_write_blocked` are refused, protected columns cannot change, `created_by_id`/`updated_by_id` is the caller, the batch limit applies. Reads take `filter`, `order`, `column`, `limit` and `after`/`page`, without relations. Detail in [auth.md](auth-permission.md#object-permissions-one-id-per-table-and-action).
+A user granted an admin object route's id may call it, whatever their role: 67 `/admin/object-read`, 65 `-create`, 66 `-update`, 72 `-delete`; nobody but root holds them until granted. The route works on every table except `users` and `config_table_write_blocked`; protected columns cannot change, `created_by_id`/`updated_by_id` is the caller, the batch limit applies. A grant is the whole route, every table ([auth-permission.md](auth-permission.md#admin-routes-one-id-each)).
 
-```python
-# config_extend.py: selected users may change or delete anyone's task or comment
-config_permission_table = {**base_config_permission_table, "task": {"update": 211, "delete": 212}, "task_comment": {"update": 213, "delete": 214}}
-```
 ```bash
-# grant a user task update and delete (an admin, PUT /admin/user-update)
-curl -X PUT "$BASE_URL/admin/user-update" -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" -d '{"id": 4, "permissions": [211, 212]}'
+# grant a user update and delete of anyone's rows (an admin, PUT /admin/user-update)
+curl -X PUT "$BASE_URL/admin/user-update" -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" -d '{"id": 4, "permissions": [66, 72]}'
 ```
 
 ---
@@ -473,4 +468,4 @@ The client can call the exact same endpoint in a loop while `has_more` is `true`
 
 ### 4. User Account Deletion
 
-The generic object APIs never write `users`: they refuse `table=users` (`write disabled for table: users`). Users are created, updated and deleted with `/admin/user-create`, `/admin/user-update`, `/admin/user-delete`, `/permission/user-create`, `/permission/user-update`, `/my/user-update` and `/my/user-delete` (see [Managing Users](auth.md#4-managing-users)); `/admin/object-read?table=users` still reads them.
+The generic object APIs never write `users`: they refuse `table=users` (`write disabled for table: users`). Users are created, updated and deleted with `/admin/user-create`, `/admin/user-update`, `/admin/user-delete`, `/my/user-update` and `/my/user-delete` (see [Managing Users](auth.md#4-managing-users)); `/admin/object-read?table=users` still reads them.

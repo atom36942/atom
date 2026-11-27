@@ -37,7 +37,7 @@ def func_oidc_config_apply(*, values: dict) -> None:
     columns = [f"oidc_{name}" for name in providers if f"oidc_{name}" not in names]
     users += [{"name": c, "datatype": "text", "unique": f"{c},role"} for c in columns]
     values["config_postgres_schema_master"] = {**postgres, "table": {**postgres["table"], "users": users}}
-    for key in ("config_column_users_my_blocked", "config_permission_user_column_blocked"):
+    for key in ("config_column_users_my_blocked",):
         if isinstance(values.get(key), (list, tuple)): values[key] = [*values[key], *(c for c in [f"oidc_{name}" for name in providers] if c not in values[key])]
 
 async def func_oidc_keys(*, client_http: Any, cache_oidc: dict, provider: dict, kid: str | None) -> list:

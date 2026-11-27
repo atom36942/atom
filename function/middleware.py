@@ -209,17 +209,16 @@ async def func_middleware_check_role(*, user_dict: dict, user_check_role: Any, c
             raise func_api_error(message="invalid user role type", status_code=403) from None
     if user_role not in roles: raise func_api_error(message="access denied", status_code=403)
 
-async def func_middleware_check_permission(*, user_dict: dict, user_check_permission: dict | None, api_id: int | None, table: str | None = None, config_permission_table: dict | None = None, user_row_read: Any = None) -> None:
+async def func_middleware_check_permission(*, user_dict: dict, user_check_permission: dict | None, api_id: int | None, user_row_read: Any = None) -> None:
     """Allow the route only to users whose permissions (users.permissions) hold its permission id; no role is exempt, admins included.
-    The id is the route's config_api id, or with action (the /permission/object-* routes) config_permission_table[table][action] for the ?table= of the request: a table or action not in the map is refused.
+    The id is the route's config_api id, nothing else.
     mode token reads them from the token; realtime from the users row (user_row_read, shared with the role checks), so a revoked permission stops at once."""
     if not user_check_permission: return
     if not user_dict: raise func_api_error(message="authorization missing", status_code=401)
-    mode, action = user_check_permission.get("mode"), user_check_permission.get("action")
+    mode = user_check_permission.get("mode")
     if mode not in ("token", "realtime"): raise func_api_error(message=f"invalid mode: {mode}, allowed: token, realtime", status_code=500)
-    if action: permission_id = ((config_permission_table or {}).get(table) or {}).get(action)
-    else: permission_id = api_id
-    if permission_id is None: raise func_api_error(message=f"{action} not allowed for table: {table}" if action else "permission denied", status_code=403)
+    permission_id = api_id
+    if permission_id is None: raise func_api_error(message="permission denied", status_code=403)
     if mode == "realtime":
         if user_row_read is None: raise func_api_error(message="user row reader missing", status_code=500)
         permissions = (await user_row_read())["permissions"]

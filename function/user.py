@@ -26,6 +26,16 @@ async def func_user_create(*, client_postgres: asyncpg.Pool | None, client_passw
     sql = f'INSERT INTO users ({", ".join(f'"{n}"' for n in names)}) VALUES ({", ".join(f"${i + 1}" for i in range(len(names)))}) RETURNING id;'  # noqa: S608 - names are users columns checked by serialization, values bound as $n
     return await client_postgres.fetchval(sql, *[row[n] for n in names])
 
+def func_root_user_permissions(*, config_api: dict) -> list:
+    """The permission ids the root user (id 1) holds: every /admin/* route's id (each has user_check_permission), sorted."""
+    return sorted(cfg["id"] for path, cfg in (config_api or {}).items() if path.startswith("/admin/") and isinstance(cfg, dict) and cfg.get("user_check_permission") and isinstance(cfg.get("id"), int))
+
+async def func_root_user_permissions_sync(*, client_postgres: asyncpg.Pool, config_api: dict) -> bool:
+    """At every start: set the root user's permissions to exactly func_root_user_permissions, so a new /admin route reaches root without a manual grant; True when the row changed (root's next login carries the new ids)."""
+    permissions = func_root_user_permissions(config_api=config_api)
+    result = await client_postgres.execute("UPDATE users SET permissions = $1::smallint[] WHERE id = 1 AND permissions IS DISTINCT FROM $1::smallint[]", permissions)
+    return result != "UPDATE 0"
+
 async def func_user_update_check(*, client_postgres: asyncpg.Pool | None, obj: dict, is_admin: bool, actor_id: int | None = None, is_otp_required: bool, config_column_single_update: list, config_column_users_blocked: list, config_column_users_my_blocked: list, config_otp_expiry_sec: int, config_otp_static: int = None, config_otp_max_attempt: int = 5, config_permission_label: dict | None = None) -> dict:
     """The columns of one user update after its rules: permissions a list of ids labelled in config_permission_label (config_column_int_mapping["users"]["permissions"]), or null; config_column_users_blocked refused for everyone (deletion has its own API), config_column_users_my_blocked refused for the user's own update,
     the caller's own role, permissions or deactivation refused (actor_id: another admin must change them), a single-update column (password, email, ...) sent alone, email or mobile verified with the otp sent to the new value when is_otp_required, email lowercased."""

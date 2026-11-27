@@ -1,4 +1,4 @@
-"""Even role 1 is limited: admin writes check the role and deactivation live and are rate limited, audit columns are Atom's, the write runner takes one INSERT, UPDATE or DELETE (with a WHERE)."""
+"""Admin routes need their permission id (root holds every one); admin writes check the permission and deactivation live and are rate limited, audit columns are Atom's, the write runner takes one INSERT, UPDATE or DELETE (with a WHERE)."""
 import unittest
 import config
 from function.query_runners import func_postgres_write_sql_check
@@ -11,10 +11,10 @@ class AdminGuardTests(unittest.TestCase):
         for name in sorted(ADMIN_WRITES):
             with self.subTest(route=name):
                 cfg = config.config_api[f"/admin/{name}"]
-                self.assertEqual(cfg["user_check_role"], {"mode": "realtime", "roles": [1]})
+                self.assertEqual(cfg["user_check_permission"], {"mode": "realtime"})
+                self.assertNotIn("user_check_role", cfg)
                 self.assertEqual(cfg["user_check_deactivated"], {"mode": "realtime"})
                 self.assertIn("rate_limit", cfg)
-                if "user_check_permission" in cfg: self.assertEqual(cfg["user_check_permission"]["mode"], "realtime")
 
     def test_a_new_admin_write_route_is_listed_here(self):
         # an /admin route that is not a read must be in ADMIN_WRITES, so it gets the guards above

@@ -12,7 +12,6 @@ router = APIRouter()
 @router.post("/admin/blob-container-sas")
 async def func_api_admin_blob_container_sas(*, request: Request):
     app_state = request.app.state
-    await app_state.func_middleware_check_role(user_dict=request.state.user, user_check_role={"mode": "realtime", "roles": [1]}, client_postgres=app_state.client_postgres_dict.get("master"), client_redis=None, cache_users_role={}, config_redis_cache_ttl_sec=0)
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_blob_services}, {"name": "container", "type": "str", "required": True}])
     if oq["service"] == "s3":
         raise Exception("s3 is not allowed for this api")
@@ -27,7 +26,6 @@ async def func_api_admin_blob_container_sas(*, request: Request):
 @router.post("/admin/blob-preview-urls")
 async def func_api_admin_blob_preview_urls(*, request: Request):
     app_state = request.app.state
-    await app_state.func_middleware_check_role(user_dict=request.state.user, user_check_role={"mode": "realtime", "roles": [1]}, client_postgres=app_state.client_postgres_dict.get("master"), client_redis=None, cache_users_role={}, config_redis_cache_ttl_sec=0)
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_blob_services}, {"name": "urls", "type": "list", "required": True}])
     res = await app_state.func_blob_preview_urls_get(client_s3=app_state.client_s3, client_azure_blob=app_state.client_azure_blob, config_azure_account_name=app_state.config_azure_account_name, config_azure_account_key=app_state.config_azure_account_key, config_blob_expire_sec_preview=app_state.config_blob_expire_sec_preview, service=ob["service"], urls=ob["urls"], user_id=None)
     return {"status": 1, "message": res}
@@ -132,7 +130,7 @@ async def func_api_admin_object_update(*, request: Request):
 async def func_api_admin_user_create(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "role", "type": "int", "required": True}, {"name": "username", "type": "str", "required": True}, {"name": "password", "type": "str", "required": True}], strict_types=True)    # other users columns pass through to func_user_create, which refuses blocked ones
-    user_id = await app_state.func_user_create(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_column_regex=app_state.config_column_regex, role=ob["role"], username=ob["username"], password=ob["password"], created_by_id=request.state.user["id"], columns={k: v for k, v in ob.items() if k not in ("role", "username", "password")}, columns_blocked=[*(app_state.config_permission_user_column_blocked or []), *(app_state.config_column_users_blocked or [])])
+    user_id = await app_state.func_user_create(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_column_regex=app_state.config_column_regex, role=ob["role"], username=ob["username"], password=ob["password"], created_by_id=request.state.user["id"], columns={k: v for k, v in ob.items() if k not in ("role", "username", "password")}, columns_blocked=[*(app_state.config_column_users_my_blocked or []), *(app_state.config_column_single_update or []), *(app_state.config_column_users_blocked or [])])    # set later through /admin/user-update
     return {"status": 1, "message": {"id": user_id}}
 
 @router.put("/admin/user-update")

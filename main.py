@@ -93,6 +93,7 @@ async def func_lifespan(app: FastAPI):
         client_postgres_log_api = client_postgres_dict.get(app.state.config_postgres_db_log_api) if app.state.config_is_log_api else None
         # cache schema
         cache_postgres_schema_dict = {name: postgres_master_schema if name == "master" else await app.state.func_postgres_schema_read(client_postgres=pool) for name, pool in client_postgres_dict.items()}
+        if postgres_master and not app.state.config_is_read_only and "permissions" in postgres_master_schema.get("users", {}): await app.state.func_root_user_permissions_sync(client_postgres=postgres_master, config_api=app.state.config_api)    # root holds every /admin route id
         cache_clickhouse_schema_dict = {name: await app.state.func_clickhouse_schema_read(client_clickhouse=client) for name, client in client_clickhouse_dict.items()}
         # func calls
         app.state.func_app_state_add(app=app, data_dict=locals(), prefixes=("client_", "cache_", "buffer_"))
@@ -122,7 +123,7 @@ async def func_lifespan(app: FastAPI):
 app = function.func_app_fastapi_create(config_is_prod=config_values["config_is_prod"], lifespan=func_lifespan, config_is_fastapi_telemetry=config_values["config_is_fastapi_telemetry"])
 function.func_app_state_add(app=app, data_dict=vars(function), prefixes=("func_",))
 function.func_app_state_add(app=app, data_dict=config_values, prefixes=("config_",))
-app.state.func_app_router_add(app=app, router_dir=os.path.join(os.path.dirname(__file__), "router"), router_order={"index": 0, "auth": 1, "my": 2, "public": 3, "private": 4, "permission": 5, "admin": 6})
+app.state.func_app_router_add(app=app, router_dir=os.path.join(os.path.dirname(__file__), "router"), router_order={"index": 0, "auth": 1, "my": 2, "public": 3, "private": 4, "admin": 5})
 app.state.func_app_static_add(app=app)
 app.state.func_app_route_lookup_add(app=app)
 app.state.func_sentry_init(config_sentry_dsn=app.state.config_sentry_dsn, config_sentry_traces_sample_rate=app.state.config_sentry_traces_sample_rate)
@@ -177,7 +178,7 @@ def middleware(asgi_app):
             await app_state.func_middleware_check_auth(user_dict=request.state.user, url_path=path, auth=auth)
             user_row_read = app_state.func_middleware_user_row_reader(client_postgres=app_state.client_postgres_dict.get("master"), user_dict=request.state.user)    # one users query per request, whichever checks need it
             await app_state.func_middleware_check_role(user_dict=request.state.user, user_check_role=user_check_role, client_postgres=app_state.client_postgres_dict.get("master"), client_redis=app_state.client_redis_dict.get("user_state"), cache_users_role=app_state.cache_users_role, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec, user_row_read=user_row_read)
-            await app_state.func_middleware_check_permission(user_dict=request.state.user, user_check_permission=user_check_permission, api_id=api_cfg.get("id"), table=request.query_params.get("table"), config_permission_table=app_state.config_permission_table, user_row_read=user_row_read)
+            await app_state.func_middleware_check_permission(user_dict=request.state.user, user_check_permission=user_check_permission, api_id=api_cfg.get("id"), user_row_read=user_row_read)
             await app_state.func_middleware_check_user_deleted(user_dict=request.state.user, user_check_deleted=user_check_deleted, client_postgres=app_state.client_postgres_dict.get("master"), client_redis=app_state.client_redis_dict.get("user_state"), cache_users_deleted=app_state.cache_users_deleted, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec, user_row_read=user_row_read)
             await app_state.func_middleware_check_user_deactivated(user_dict=request.state.user, user_check_deactivated=user_check_deactivated, client_postgres=app_state.client_postgres_dict.get("master"), client_redis=app_state.client_redis_dict.get("user_state"), cache_users_deactivated=app_state.cache_users_deactivated, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec, user_row_read=user_row_read)
             await app_state.func_middleware_check_ratelimiter(client_redis=app_state.client_redis_dict.get("ratelimiter"), rate_limit=rate_limit, url_path=path, identifier=request.state.user.get("id") if request.state.user else app_state.func_middleware_client_ip(request=request), cache_ratelimiter=app_state.cache_ratelimiter)

@@ -349,8 +349,8 @@ async def func_postgres_schema_trigger_set(*, conn: asyncpg.Connection, existing
     await conn.execute(f"DROP TRIGGER IF EXISTS {name} ON {table}; CREATE TRIGGER {name} {definition};")
     existing[(table, name)] = f"CREATE TRIGGER {name} {definition}"
 
-async def func_postgres_schema_users_init(*, conn: asyncpg.Connection, db_tables: dict, catalog: dict, context: dict, root_user_password_hash: str = None, root_user_permissions: list | None = None) -> None:
-    """Initialize root-user protection, root credentials (and its permissions: exactly root_user_permissions: the /admin and /permission route ids with a permission check, and every config_permission_table id), and user audit triggers."""
+async def func_postgres_schema_users_init(*, conn: asyncpg.Connection, db_tables: dict, catalog: dict, context: dict, root_user_password_hash: str = None) -> None:
+    """Initialize root-user protection, root credentials and user audit triggers (root's permissions: func_root_user_permissions_sync, at every start)."""
     is_root_user_delete_disabled = context["is_root_user_delete_disabled"]
     is_root_user_create = context["is_root_user_create"]
     is_log_users_password = context["is_log_users_password"]
@@ -370,9 +370,6 @@ async def func_postgres_schema_users_init(*, conn: asyncpg.Connection, db_tables
                 raise Exception("config_root_user_password must be set in env when is_root_user_create is enabled")
             await conn.execute("INSERT INTO users (username, password, role) VALUES ('admin', $1, 1) ON CONFLICT (username, role) DO UPDATE SET username = 'admin', password = EXCLUDED.password, role = 1, deleted_at = NULL, deactivated_at = NULL;", root_user_password_hash)
             await conn.execute("UPDATE users SET username = 'admin', password = $1, role = 1, deleted_at = NULL, deactivated_at = NULL WHERE id = 1;", root_user_password_hash)
-            # root holds exactly the /admin and /permission permission ids and every config_permission_table id (Atom's and a project's), reset at every start; a project's other permission routes are never root's
-            if "permissions" in users_cols:
-                await conn.execute("UPDATE users SET permissions = $1::smallint[] WHERE id = 1 AND permissions IS DISTINCT FROM $1::smallint[];", root_user_permissions or None)
         if is_log_password:
             catalog["tg"].add("trigger_password_log_users")
             await func_postgres_schema_trigger_set(conn=conn, existing=existing, table="users", name="trigger_password_log_users", definition="AFTER UPDATE ON users FOR EACH ROW EXECUTE FUNCTION func_password_log_users()")
@@ -496,8 +493,7 @@ async def func_postgres_schema_steps(*, app_state: State, conn: Any, config_post
         await app_state.func_postgres_schema_tables_sync(conn=conn, tables=config_postgres_schema["table"], catalog=context["catalog"])
         db_tables = await app_state.func_postgres_schema_tables_read(conn=conn)
         context["triggers"] = await app_state.func_postgres_schema_triggers_read(conn=conn)
-        root_user_permissions = sorted({*(cfg["id"] for path, cfg in (getattr(app_state, "config_api", None) or {}).items() if path.startswith(("/admin/", "/permission/")) and isinstance(cfg, dict) and cfg.get("user_check_permission") and "action" not in cfg["user_check_permission"] and isinstance(cfg.get("id"), int)), *(permission_id for actions in (getattr(app_state, "config_permission_table", None) or {}).values() for permission_id in actions.values())})
-        await app_state.func_postgres_schema_users_init(conn=conn, db_tables=db_tables, catalog=context["catalog"], context=context, root_user_password_hash=root_user_password_hash, root_user_permissions=root_user_permissions)
+        await app_state.func_postgres_schema_users_init(conn=conn, db_tables=db_tables, catalog=context["catalog"], context=context, root_user_password_hash=root_user_password_hash)
         await app_state.func_postgres_schema_triggers_sync(conn=conn, db_tables=db_tables, catalog=context["catalog"], context=context)
         await app_state.func_postgres_schema_cleanup(conn=conn, tables=config_postgres_schema["table"], catalog=context["catalog"])
     # custom SQL last and outside the transaction, as before (it may hold statements such as CREATE INDEX CONCURRENTLY)
@@ -523,7 +519,7 @@ async def func_postgres_schema_check(*, app_state: State, client_postgres: async
 
 SCHEMA_RISKS = ((r"ALTER COLUMN .* TYPE ", "rewrites the table, which stays locked until it finishes"), (r"SET NOT NULL", "reads every row while the table is locked"),
                 (r"^\s*CREATE (UNIQUE )?INDEX (?!CONCURRENTLY)", "blocks writes to the table while the index builds"), (r"\bDROP (TABLE|COLUMN)\b", "removes data"), (r"GENERATED ALWAYS AS .* STORED", "computes the column for every row while the table is locked"))
-SCHEMA_ROUTINE = (r"^\s*CREATE EXTENSION", r"^\s*CREATE OR REPLACE FUNCTION", r"^\s*DO \$\$", r"^\s*INSERT INTO users \(username, password, role\)", r"^\s*UPDATE users SET username = 'admin'", r"^\s*UPDATE users SET permissions = ")    # run on every start, whether anything changed or not
+SCHEMA_ROUTINE = (r"^\s*CREATE EXTENSION", r"^\s*CREATE OR REPLACE FUNCTION", r"^\s*DO \$\$", r"^\s*INSERT INTO users \(username, password, role\)", r"^\s*UPDATE users SET username = 'admin'")    # run on every start, whether anything changed or not
 
 async def func_postgres_schema_plan(*, app_state: State, client_postgres: asyncpg.Pool, config_postgres_schema: dict) -> list:
     """The statements startup would run to match config_postgres_schema, without running them: [{"sql", "risk", "table", "rows", "is_routine"}] (is_routine: runs on every start, whether anything changed or not). Catalog reads go to the database; every statement that would change it is recorded instead. Steps after a new table read the database as it is now, so a plan for a fresh database is incomplete."""

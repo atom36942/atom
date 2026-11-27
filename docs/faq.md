@@ -228,7 +228,7 @@ config_api["/admin/postgres-query-runner-write"] = {
     "id": 86,
     "is_active": False,  # <-- Disables this route in production
     "auth": ["jwt"],
-    "user_check_role": {"mode": "realtime", "roles": [1]},
+    "user_check_permission": {"mode": "realtime"},
 }
 ```
 

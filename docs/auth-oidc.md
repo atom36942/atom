@@ -55,7 +55,7 @@ So one person can log in with email OTP, Google and Microsoft and always reach t
 
 | Column | Holds |
 |---|---|
-| `oidc_<name>` | That provider's `sub`, unique per role; added at startup for each provider; blocked for `/my/user-update` and `/permission/user-*` |
+| `oidc_<name>` | That provider's `sub`, unique per role; added at startup for each provider; blocked for `/my/user-update` |
 | `email`, `name` | Filled from the token only for a new user (`name` also when empty at linking) |
 
 Nothing else from the token is stored. `oidc_google` is always there: it is the old `google_login_id`, renamed with its data in 19.0.0.

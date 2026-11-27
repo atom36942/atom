@@ -171,25 +171,14 @@ class DatabaseConfigCheckTests(unittest.TestCase):
         func_check_log_api_table(app_state=log_state({}, config_is_log_api=False))    # logging off
         func_check_log_api_table(app_state=log_state({}, client_postgres_dict={}))    # no databases configured
 
-    def test_permission_user_roles_are_roles_from_2(self):
+    def test_removed_settings_stop_startup(self):
         limits = dict.fromkeys(("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_uvicorn_workers", "config_request_body_max_kb", "config_request_form_max_kb", "config_api_cache_inmemory_max_kb"), 100)
-        state = lambda roles: SimpleNamespace(**limits, config_retention_day_table_otp=None, config_retention_day_table_log_api=None, config_buffer_limit_default=100, config_buffer_rows_max=1000, config_permission_user_roles=roles)
-        for roles in ([], [2], [2, 3, 6]): func_check_runtime_config(app_state=state(roles))
-        for roles in ([1], [1, 2], ["2"], [True], 2):
-            with self.subTest(roles=roles), self.assertRaisesRegex(Exception, "config_permission_user_roles must be"): func_check_runtime_config(app_state=state(roles))
-        old = SimpleNamespace(**vars(state([2])), config_permission_user_create_roles=[2])
-        with self.assertRaisesRegex(Exception, "renamed in Atom 14.0.0 to config_permission_user_roles"): func_check_runtime_config(app_state=old)
-        func_check_runtime_config(app_state=SimpleNamespace(**vars(state([2])), config_permission_user_column_blocked=["role", "permissions", "username"]))
-        for old, new in (("config_table_permission_write_allowed", "config_permission_table_write_allowed"), ("config_column_users_permission_blocked", "config_permission_user_column_blocked")):
-            with self.subTest(old=old), self.assertRaisesRegex(Exception, f"{old} was renamed in Atom 15.0.0 to {new}"): func_check_runtime_config(app_state=SimpleNamespace(**vars(state([2])), **{old: []}))
-        with self.assertRaisesRegex(Exception, "config_permission_table_write_allowed was replaced in Atom 18.0.0 by config_permission_table"): func_check_runtime_config(app_state=SimpleNamespace(**vars(state([2])), config_permission_table_write_allowed=["task"]))
-        with self.assertRaisesRegex(Exception, r"config_schedule_check_sec removed in Atom 21.3.0: fixed in code"): func_check_runtime_config(app_state=SimpleNamespace(**vars(state([2])), config_schedule_check_sec=600))
-        with self.assertRaisesRegex(Exception, r"config_webhook_retry_max, config_webhook_poll_sec removed in Atom 21.3.0: webhook timing is fixed"): func_check_runtime_config(app_state=SimpleNamespace(**vars(state([2])), config_webhook_retry_max=3, config_webhook_poll_sec=1))
-        func_check_runtime_config(app_state=SimpleNamespace(**vars(state([2])), config_permission_table={"ticket": {"read": 120, "update": 121}, "task": {"create": 210, "delete": 211}}))
-        for table, error in (([], "must be a dict"), ({"users": {"read": 210}}, "users go through"), ({"task": {}}, "non-empty dict"), ({"task": {"write": 210}}, "non-empty dict"), ({"task": {"read": "210"}}, "permission id from 1"), ({"task": {"read": True}}, "permission id from 1"), ({"task": {"read": 210}, "note": {"read": 210}}, "used twice")):
-            with self.subTest(table=table), self.assertRaisesRegex(Exception, error): func_check_runtime_config(app_state=SimpleNamespace(**vars(state([2])), config_permission_table=table if not isinstance(table, list) else table))
-        for blocked in (["role"], ["permissions", "email"], "role,permissions"):
-            with self.subTest(blocked=blocked), self.assertRaisesRegex(Exception, "config_permission_user_column_blocked must be"): func_check_runtime_config(app_state=SimpleNamespace(**vars(state([2])), config_permission_user_column_blocked=blocked))
+        state = lambda: SimpleNamespace(**limits, config_retention_day_table_otp=None, config_retention_day_table_log_api=None, config_buffer_limit_default=100, config_buffer_rows_max=1000)
+        func_check_runtime_config(app_state=state())
+        for key in ("config_permission_table", "config_permission_user_roles", "config_permission_user_column_blocked", "config_permission_user_create_roles", "config_permission_table_write_allowed"):
+            with self.subTest(key=key), self.assertRaisesRegex(Exception, f"{key} removed in Atom 22.0.0 with the /permission routes: grant a user the id of the /admin route"): func_check_runtime_config(app_state=SimpleNamespace(**vars(state()), **{key: []}))
+        with self.assertRaisesRegex(Exception, r"config_schedule_check_sec removed in Atom 22.0.0: fixed in code"): func_check_runtime_config(app_state=SimpleNamespace(**vars(state()), config_schedule_check_sec=600))
+        with self.assertRaisesRegex(Exception, r"config_webhook_retry_max, config_webhook_poll_sec removed in Atom 22.0.0: webhook timing is fixed"): func_check_runtime_config(app_state=SimpleNamespace(**vars(state()), config_webhook_retry_max=3, config_webhook_poll_sec=1))
 
     def test_buffer_rows_max_must_be_an_integer_of_at_least_1000(self):
         limits = dict.fromkeys(("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_uvicorn_workers", "config_request_body_max_kb", "config_request_form_max_kb", "config_api_cache_inmemory_max_kb"), 100)
@@ -217,7 +206,7 @@ class ApiIdCheckTests(unittest.TestCase):
             func_check_api_config(app=self.app(199))
 
 
-class AdminRoleCheckTests(unittest.TestCase):
+class AdminPermissionCheckTests(unittest.TestCase):
     def app(self, cfg):
         app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)
         app.get("/admin/x")(lambda: None)
@@ -227,11 +216,12 @@ class AdminRoleCheckTests(unittest.TestCase):
         app.state.config_uvicorn_workers = 1
         return app
 
-    def test_admin_routes_need_role_1(self):
-        for cfg in ({"user_check_role": {"mode": "token", "roles": [1]}}, {"user_check_role": {"mode": "realtime", "roles": [3, 1]}}, {"user_check_role": {"mode": "token", "roles": [1]}, "user_check_permission": {"mode": "token"}}):
+    def test_admin_routes_need_a_permission_only(self):
+        for cfg in ({"user_check_permission": {"mode": "token"}}, {"user_check_permission": {"mode": "realtime"}}):
             with self.subTest(cfg=cfg): func_check_api_config(app=self.app(cfg))
-        for cfg in ({}, {"user_check_permission": {"mode": "token"}}, {"user_check_role": {"mode": "token", "roles": [2]}}):
-            with self.subTest(cfg=cfg), self.assertRaisesRegex(Exception, "admin routes need user_check_role with role 1"): func_check_api_config(app=self.app(cfg))
+        for cfg in ({}, {"user_check_role": {"mode": "token", "roles": [1]}}):
+            with self.subTest(cfg=cfg), self.assertRaisesRegex(Exception, "admin routes need user_check_permission"): func_check_api_config(app=self.app(cfg))
+        with self.assertRaisesRegex(Exception, "invalid user_check_permission"): func_check_api_config(app=self.app({"user_check_permission": {"mode": "token", "action": "read"}}))    # an id, no action
 
 
 class GroupGateCheckTests(unittest.TestCase):
@@ -243,12 +233,6 @@ class GroupGateCheckTests(unittest.TestCase):
         app.state.config_column_token_encode = ["id", "role", "permissions"]
         app.state.config_uvicorn_workers = 1
         return app
-
-    def test_permission_routes_need_a_permission_and_may_add_a_role(self):
-        for cfg in ({"auth": ["jwt"], "user_check_permission": {"mode": "token"}}, {"auth": ["jwt"], "user_check_permission": {"mode": "token"}, "user_check_role": {"mode": "token", "roles": [1, 2]}}):
-            with self.subTest(cfg=cfg): func_check_api_config(app=self.app("/permission/x", cfg))
-        for cfg in ({"auth": ["jwt"]}, {"auth": ["jwt"], "user_check_role": {"mode": "token", "roles": [2]}}):
-            with self.subTest(cfg=cfg), self.assertRaisesRegex(Exception, "permission routes need user_check_permission"): func_check_api_config(app=self.app("/permission/x", cfg))
 
     def test_a_role_permission_or_user_check_needs_a_credential(self):
         for cfg in ({"user_check_role": {"mode": "token", "roles": [2]}}, {"user_check_permission": {"mode": "token"}}, {"user_check_deactivated": {"mode": "token"}}, {"user_check_deleted": {"mode": "token"}}):
@@ -278,27 +262,6 @@ class PermissionConfigCheckTests(unittest.TestCase):
         ]:
             with self.subTest(cfg=cfg, labels=labels), self.assertRaisesRegex(Exception, message):
                 func_check_api_config(app=self.app(cfg, labels, token_encode))
-
-    def test_action_routes_take_their_id_from_config_permission_table(self):
-        app = lambda path, action, table, labels: self.action_app(path, action, table, labels)
-        func_check_api_config(app=app("/permission/object-update", "update", {"ticket": {"update": 121}}, {121: "Ticket update"}))
-        for path, action, table, labels, message in [
-            ("/x", "update", {}, {}, "only the /permission/object-\\* routes take one"),
-            ("/permission/object-update", "write", {}, {}, "only the /permission/object-\\* routes take one"),
-            ("/permission/object-update", "update", {"ticket": {"update": 121}}, {}, "label id 121"),
-            ("/permission/object-update", "update", {"ticket": {"update": 205}}, {205: "X"}, "is a config_api route id"),
-        ]:
-            with self.subTest(path=path, action=action, table=table), self.assertRaisesRegex(Exception, message): func_check_api_config(app=app(path, action, table, labels))
-
-    def action_app(self, path, action, table, labels):
-        app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)
-        app.get(path)(lambda: None)
-        app.state.config_api = {path: {"id": 205, "auth": ["jwt"], "user_check_permission": {"mode": "token", "action": action}}}
-        app.state.config_column_int_mapping = {"users": {"permissions": labels}}
-        app.state.config_column_token_encode = ["id", "role", "permissions"]
-        app.state.config_permission_table = table
-        app.state.config_uvicorn_workers = 1
-        return app
 
 
 class WebsocketConfigCheckTests(unittest.TestCase):

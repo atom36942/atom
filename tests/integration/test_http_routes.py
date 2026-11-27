@@ -90,25 +90,34 @@ class HttpRouteTests(unittest.TestCase):
                 anonymous = getattr(self.client, method)(path)
                 self.assertEqual(anonymous.status_code, 401, anonymous.text)
                 user = getattr(self.client, method)(path, headers=self.auth(self.alice))
-                expected = "permission denied" if self.app.state.config_api[path].get("user_check_permission") and not self.app.state.config_api[path].get("user_check_role") else "access denied"
-                self.assertEqual((user.status_code, user.json()["message"]), (403, expected))
+                self.assertEqual((user.status_code, user.json()["message"]), (403, "permission denied"))
 
-    def test_permission_routes_root_holds_them_others_need_a_grant(self):
-        # root gets every /admin and /permission permission id at startup (61, 62, 86) and every config_permission_table id (none in Atom); other users are granted explicitly
-        self.assertEqual(fetch(self.url, "SELECT permissions FROM users WHERE id = 1"), [{"permissions": [61, 62, 86]}])
+    def test_admin_routes_root_holds_every_id_others_need_a_grant(self):
+        admin_ids = sorted(cfg["id"] for path, cfg in self.app.state.config_api.items() if path.startswith("/admin/"))
+        self.assertEqual(fetch(self.url, "SELECT permissions FROM users WHERE id = 1"), [{"permissions": admin_ids}])    # set at startup
+        # a role is nothing: another role 1 user without grants is refused
         self.message(self.client.post("/admin/user-create", json={"role": 1, "username": "admin2", "password": "admin2-pass"}, headers=self.auth(self.admin)))
         admin2 = app_login(self.client, path="/auth/login-username-password", body={"username": "admin2", "password": "admin2-pass"})
-        self.assertEqual(self.message(self.client.post("/admin/postgres-query-runner-write", json={"sql": "SELECT 1"}, headers=self.auth(admin2)), 403), "permission denied")
-        self.assertEqual(self.message(self.client.delete("/admin/user-delete", params={"id": self.bob_id}, headers=self.auth(admin2)), 403), "users hard delete disabled")    # role 1 only; config_is_user_delete is off
-        # role 1 + permission: a role 5 user granted 6 is still refused by the role
-        self.message(self.client.put("/admin/user-update", json={"id": self.alice_id, "permissions": [86]}, headers=self.auth(self.admin)))
-        self.assertEqual(self.message(self.client.put("/admin/user-update", json={"id": self.alice_id, "permissions": [999]}, headers=self.auth(self.admin)), 400).count("not labelled"), 1)
-        alice = app_login(self.client, path="/auth/login-username-password", body={"username": "alice", "password": "alice-pass"})
-        self.assertEqual(self.message(self.client.delete("/admin/user-delete", params={"id": self.bob_id}, headers=self.auth(alice)), 403), "access denied")
-        self.assertEqual(self.message(self.client.post("/admin/postgres-query-runner-write", json={"sql": "SELECT 1"}, headers=self.auth(alice)), 403), "access denied")
-        self.message(self.client.put("/admin/user-update", json={"id": self.alice_id, "permissions": None}, headers=self.auth(self.admin)))
+        self.assertEqual(self.message(self.client.get("/admin/object-read", params={"table": "test"}, headers=self.auth(admin2)), 403), "permission denied")
+        # a user granted one route id gets that route only
+        [row_id] = self.message(self.client.post("/my/object-create", params={"table": "test"}, json={"title": "alice's"}, headers=self.auth(self.alice)))
+        self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": [66]}, headers=self.auth(self.admin)))    # /admin/object-update
+        self.assertEqual(self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": [999]}, headers=self.auth(self.admin)), 400).count("not labelled"), 1)
+        bob = app_login(self.client, path="/auth/login-username-password", body={"username": "bob", "password": "bob-pass"})
+        self.assertEqual(self.message(self.client.put("/admin/object-update", params={"table": "test"}, json={"id": row_id, "title": "by bob"}, headers=self.auth(bob))), [row_id])
+        self.assertEqual(fetch(self.url, "SELECT title, created_by_id, updated_by_id FROM test WHERE id = $1", row_id), [{"title": "by bob", "created_by_id": self.alice_id, "updated_by_id": self.bob_id}])
+        self.assertEqual(self.message(self.client.get("/admin/object-read", params={"table": "test"}, headers=self.auth(bob)), 403), "permission denied")    # update only: no read
+        self.assertEqual(self.message(self.client.put("/admin/user-update", json={"id": self.alice_id, "city": "Goa"}, headers=self.auth(bob)), 403), "permission denied")
+        # revoked: the write route checks live, so the same token stops at once
+        self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": None}, headers=self.auth(self.admin)))
+        self.assertEqual(self.message(self.client.put("/admin/object-update", params={"table": "test"}, json={"id": row_id, "title": "again"}, headers=self.auth(bob)), 403), "permission denied")
         [admin2_id] = [row["id"] for row in fetch(self.url, "SELECT id FROM users WHERE username = 'admin2'")]
         self.message(self.client.put("/admin/user-update", json={"id": admin2_id, "role": 9}, headers=self.auth(self.admin)))    # other tests expect admin as the only role 1 user
+
+    def test_public_create_honeypot(self):
+        self.assertEqual(self.message(self.client.post("/public/object-create", params={"table": "test"}, json={"title": "bot", "website": "http://spam.test"}), 400), "refused")    # the hidden honeypot field, filled
+        [public_id] = self.message(self.client.post("/public/object-create", params={"table": "test"}, json={"title": "person", "website": ""}))
+        self.assertEqual(fetch(self.url, "SELECT title, created_by_id FROM test WHERE id = $1", public_id), [{"title": "person", "created_by_id": None}])    # an empty one is dropped
 
     def test_admin_user_update_obj_list_is_all_or_nothing(self):
         users = "SELECT id, city, job_title, updated_by_id FROM users WHERE id = ANY($1) ORDER BY id"
@@ -131,84 +140,6 @@ class HttpRouteTests(unittest.TestCase):
         user_id = self.message(create({"username": "dave", "city": "Pune", "job_title": "Lead"}))["id"]
         self.assertEqual(fetch(self.url, "SELECT role, city, job_title, created_by_id FROM users WHERE id = $1", user_id), [{"role": 5, "city": "Pune", "job_title": "Lead", "created_by_id": 1}])
         self.assertTrue(fetch(self.url, "SELECT password FROM users WHERE id = $1", user_id)[0]["password"].startswith("$argon2"))    # hashed, never stored as sent
-
-    def test_permission_user_create_needs_the_permission_and_an_allowed_role(self):
-        create = lambda token, role, username="carol": self.client.post("/permission/user-create", json={"username": username, "password": "carol-pass", "role": role}, headers=self.auth(token))
-        self.assertEqual(self.message(create(self.bob, 5), 403), "permission denied")
-        self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": [61]}, headers=self.auth(self.admin)))
-        bob = app_login(self.client, path="/auth/login-username-password", body={"username": "bob", "password": "bob-pass"})
-        try:
-            self.assertIn("role 5 not allowed", self.message(create(bob, 5), 400))    # Atom's default: no role
-            self.app.state.config_permission_user_roles = [5]
-            self.assertIn("role 1 not allowed", self.message(create(bob, 1), 400))
-            self.assertIn("role 6 not allowed", self.message(create(bob, 6), 400))
-            user_id = self.message(create(bob, 5))["id"]
-            self.assertEqual(fetch(self.url, "SELECT role, username, created_by_id FROM users WHERE id = $1", user_id), [{"role": 5, "username": "carol", "created_by_id": self.bob_id}])
-            self.message(create(bob, 5), 400)    # the username is taken in that role
-            self.assertTrue(app_login(self.client, path="/auth/login-username-password", body={"username": "carol", "password": "carol-pass"}))
-            self.message(self.client.put("/admin/user-update", json={"id": user_id, "role": 9}, headers=self.auth(self.admin)))    # other tests count role 5 users
-        finally:
-            self.app.state.config_permission_user_roles = []
-            self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": None}, headers=self.auth(self.admin)))
-
-    def test_permission_user_update_needs_the_permission_and_an_allowed_role(self):
-        update = lambda token, body: self.client.put("/permission/user-update", json=body, headers=self.auth(token))
-        route = self.app.state.config_api["/permission/user-update"]
-        limit = route["rate_limit"]
-        route["rate_limit"] = {**limit, "limit": 100}    # this test sends more than the route's 10 a minute
-        self.addCleanup(route.__setitem__, "rate_limit", limit)
-        user = lambda: fetch(self.url, "SELECT name, deactivated_at IS NOT NULL AS off, deactivated_by_id, updated_by_id FROM users WHERE id = $1", self.alice_id)[0]
-        self.assertEqual(self.message(update(self.bob, {"id": self.alice_id, "name": "A"}), 403), "permission denied")
-        self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": [62]}, headers=self.auth(self.admin)))
-        bob = app_login(self.client, path="/auth/login-username-password", body={"username": "bob", "password": "bob-pass"})
-        try:
-            self.assertIn("role 5 not allowed", self.message(update(bob, {"id": self.alice_id, "name": "A"}), 400))    # Atom's default: no role
-            self.app.state.config_permission_user_roles = [5]
-            self.assertIn("role 1 not allowed", self.message(update(bob, {"id": 1, "password": "taken-over"}), 400))    # root and admins never
-            self.assertIn("send id and the columns", self.message(update(bob, {"id": self.alice_id}), 400))
-            self.assertIn("password must be updated alone", self.message(update(bob, {"id": self.alice_id, "name": "A", "password": "x-pass-1"}), 400))    # Atom's single-update rule
-            for column, value in (("role", 9), ("permissions", [62]), ("username", "alice2"), ("email", "a@example.com"), ("deactivated_by_id", 1), ("created_by_id", 1)):
-                with self.subTest(column=column): self.assertIn(f"{column} cannot be updated here", self.message(update(bob, {"id": self.alice_id, column: value}), 400))
-            self.message(update(bob, {"id": self.alice_id, "name": "Alice A", "city": "Pune", "job_title": "Lead"}))    # the profile columns, together
-            self.assertEqual(user(), {"name": "Alice A", "off": False, "deactivated_by_id": None, "updated_by_id": self.bob_id})
-            self.assertEqual(fetch(self.url, "SELECT city, job_title FROM users WHERE id = $1", self.alice_id), [{"city": "Pune", "job_title": "Lead"}])
-            self.message(update(bob, {"id": self.alice_id, "password": "alice-new-pass"}))
-            self.assertTrue(app_login(self.client, path="/auth/login-username-password", body={"username": "alice", "password": "alice-new-pass"}))
-            self.message(update(bob, {"id": self.alice_id, "deactivated_at": "2026-01-01T00:00:00+00:00"}))
-            self.assertEqual(user()["off"], True)
-            self.assertEqual(user()["deactivated_by_id"], self.bob_id)
-            self.message(update(bob, {"id": self.alice_id, "deactivated_at": None}))
-            self.assertEqual((user()["off"], user()["deactivated_by_id"]), (False, None))
-        finally:
-            self.app.state.config_permission_user_roles = []
-            self.message(self.client.put("/admin/user-update", json={"id": self.alice_id, "name": None, "city": None, "job_title": None}, headers=self.auth(self.admin)))
-            self.message(self.client.put("/admin/user-update", json={"id": self.alice_id, "password": "alice-pass"}, headers=self.auth(self.admin)))
-            self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": None}, headers=self.auth(self.admin)))
-
-    def test_permission_object_routes_check_the_table_and_action_id(self):
-        [row_id] = self.message(self.client.post("/my/object-create", params={"table": "test"}, json={"title": "alice's"}, headers=self.auth(self.alice)))
-        update = lambda token, table="test": self.client.put("/permission/object-update", params={"table": table}, json={"id": row_id, "title": "by bob"}, headers=self.auth(token))
-        read = lambda token, table="test": self.client.get("/permission/object-read", params={"table": table}, headers=self.auth(token))
-        self.assertEqual(self.message(update(self.bob), 403), "update not allowed for table: test")    # not in config_permission_table
-        self.app.state.config_permission_table = {**self.app.state.config_permission_table, "test": {"read": 120, "update": 121}}
-        labels = self.app.state.config_column_int_mapping["users"]["permissions"]
-        labels.update({120: "Test read", 121: "Test update"})    # a project labels its ids; only for this test
-        try:
-            self.assertEqual(self.message(update(self.bob), 403), "permission denied")
-            self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": [121]}, headers=self.auth(self.admin)))
-            bob = app_login(self.client, path="/auth/login-username-password", body={"username": "bob", "password": "bob-pass"})
-            self.assertEqual(self.message(read(bob), 403), "permission denied")    # update only: no read
-            self.assertEqual(self.message(update(bob, "users"), 403), "update not allowed for table: users")
-            self.assertEqual(self.message(self.client.post("/permission/object-delete", params={"table": "test"}, json={"ids": [row_id]}, headers=self.auth(bob)), 403), "delete not allowed for table: test")
-            self.assertEqual(self.message(update(bob)), [row_id])
-            self.assertEqual(fetch(self.url, "SELECT title, created_by_id, updated_by_id FROM test WHERE id = $1", row_id), [{"title": "by bob", "created_by_id": self.alice_id, "updated_by_id": self.bob_id}])
-            self.assertEqual(self.message(self.client.post("/public/object-create", params={"table": "test"}, json={"title": "bot", "website": "http://spam.test"}), 400), "refused")    # the hidden honeypot field, filled only by bots
-            [public_id] = self.message(self.client.post("/public/object-create", params={"table": "test"}, json={"title": "person", "website": ""}))
-            self.assertEqual(fetch(self.url, "SELECT title, created_by_id FROM test WHERE id = $1", public_id), [{"title": "person", "created_by_id": None}])    # an empty one is dropped
-        finally:
-            self.app.state.config_permission_table = {key: value for key, value in self.app.state.config_permission_table.items() if key != "test"}
-            for id in (120, 121): labels.pop(id)
-            self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": None}, headers=self.auth(self.admin)))
 
     # 2. CRUD lifecycle and ownership
     def test_my_crud_lifecycle_and_ownership(self):

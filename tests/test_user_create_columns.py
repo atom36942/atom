@@ -14,18 +14,17 @@ class UserCreateColumnsTests(unittest.TestCase):
     def test_every_users_column_is_allowed_or_blocked_on_create(self):
         block = CONFIG[CONFIG.index('"users":['):]; block = block[:block.index("\n],")]
         columns = set(re.findall(r'"name":\s*"([a-z_]+)"', block))
-        blocked = REFUSED_ALWAYS | set(config.config_permission_user_column_blocked) | set(config.config_column_users_blocked)
-        self.assertEqual(sorted(columns - blocked - ALLOWED), [], "a new users column: block it in config_permission_user_column_blocked or config_column_users_blocked, or add it to ALLOWED here")
+        blocked = REFUSED_ALWAYS | set(config.config_column_users_my_blocked) | set(config.config_column_single_update) | set(config.config_column_users_blocked)
+        self.assertEqual(sorted(columns - blocked - ALLOWED), [], "a new users column: block it in config_column_users_my_blocked or config_column_users_blocked, or add it to ALLOWED here")
         self.assertEqual(sorted(ALLOWED & blocked), [])
 
     def test_sign_up_and_login_columns_are_blocked(self):
-        blocked = set(config.config_permission_user_column_blocked) | set(config.config_column_users_blocked)
+        blocked = set(config.config_column_users_my_blocked) | set(config.config_column_single_update) | set(config.config_column_users_blocked)
         for column in ("email", "mobile", "oidc_google", "id_ext", "source", "parent_id", "verified_at", "permissions", "created_at", "last_active_at", "is_protected"):
             with self.subTest(column=column): self.assertIn(column, blocked)
 
-    def test_both_create_routes_pass_both_block_lists(self):
-        for path in ("router/admin.py", "router/permission.py"):
-            with self.subTest(path=path): self.assertIn("columns_blocked=[*(app_state.config_permission_user_column_blocked or []), *(app_state.config_column_users_blocked or [])]", (ROOT / path).read_text())
+    def test_the_create_route_passes_the_block_lists(self):
+        self.assertIn("columns_blocked=[*(app_state.config_column_users_my_blocked or []), *(app_state.config_column_single_update or []), *(app_state.config_column_users_blocked or [])]", (ROOT / "router/admin.py").read_text())
 
 
 if __name__ == "__main__":

@@ -146,7 +146,7 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: State) -> dict:
             op["x-ip-allow"] = bool(api_cfg.get("ip_allow"))
             op["x-token-verify"] = (api_cfg.get("token_verify") or {}).get("in", "header") if api_cfg.get("token_verify") else None
             op["x-roles-allowed"] = api_cfg.get("user_check_role", None)
-            op["x-permission"] = (api_cfg["user_check_permission"].get("action") or api_cfg.get("id")) if api_cfg.get("user_check_permission") else None    # an action route's id comes from config_permission_table
+            op["x-permission"] = api_cfg.get("id") if api_cfg.get("user_check_permission") else None    # the permission id is the route id
             op["x-check-deactivated"] = "user_check_deactivated" in api_cfg
             op["x-check-deleted"] = "user_check_deleted" in api_cfg
             op["x-id"] = api_cfg.get("id")

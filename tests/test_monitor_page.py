@@ -21,7 +21,7 @@ class MonitorPageTests(unittest.TestCase):
     def test_the_route_the_page_calls_exists_and_is_admin_only(self):
         self.assertIn("api(`/admin/monitor?", PAGE)
         self.assertIn('@router.get("/admin/monitor")', (ROOT / "router" / "admin.py").read_text())
-        self.assertRegex(CONFIG, r'"/admin/monitor": \{"id": \d+, "auth": \["jwt"\], "user_check_role": \{"mode": "token", "roles": \[1\]\}')
+        self.assertRegex(CONFIG, r'"/admin/monitor": \{"id": \d+, "auth": \["jwt"\], "user_check_permission": \{"mode": "token"\}')
 
     def test_every_tab_has_a_view_the_route_allows(self):
         tabs = re.findall(r'data-tab="(\w+)"', PAGE)

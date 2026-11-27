@@ -99,7 +99,7 @@ class HttpIntegrationTests(unittest.TestCase):
 
     def test_admin_route_is_403_for_users_and_200_for_root_admin(self):
         denied = self.client.get("/admin/object-read", params={"table": "test"}, headers=self.auth())
-        self.assertEqual((denied.status_code, denied.json()["message"]), (403, "access denied"))
+        self.assertEqual((denied.status_code, denied.json()["message"]), (403, "permission denied"))
         allowed = self.client.get("/admin/object-read", params={"table": "test"}, headers=self.auth(self.admin_token))
         self.assertEqual(allowed.status_code, 200, allowed.text)
 

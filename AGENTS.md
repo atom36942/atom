@@ -39,7 +39,7 @@ One feature, one name in every folder (`<f>`); a big one splits into `<f>_<part>
 ## Backend ([backend.md](docs/backend.md))
 Enforced:
 - Atom owns every unsuffixed path (`function/`, `router/`, `docs/`, `script/`, `static/`, `files/`, `config.py`, `main.py`, `sync.py`, `AGENTS.md`, ...); sync overwrites them. A project's code lives only in `*_extend` paths, `config_extend.py` and `.env`.
-- Every route has a `config_api` entry: a unique `id` (a project's from 200) and `auth` (`[]`, `["jwt"]`, `["api_key"]` or both); `/admin/*` needs role 1, `/permission/*` a permission, and every permission id a label in `config_column_int_mapping`.
+- Every route has a `config_api` entry: a unique `id` (a project's from 200) and `auth` (`[]`, `["jwt"]`, `["api_key"]` or both); `/admin/*` needs `user_check_permission` (the route's id in `users.permissions`; root holds every one), and every permission id a label in `config_column_int_mapping`.
 - `func_*` names are unique across `function/` and `function_extend/`; `config_extend.py` has sections `# base`, `# atom`, `# extend` and only extends Atom's dicts (dropping an Atom route, table or code fails).
 - Settings are typed: `config_is_<what>` is true or false, `config_schedule_script_<script>` a schedule; anything else stops startup.
 - `script.check` fails on: a secret in code or docs (only in `.env`); Postgres through anything but asyncpg (`psycopg`, `sqlalchemy`); `.env` missing from `.gitignore`; a pool or SDK client opened in `function_extend/` or `router_extend/` (use Atom's; a script is its own process and may open its own); a role or permission check in `router_extend/` (`config_api` does it).
@@ -48,8 +48,8 @@ Rules:
 - User id and role come only from `request.state.user`.
 - Rows only through `func_check_table_permission` and `func_postgres_create/read/update/delete`; hand-written SQL only for what they can't express, values bound as `$1`, Postgres only through asyncpg.
 - Reuse Atom's `func_*` helpers (search `function/` first); never edit `main.py` (startup hook: `func_extend`).
-- Users go through Atom's routes (`/admin/user-*`, `/my/user-*`, `/permission/user-*`): never a project user API ([auth.md](docs/auth.md)).
-- `users.permissions` holds only route and `config_permission_table` ids; any other access (which rows a user sees: countries, companies) is its own admin-only `users` column read on each request ([auth-permission.md](docs/auth-permission.md)).
+- Users go through Atom's routes (`/admin/user-*`, `/my/user-*`): never a project user API ([auth.md](docs/auth.md)).
+- `users.permissions` holds only route ids; any other access (which rows a user sees: countries, companies) is its own admin-only `users` column read on each request ([auth-permission.md](docs/auth-permission.md)).
 - Scripts and other systems call the API with an API key (`Authorization: Bearer atk_...`, a service account's key, on routes whose `auth` has `"api_key"`), never a person's password or a shared login ([auth.md](docs/auth-api-key.md)).
 - Another system that must know when something happens gets a webhook (`func_webhook_send` in the change's transaction, [webhook.md](docs/webhook.md)), never a loop of its own calling it. A route another service calls takes `webhook_verify` (its scheme in `config_webhook_verify_scheme`), never signature code in the route.
 - Lists page after a cursor, never a total count; every CSV export goes through `func_<db>_export` ([crud.md](docs/crud.md)).
@@ -59,7 +59,7 @@ Rules:
 Defaults:
 - Scale to 100× today's data: one SQL statement per screen read, an index for every filter and sort, aggregates in SQL, streamed exports, batched resumable scripts ([backend.md](docs/backend.md#scale-and-speed-defaults-a-project-keeps-working-at-100-todays-data)).
 - Thin route in `router_extend/<f>.py` → logic in `function_extend/<f>.py` (`func_<f>_*`); files named after the feature in every folder ([extend.md](docs/extend.md)).
-- Paths `/<feature>/<thing>-<verb>`; use Atom's generic routes (`/private/object-read`, `/my/object-*`, and `/permission/object-*` with a `config_permission_table` entry for selected users' create, read, update, delete on any table) before writing one ([auth.md](docs/auth-permission.md#recipe-a-teams-create-read-update-and-delete-on-any-table)).
+- Paths `/<feature>/<thing>-<verb>`; use Atom's generic routes (`/private/object-read`, `/my/object-*`, and the admin object routes granted by id for selected users' create, read, update, delete on any table) before writing one ([auth-permission.md](docs/auth-permission.md#admin-routes-one-id-each)).
 - Roles: 1 is Atom's admin; a project's users start at 2, each new kind takes the next number.
 - Scripts: `# type`, `# command`, `# info`, then `# import`, `# config`, `# setting`, `# logic`, `# main` ([backend.md](docs/backend.md#scripts)).
 - Postgres is the base: background work that must not be lost goes on Atom's Postgres queue (`?queue=postgres`, `script.consumer_postgres`); Redis, RabbitMQ, Kafka or Celery only when Postgres can't keep up ([queue.md](docs/queue.md)).

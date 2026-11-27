@@ -24,11 +24,8 @@ ROWS = [
 ]
 
 SEARCH_ON_TEST = """from config import config_postgres_schema_master as base_config_postgres_schema_master
-from config import config_column_int_mapping as base_config_column_int_mapping
 config_postgres_schema_master = {**base_config_postgres_schema_master, "table": {**base_config_postgres_schema_master["table"], "test": [*base_config_postgres_schema_master["table"]["test"], {"name": "search", "datatype": "tsvector", "generated": "setweight(to_tsvector('english', coalesce(title, '')), 'A') || setweight(to_tsvector('english', coalesce(description, '')), 'B')", "index": "gin(search)"}]}}
-config_permission_table = {"test": {"read": 120}}
-config_column_int_mapping = {**base_config_column_int_mapping, "users": {**base_config_column_int_mapping["users"], "permissions": {**base_config_column_int_mapping["users"]["permissions"], 120: "Test read"}}}
-"""    # a project's searchable table: test gets a weighted search column (title A, description B), readable through /permission/object-read (root holds 120)
+"""    # a project's searchable table: test gets a weighted search column (title A, description B), read through /admin/object-read (root holds its id)
 
 
 @requires_postgres
@@ -38,7 +35,7 @@ class SearchTests(unittest.TestCase):
         cls.db_name, cls.url = create_database()
         cls.handle = app_start(env={"config_postgres_url_master": cls.url}, config_extend=SEARCH_ON_TEST)
         cls.app, cls.client = cls.handle["app"], cls.handle["client"]
-        for path in ("/permission/object-read", "/permission/object-read-export"): cls.app.state.config_api[path]["rate_limit"] = None
+        for path in ("/admin/object-read", "/admin/object-read-export"): cls.app.state.config_api[path]["rate_limit"] = None
         cls.admin = {"Authorization": "Bearer " + app_login(cls.client, path="/auth/login-username-password", body={"username": "admin", "password": "root-test-password"})}
         cls.ids = [fetch(cls.url, "INSERT INTO test (title, description) VALUES ($1, $2) RETURNING id", title, description)[0]["id"] for title, description in ROWS]
 
@@ -49,7 +46,7 @@ class SearchTests(unittest.TestCase):
 
     def read(self, status=200, **params):
         query = {"table": "test", **{k: json.dumps(v) if isinstance(v, list) else v for k, v in params.items()}}
-        response = self.client.get("/permission/object-read", params=query, headers=self.admin)
+        response = self.client.get("/admin/object-read", params=query, headers=self.admin)
         self.assertEqual(response.status_code, status, response.text)
         return response.json()["message"]
 
@@ -89,7 +86,7 @@ class SearchTests(unittest.TestCase):
         self.assertTrue(all("search" not in row for row in self.read()["obj_list"]))
         self.assertIn("for search only", self.read(400, column="id,search"))
         self.assertIn("invalid operator", self.read(400, filter=["search = printer"]))
-        response = self.client.get("/permission/object-read-export", params={"table": "test", "filter": json.dumps(["search @@ scanner"])}, headers=self.admin)
+        response = self.client.get("/admin/object-read-export", params={"table": "test", "filter": json.dumps(["search @@ scanner"])}, headers=self.admin)
         self.assertEqual(response.status_code, 200, response.text)
         header, *rows = [line for line in response.content.decode().splitlines() if line]
         self.assertNotIn("search", header.split(","))

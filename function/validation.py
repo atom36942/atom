@@ -73,13 +73,8 @@ def func_check_audit_columns(*, app_state: State, obj_list: list) -> None:
     if columns := sorted({c for obj in obj_list if isinstance(obj, dict) for c in obj if c in blocked}): raise func_api_error(message=f"{', '.join(columns)} is set by Atom, not by a request", status_code=400)
 
 def func_check_table_not_users(*, table: str) -> None:
-    """Refuse the users table in a generic object API: users rows are written only through their own APIs (/my/user-*, /permission/user-*, /admin/user-*)."""
+    """Refuse the users table in a generic object API: users rows are written only through their own APIs (/my/user-*, /admin/user-*)."""
     if table == "users": raise Exception("write disabled for table: users")
-
-def func_check_permission_user_role(*, app_state: State, role: int) -> None:
-    """Refuse a role outside config_permission_user_roles in a /permission user route: the role a new user gets, or the role of the user being changed; never role 1."""
-    allowed = getattr(app_state, "config_permission_user_roles", None) or []
-    if role == 1 or role not in allowed: raise func_api_error(message=f"role {role} not allowed (config_permission_user_roles: {allowed})", status_code=400)
 
 def func_check_honeypot(*, app_state: State, obj_list: list) -> list:
     """Refuse public rows whose hidden honeypot field (config_public_create_honeypot) was filled, as only bots fill it; drop the field from the rest."""

@@ -203,11 +203,6 @@ config_table_private_read_allowed = ["test"]
 config_public_create_honeypot = "website"
 config_mongodb_my_create_allowed = {"test": ["post"]}
 
-# permission
-config_permission_table = {}
-config_permission_user_roles = []
-config_permission_user_column_blocked = ["role", "permissions", "totp_enabled_at", "username", "email", "mobile", "verified_at", "verified_by_id", "deactivated_by_id", "parent_id", "source", "id_ext", "oidc_google"]
-
 # column
 config_column_token_encode = ["id", "role", "username", "id_ext" ,"deactivated_at", "deleted_at", "permissions"]
 config_column_ownership_read = ["created_by_id", "received_by_id", "assigned_to_id", "user_id"]
@@ -240,7 +235,7 @@ config_options = {
 config_column_int_mapping = {
 "users": {
 "role": {1: "Admin"},
-"permissions": {61: "Create user", 62: "Update user", 86: "Postgres query runner write"},
+"permissions": {63: "/admin/sync", 64: "/admin/monitor", 65: "/admin/object-create", 66: "/admin/object-update", 67: "/admin/object-read", 68: "/admin/object-read-export", 69: "/admin/user-create", 70: "/admin/user-update", 71: "/admin/user-delete", 72: "/admin/object-delete", 73: "/admin/table-column-groupby", 74: "/admin/table-column-distinct", 75: "/admin/postgres-import", 76: "/admin/mongodb-import", 77: "/admin/blob-container-sas", 78: "/admin/blob-preview-urls", 79: "/admin/blob-container-read", 80: "/admin/blob-container-ops", 81: "/admin/blob-delete-url", 82: "/admin/postgres-info", 83: "/admin/postgres-schema", 84: "/admin/postgres-slow-queries", 85: "/admin/postgres-slow-queries-reset", 86: "/admin/postgres-query-runner-write", 87: "/admin/postgres-query-runner-read", 88: "/admin/postgres-query-runner-read-export", 89: "/admin/postgres-query-ai", 90: "/admin/mssql-query-runner-write", 91: "/admin/mssql-query-runner-read", 92: "/admin/mssql-query-runner-read-export", 93: "/admin/clickhouse-query-runner-write", 94: "/admin/clickhouse-query-runner-read", 95: "/admin/clickhouse-query-runner-read-export", 96: "/admin/clickhouse-query-ai", 101: "/admin/webhook-create"},
 },
 "blob": {
 "type": {1: "File", 2: "Presigned Url"},
@@ -561,50 +556,42 @@ config_api = {
 "/private/user-read": {"id": 56, "auth": ["jwt"], "is_connection_param": True},
 "/private/table-column-groupby": {"id": 57, "auth": ["jwt"], "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}, "is_connection_param": True},
 "/private/table-column-distinct": {"id": 58, "auth": ["jwt"], "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}, "is_connection_param": True},
-# permission
-"/permission/object-create": {"id": 98, "auth": ["jwt"], "user_check_permission": {"mode": "token", "action": "create"}},
-"/permission/object-read": {"id": 99, "auth": ["jwt"], "user_check_permission": {"mode": "token", "action": "read"}, "is_connection_param": True},
-"/permission/object-read-export": {"id": 100, "auth": ["jwt"], "user_check_permission": {"mode": "token", "action": "read"}, "is_connection_param": True},
-"/permission/object-update": {"id": 59, "auth": ["jwt"], "user_check_permission": {"mode": "token", "action": "update"}},
-"/permission/object-delete": {"id": 60, "auth": ["jwt"], "user_check_permission": {"mode": "token", "action": "delete"}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
-"/permission/user-create": {"id": 61, "auth": ["jwt"], "user_check_permission": {"mode": "token"}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
-"/permission/user-update": {"id": 62, "auth": ["jwt"], "user_check_permission": {"mode": "token"}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
 # admin
-"/admin/sync": {"id": 63, "auth": ["jwt"], "user_check_role": {"mode": "realtime", "roles": [1]}},
-"/admin/monitor": {"id": 64, "auth": ["jwt"], "user_check_role": {"mode": "token", "roles": [1]}, "is_log_api": False, "is_connection_param": True},
-"/admin/object-create": {"id": 65, "auth": ["jwt"], "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}, "is_connection_param": True},
-"/admin/object-update": {"id": 66, "auth": ["jwt"], "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}, "is_connection_param": True},
-"/admin/object-read": {"id": 67, "auth": ["jwt"], "user_check_role": {"mode": "token", "roles": [1]}, "is_connection_param": True},
-"/admin/object-read-export": {"id": 68, "auth": ["jwt"], "user_check_role": {"mode": "token", "roles": [1]}, "is_connection_param": True},
-"/admin/user-create": {"id": 69, "auth": ["jwt"], "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
-"/admin/user-update": {"id": 70, "auth": ["jwt"], "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
-"/admin/user-delete": {"id": 71, "auth": ["jwt"], "user_check_role": {"mode": "realtime", "roles": [1]}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}, "user_check_deactivated": {"mode": "realtime"}},
-"/admin/object-delete": {"id": 72, "auth": ["jwt"], "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "user_check_deleted": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}, "is_connection_param": True},
-"/admin/table-column-groupby": {"id": 73, "auth": ["jwt"], "user_check_role": {"mode": "token", "roles": [1]}, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}, "is_connection_param": True},
-"/admin/table-column-distinct": {"id": 74, "auth": ["jwt"], "user_check_role": {"mode": "token", "roles": [1]}, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}, "is_connection_param": True},
-"/admin/postgres-import": {"id": 75, "auth": ["jwt"], "user_check_role": {"mode": "realtime", "roles": [1]}, "is_connection_param": True, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
-"/admin/mongodb-import": {"id": 76, "auth": ["jwt"], "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
-"/admin/blob-container-sas": {"id": 77, "auth": ["jwt"], "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
-"/admin/blob-preview-urls": {"id": 78, "auth": ["jwt"], "user_check_role": {"mode": "realtime", "roles": [1]}},
-"/admin/blob-container-read": {"id": 79, "auth": ["jwt"], "user_check_role": {"mode": "inmemory", "roles": [1]}},
-"/admin/blob-container-ops": {"id": 80, "auth": ["jwt"], "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
-"/admin/blob-delete-url": {"id": 81, "auth": ["jwt"], "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
-"/admin/postgres-info": {"id": 82, "auth": ["jwt"], "user_check_role": {"mode": "token", "roles": [1]}, "cache": {"mode": "inmemory", "ttl_sec": 300, "is_per_user": False}, "is_connection_param": True},
-"/admin/postgres-schema": {"id": 83, "auth": ["jwt"], "user_check_role": {"mode": "token", "roles": [1]}, "is_connection_param": True},
-"/admin/postgres-slow-queries": {"id": 84, "auth": ["jwt"], "user_check_role": {"mode": "token", "roles": [1]}, "is_connection_param": True},
-"/admin/postgres-slow-queries-reset": {"id": 85, "auth": ["jwt"], "user_check_role": {"mode": "realtime", "roles": [1]}, "is_connection_param": True, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
-"/admin/postgres-query-runner-write": {"id": 86, "is_active": True, "auth": ["jwt"], "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_permission": {"mode": "realtime"}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
-"/admin/postgres-query-runner-read": {"id": 87, "auth": ["jwt"], "user_check_role": {"mode": "token", "roles": [1]}, "is_connection_param": True},
-"/admin/postgres-query-runner-read-export": {"id": 88, "auth": ["jwt"], "user_check_role": {"mode": "inmemory", "roles": [1]}, "is_connection_param": True},
-"/admin/postgres-query-ai": {"id": 89, "auth": ["jwt"], "user_check_role": {"mode": "token", "roles": [1]}, "is_connection_param": True},
-"/admin/mssql-query-runner-write": {"id": 90, "auth": ["jwt"], "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
-"/admin/mssql-query-runner-read": {"id": 91, "auth": ["jwt"], "user_check_role": {"mode": "token", "roles": [1]}},
-"/admin/mssql-query-runner-read-export": {"id": 92, "auth": ["jwt"], "user_check_role": {"mode": "realtime", "roles": [1]}},
-"/admin/clickhouse-query-runner-write": {"id": 93, "auth": ["jwt"], "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
-"/admin/clickhouse-query-runner-read": {"id": 94, "auth": ["jwt"], "user_check_role": {"mode": "token", "roles": [1]}},
-"/admin/clickhouse-query-runner-read-export": {"id": 95, "auth": ["jwt"], "user_check_role": {"mode": "inmemory", "roles": [1]}},
-"/admin/clickhouse-query-ai": {"id": 96, "auth": ["jwt"], "user_check_role": {"mode": "token", "roles": [1]}},
-"/admin/webhook-create": {"id": 101, "auth": ["jwt"], "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
+"/admin/sync": {"id": 63, "auth": ["jwt"], "user_check_permission": {"mode": "realtime"}},
+"/admin/monitor": {"id": 64, "auth": ["jwt"], "user_check_permission": {"mode": "token"}, "is_log_api": False, "is_connection_param": True},
+"/admin/object-create": {"id": 65, "auth": ["jwt"], "user_check_permission": {"mode": "realtime"}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}, "is_connection_param": True},
+"/admin/object-update": {"id": 66, "auth": ["jwt"], "user_check_permission": {"mode": "realtime"}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}, "is_connection_param": True},
+"/admin/object-read": {"id": 67, "auth": ["jwt"], "user_check_permission": {"mode": "token"}, "is_connection_param": True},
+"/admin/object-read-export": {"id": 68, "auth": ["jwt"], "user_check_permission": {"mode": "token"}, "is_connection_param": True},
+"/admin/user-create": {"id": 69, "auth": ["jwt"], "user_check_permission": {"mode": "realtime"}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
+"/admin/user-update": {"id": 70, "auth": ["jwt"], "user_check_permission": {"mode": "realtime"}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
+"/admin/user-delete": {"id": 71, "auth": ["jwt"], "user_check_permission": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}, "user_check_deactivated": {"mode": "realtime"}},
+"/admin/object-delete": {"id": 72, "auth": ["jwt"], "user_check_permission": {"mode": "realtime"}, "user_check_deactivated": {"mode": "realtime"}, "user_check_deleted": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}, "is_connection_param": True},
+"/admin/table-column-groupby": {"id": 73, "auth": ["jwt"], "user_check_permission": {"mode": "token"}, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}, "is_connection_param": True},
+"/admin/table-column-distinct": {"id": 74, "auth": ["jwt"], "user_check_permission": {"mode": "token"}, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}, "is_connection_param": True},
+"/admin/postgres-import": {"id": 75, "auth": ["jwt"], "user_check_permission": {"mode": "realtime"}, "is_connection_param": True, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
+"/admin/mongodb-import": {"id": 76, "auth": ["jwt"], "user_check_permission": {"mode": "realtime"}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
+"/admin/blob-container-sas": {"id": 77, "auth": ["jwt"], "user_check_permission": {"mode": "realtime"}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
+"/admin/blob-preview-urls": {"id": 78, "auth": ["jwt"], "user_check_permission": {"mode": "realtime"}},
+"/admin/blob-container-read": {"id": 79, "auth": ["jwt"], "user_check_permission": {"mode": "token"}},
+"/admin/blob-container-ops": {"id": 80, "auth": ["jwt"], "user_check_permission": {"mode": "realtime"}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
+"/admin/blob-delete-url": {"id": 81, "auth": ["jwt"], "user_check_permission": {"mode": "realtime"}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
+"/admin/postgres-info": {"id": 82, "auth": ["jwt"], "user_check_permission": {"mode": "token"}, "cache": {"mode": "inmemory", "ttl_sec": 300, "is_per_user": False}, "is_connection_param": True},
+"/admin/postgres-schema": {"id": 83, "auth": ["jwt"], "user_check_permission": {"mode": "token"}, "is_connection_param": True},
+"/admin/postgres-slow-queries": {"id": 84, "auth": ["jwt"], "user_check_permission": {"mode": "token"}, "is_connection_param": True},
+"/admin/postgres-slow-queries-reset": {"id": 85, "auth": ["jwt"], "user_check_permission": {"mode": "realtime"}, "is_connection_param": True, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
+"/admin/postgres-query-runner-write": {"id": 86, "is_active": True, "auth": ["jwt"], "user_check_permission": {"mode": "realtime"}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
+"/admin/postgres-query-runner-read": {"id": 87, "auth": ["jwt"], "user_check_permission": {"mode": "token"}, "is_connection_param": True},
+"/admin/postgres-query-runner-read-export": {"id": 88, "auth": ["jwt"], "user_check_permission": {"mode": "token"}, "is_connection_param": True},
+"/admin/postgres-query-ai": {"id": 89, "auth": ["jwt"], "user_check_permission": {"mode": "token"}, "is_connection_param": True},
+"/admin/mssql-query-runner-write": {"id": 90, "auth": ["jwt"], "user_check_permission": {"mode": "realtime"}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
+"/admin/mssql-query-runner-read": {"id": 91, "auth": ["jwt"], "user_check_permission": {"mode": "token"}},
+"/admin/mssql-query-runner-read-export": {"id": 92, "auth": ["jwt"], "user_check_permission": {"mode": "realtime"}},
+"/admin/clickhouse-query-runner-write": {"id": 93, "auth": ["jwt"], "user_check_permission": {"mode": "realtime"}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
+"/admin/clickhouse-query-runner-read": {"id": 94, "auth": ["jwt"], "user_check_permission": {"mode": "token"}},
+"/admin/clickhouse-query-runner-read-export": {"id": 95, "auth": ["jwt"], "user_check_permission": {"mode": "token"}},
+"/admin/clickhouse-query-ai": {"id": 96, "auth": ["jwt"], "user_check_permission": {"mode": "token"}},
+"/admin/webhook-create": {"id": 101, "auth": ["jwt"], "user_check_permission": {"mode": "realtime"}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
 }
 
 # override

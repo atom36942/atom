@@ -26,7 +26,6 @@ from function import func_blob_preview_urls_get
 from function import func_blob_upload_url
 from function import func_middleware_log_query_params
 from function import func_middleware_api_response_error
-from function import func_middleware_check_role
 from function import func_middleware_client_ip
 from function import func_middleware_security_headers
 from function import func_middleware_log_api_write
@@ -230,18 +229,6 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await func_blob_preview_urls_get(**args, service="s3", urls=[url]), ["signed"])
         client.generate_presigned_url.assert_awaited_once()
 
-    async def test_container_sas_checks_current_admin_role_before_signing(self):
-        from router.admin import func_api_admin_blob_container_sas
-        pool, conn = database()
-        conn.fetch.return_value = [{"role": 5}]
-        state = SimpleNamespace(client_postgres_dict={"master": pool}, func_middleware_check_role=func_middleware_check_role)
-        request = SimpleNamespace(app=SimpleNamespace(state=state), state=SimpleNamespace(user={"id": 7, "role": 1}))
-        with patch("azure.storage.blob.generate_container_sas") as sign:
-            with self.assertRaisesRegex(Exception, "access denied"):
-                await func_api_admin_blob_container_sas(request=request)
-            sign.assert_not_called()
-        self.assertEqual(conn.fetch.await_args.args[1:], (7,))
-
     async def test_preview_lists_preserve_order_and_duplicates_for_both_services(self):
         keys = ["user_7/b.pdf", "user_7/a.pdf", "user_7/b.pdf"]
         client = SimpleNamespace(generate_presigned_url=AsyncMock(
@@ -291,11 +278,8 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_admin_preview_allows_other_users_files_for_both_services(self):
         from router.admin import func_api_admin_blob_preview_urls
-        pool, conn = database()
-        conn.fetch.return_value = [{"role": 1}]
         client = SimpleNamespace(generate_presigned_url=AsyncMock(return_value="signed-s3"))
-        state = SimpleNamespace(client_postgres_dict={"master": pool}, func_middleware_check_role=func_middleware_check_role,
-            func_request_param_read=AsyncMock(), func_blob_preview_urls_get=func_blob_preview_urls_get,
+        state = SimpleNamespace(func_request_param_read=AsyncMock(), func_blob_preview_urls_get=func_blob_preview_urls_get,
             client_s3=client, client_azure_blob=MagicMock(), config_blob_services=["s3", "azure"],
             config_azure_account_name="account", config_azure_account_key="dummy", config_blob_expire_sec_preview=60)
         request = SimpleNamespace(app=SimpleNamespace(state=state), state=SimpleNamespace(user={"id": 1, "role": 1}))
@@ -308,22 +292,6 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
                 state.func_request_param_read.return_value = {"service": service, "urls": [url, url]}
                 result = await func_api_admin_blob_preview_urls(request=request)
                 self.assertEqual(result, {"status": 1, "message": [expected, expected]})
-        self.assertEqual(conn.fetch.await_args.args[1:], (1,))
-
-    async def test_admin_preview_rejects_nonadmin_stale_and_missing_users(self):
-        from router.admin import func_api_admin_blob_preview_urls
-        pool, conn = database()
-        state = SimpleNamespace(client_postgres_dict={"master": pool}, func_middleware_check_role=func_middleware_check_role,
-                                func_blob_preview_urls_get=AsyncMock(), func_request_param_read=AsyncMock())
-        for user, rows in [({"id": 7, "role": 5}, [{"role": 5}]),
-                           ({"id": 7, "role": 1}, [{"role": 5}]),
-                           ({"id": 7, "role": 1}, []), ({}, [])]:
-            conn.fetch.return_value = rows
-            request = SimpleNamespace(app=SimpleNamespace(state=state), state=SimpleNamespace(user=user))
-            with self.subTest(user=user, rows=rows), self.assertRaisesRegex(Exception, "access denied|authorization missing|user not found"):
-                await func_api_admin_blob_preview_urls(request=request)
-        state.func_blob_preview_urls_get.assert_not_awaited()
-        state.func_request_param_read.assert_not_awaited()
 
     def test_preview_route_is_registered_only_in_my_router(self):
         from router.my import router as my_router

@@ -30,10 +30,10 @@ await func_postgres_update(..., table="ticket", obj_list=[{"id": ticket["id"], "
 
 ## 4. Nearest rows
 
-Any read route (`/my/object-read`, `/permission/object-read`, `/public/object-read`, `/admin/object-read`):
+Any read route (`/my/object-read`, `/private/object-read`, `/public/object-read`, `/admin/object-read`):
 
 ```
-GET /permission/object-read?table=ticket&filter=["embedding <=> [0.12,-0.4,...]"]&order=embedding&limit=5
+GET /admin/object-read?table=ticket&filter=["embedding <=> [0.12,-0.4,...]"]&order=embedding&limit=5
 ```
 
 - The filter takes the vector to compare with and keeps the rows that have one; `order=embedding` puts the closest first, paged after a cursor like any order. It needs the filter.
