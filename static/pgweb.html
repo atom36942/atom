@@ -25,6 +25,7 @@ try{if(JSON.parse(localStorage.getItem('pgweb')||'{}').theme==='dark')document.d
   --sql-comment:#7b8b78; --sql-param:#1769aa; --sql-type:#9b4d96; --sql-fn:#006d77;
   --apply-bg:#edf7e7; --apply-border:#9fc783; --cancel-bg:#f1eef5; --cancel-border:#c4b8d1;
   --filter-bg:#f6f4f8; --grid-edge:#c8c8c8;
+  --canvas:#eceef2; --card-line:#d3d7de; --card-shadow:0 1px 3px rgba(16,24,40,.08),0 1px 2px rgba(16,24,40,.05); --th-bg:#f4f5f7;    /* cards (grid, row panel, editor) on a grey backdrop */
   --row-h:30px; --bar-h:50px; --side-w:240px;
 }
 :root[data-theme=dark]{
@@ -42,6 +43,7 @@ try{if(JSON.parse(localStorage.getItem('pgweb')||'{}').theme==='dark')document.d
   --sql-comment:#71806f; --sql-param:#82aaff; --sql-type:#ffcb6b; --sql-fn:#80cbc4;
   --apply-bg:#24351f; --apply-border:#577a45; --cancel-bg:#292530; --cancel-border:#574c63;
   --filter-bg:#1d1a22; --grid-edge:#484852;
+  --canvas:#060709; --card-line:#2b3038; --card-shadow:0 1px 3px rgba(0,0,0,.55),0 1px 2px rgba(0,0,0,.4); --th-bg:#13161b;
 }
 /* light is the default regardless of OS preference — dark is opt-in via the toggle */
 
@@ -279,10 +281,11 @@ body.more-open .tab.on{background:transparent;color:var(--nav-fg)}    /* only on
 /* contain must not include size here: #rows is absolutely positioned and shrink-to-fit,
    so size-contained rows would measure as empty and collapse to zero width */
 #vp{flex:1;overflow:auto;position:relative;contain:layout paint;font-size:12px;
-    margin:8px 10px 10px;background:var(--bg);border:1px solid var(--line);border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.06)}    /* a card: its own edges, so columns past the right edge read as scrolled, not cut */
-.view:has(> #vp){background:var(--side)}
+    margin:8px 10px 10px;background:var(--bg);border:1px solid var(--card-line);border-radius:6px;box-shadow:var(--card-shadow)}    /* a card: its own edges, so columns past the right edge read as scrolled, not cut */
+#v-rows,#v-query{background:var(--canvas)}
+#vp::-webkit-scrollbar-corner{background:var(--bg)}    /* where the two scrollbars meet: the card's colour, not white in dark mode */
 #inner{position:relative;box-sizing:content-box}
-#head{position:sticky;top:0;z-index:3;display:flex;background:var(--bg);border-bottom:1px solid var(--th-line)}
+#head{position:sticky;top:0;z-index:3;display:flex;background:var(--th-bg);border-bottom:1px solid var(--card-line)}    /* a grey header band: the columns read apart from the rows */
 .th{flex:none;padding:0 9px;height:39px;line-height:39px;font-weight:bold;color:var(--th-fg);
     position:relative;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;user-select:none;border-right:1px solid var(--th-line)}
 .th:hover{background:var(--th-hover)}
@@ -308,7 +311,7 @@ body.more-open .tab.on{background:transparent;color:var(--nav-fg)}    /* only on
 #rowpanel .iconbtn svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #rowpanel[hidden]{display:none}
 #rowpanel{position:absolute;right:10px;bottom:10px;width:var(--rp-w,min(520px,50%));z-index:5;display:flex;flex-direction:column;min-height:0;
-  background:var(--bg);border:1px solid var(--line);border-radius:6px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+  background:var(--bg);border:1px solid var(--card-line);border-radius:6px;overflow:hidden;box-shadow:var(--card-shadow)}
 #rp-resize{position:absolute;left:-3px;top:0;bottom:0;width:6px;cursor:col-resize;z-index:1}
 #rp-resize:hover,#rp-resize.dragging{background:var(--nav)}
 .rp-head{display:flex;align-items:center;gap:4px;padding:8px 8px 8px 14px;border-bottom:1px solid var(--th-line);background:var(--rp-head)}    /* purple tint, like the top bar */
@@ -392,7 +395,7 @@ button.danger:hover:not(:disabled){background:var(--err);border-color:var(--err)
 .detail-grid .empty-detail,#dbcat-table .empty-detail{height:90px;line-height:90px;text-align:center;color:var(--dim);font-family:inherit}
 
 #sqlwrap{height:210px;min-height:70px;flex:none;position:relative;overflow:hidden;
-  background:var(--bg)}
+  margin:10px 10px 0;background:var(--bg);border:1px solid var(--card-line);border-radius:6px;box-shadow:var(--card-shadow)}    /* the editor is a card too */
 #sqlresizer{height:9px;margin:-4px 0 -4px 0;position:relative;z-index:10;cursor:row-resize;
   display:flex;align-items:center;justify-content:center;flex:none;
   touch-action:none;user-select:none;outline:none}
@@ -430,7 +433,7 @@ body.resizing-col *{user-select:none!important}
 .sql-key{color:var(--sql-key);font-weight:400}.sql-string{color:var(--sql-string)}
 .sql-ident{color:var(--sql-ident)}.sql-number{color:var(--sql-number)}.sql-comment{color:var(--sql-comment)}
 .sql-param{color:var(--sql-param)}.sql-type{color:var(--sql-type)}.sql-fn{color:var(--sql-fn)}
-#qbar{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--th-line)}
+#qbar{display:flex;align-items:center;gap:10px;padding:8px 10px}    /* on the backdrop, between the editor and the results cards */
 #qmsg{color:#888;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:auto;min-width:0;flex:0 1 auto}    /* fills the middle and gives way first: the buttons keep their places */
 #qbar > button{flex:none}
 #qmsg.err{color:var(--err)}
