@@ -54,7 +54,6 @@ config_export_limit = 1000000
 
 # cache
 config_redis_cache_ttl_sec = 3600
-config_inmemory_cache_cleanup_auto_sec = 300
 config_api_cache_inmemory_max_kb = 102400
 config_token_cache_max = 10000
 config_cache_row_limit_config = 1000
@@ -106,7 +105,6 @@ config_postgres_db_log_api = "master"
 
 # schedule
 config_schedule_timezone = "UTC"
-config_schedule_check_sec = 600
 config_schedule_script_postgres_cleanup = "every 1h"
 config_schedule_script_postgres_backup = "off"
 

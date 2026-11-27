@@ -24,7 +24,7 @@ class CleanupTests(unittest.IsolatedAsyncioTestCase):
             with self.subTest(is_read_only=is_read_only):
                 state = SimpleNamespace(config_is_read_only=is_read_only, client_postgres_dict={"master": object()}, client_postgres_log_api=object(), runtime_error_count={},
                     buffer_postgres_create={}, buffer_postgres_log_api={}, cache_api_response={}, cache_api_response_bytes={"total": 0}, cache_ratelimiter={}, cache_token={},
-                    config_postgres_buffer_flush_auto_sec=1, config_inmemory_cache_cleanup_auto_sec=1, config_schedule_timezone="UTC", config_schedule_check_sec=600,
+                    config_postgres_buffer_flush_auto_sec=1, config_schedule_timezone="UTC",
                     client_http=object(), config_webhook_is_active=True, func_webhook_deliver_periodic_task=forever,
                     func_postgres_buffer_flush_periodic_task=forever, func_schedule_periodic_task=forever, func_inmemory_cache_cleanup_periodic_task=forever, func_memory_history_periodic_task=forever,
                     func_schedule_read=lambda **kwargs: {"postgres_cleanup": {}}, func_schedule_timezone=lambda **kwargs: None, func_async_tasks_cancel=func_async_tasks_cancel)
@@ -38,7 +38,7 @@ class RetentionConfigTests(unittest.TestCase):
     def state(self, retention):
         return SimpleNamespace(config_query_runner_read_limit=10, config_export_limit=10,
             config_sql_read_limit_default=10, config_sql_read_limit_max=10, config_sql_read_relation_fetch_limit_max=10,
-            config_postgres_buffer_flush_auto_sec=60, config_inmemory_cache_cleanup_auto_sec=300, config_uvicorn_workers=1, config_request_body_max_kb=10240, config_request_form_max_kb=102400, config_api_cache_inmemory_max_kb=102400,
+            config_postgres_buffer_flush_auto_sec=60, config_uvicorn_workers=1, config_request_body_max_kb=10240, config_request_form_max_kb=102400, config_api_cache_inmemory_max_kb=102400,
             config_retention_day_table_otp=retention, config_retention_day_table_log_api=retention, config_retention_day_user_soft_deleted=retention, config_retention_day_table_script_run=retention, config_otp_expiry_sec=600,
             config_column_users_private_read=["id", "username"], config_postgres_schema_master={"table": {"users": [{"name": "id"}, {"name": "username"}, {"name": "password"}]}})
 

@@ -7,6 +7,7 @@ Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/
 ## [21.3.0] - 2026-11-27
 
 - **Fewer settings: webhook timing is fixed.** `config_webhook_timeout_sec` (10), `config_webhook_retry_max` (8), `config_webhook_retry_wait_sec` (60, doubled each retry), `config_webhook_poll_sec` (5) and `config_webhook_verify_tolerance_sec` (300) are gone; their values are now the defaults of the webhook functions. `config_webhook_is_active` and `config_webhook_verify_scheme` stay. Startup stops if `config_extend.py`, `.env` or the environment still sets one of the five, so a value is never silently ignored ([docs/webhook.md](docs/webhook.md)).
+- **Fewer settings: two internal timers are fixed.** `config_inmemory_cache_cleanup_auto_sec` (expired cache entries swept every 300 s) and `config_schedule_check_sec` (scheduled scripts checked every 600 s) are gone, with the same startup check. Settings a project, its host or its security policy may need to change stay.
 
 ## [21.2.0] - 2026-11-27
 

@@ -85,8 +85,6 @@ def func_schedule_read(*, values: dict, root: str = None) -> dict:
     """{script: {"schedule": dict, "module": "script.x" or "script_extend.x"}} for every config_schedule_script_<script> that is not off; raises on a bad value, a bad timezone or interval, a missing script, one in both folders, or one whose header is not '# type: job' (a continuous script runs as its own process)."""
     root = root or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))    # the project folder, wherever the app is started from
     func_schedule_timezone(name=values.get("config_schedule_timezone", "UTC"))
-    check_sec = values.get("config_schedule_check_sec", 600)
-    if isinstance(check_sec, bool) or not isinstance(check_sec, int) or not 60 <= check_sec <= 3600: raise ValueError("config_schedule_check_sec must be a whole number of seconds from 60 to 3600")
     schedules = {}
     for key in sorted(values):
         if not key.startswith("config_schedule_") or key in ("config_schedule_timezone", "config_schedule_check_sec"): continue
@@ -153,7 +151,7 @@ async def func_schedule_script_start(*, client_postgres: asyncpg.Pool, script: s
         await client_postgres.execute("INSERT INTO script_run (script, started_by, host, status, message, finished_at) VALUES ($1, 'schedule', $2, 3, $3, now())", script, socket.gethostname(), message, timeout=10)
     return code
 
-async def func_schedule_periodic_task(*, client_postgres: asyncpg.Pool, schedules: dict, timezone: datetime.tzinfo, check_sec: int, runtime_error_count: dict) -> None:
+async def func_schedule_periodic_task(*, client_postgres: asyncpg.Pool, schedules: dict, timezone: datetime.tzinfo, runtime_error_count: dict, check_sec: int = 600) -> None:
     """Every check_sec (first a minute after startup), start each scheduled script whose slot is due and that is not running in this worker; at shutdown, stop the scripts it started."""
     running = {}
     try:

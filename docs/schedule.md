@@ -62,7 +62,7 @@ The lock covers only what is inside the block. Scripts whose runs may overlap ha
 ## How a run starts
 
 - **Startup:** when no `config_schedule_*` is on, nothing starts. Otherwise one loop starts with the app (not in read-only mode, only with a master database) and stops at shutdown; there is no `func_extend` to write.
-- **Every `config_schedule_check_sec`** (600; 60 to 3600; first a minute after startup), for each scheduled script, a run starts when all hold:
+- **Every 10 minutes** (first a minute after startup), for each scheduled script, a run starts when all hold:
   - its slot is open (the latest scheduled time has passed) and within the slot's first 4 hours, or its whole length when shorter, so a server back at 11:00 does not start a 02:00 job in office hours;
   - no run of it holds the lock;
   - no run finished Done in this slot (a run by hand counts);

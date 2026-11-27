@@ -172,7 +172,7 @@ class DatabaseConfigCheckTests(unittest.TestCase):
         func_check_log_api_table(app_state=log_state({}, client_postgres_dict={}))    # no databases configured
 
     def test_permission_user_roles_are_roles_from_2(self):
-        limits = dict.fromkeys(("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_inmemory_cache_cleanup_auto_sec", "config_uvicorn_workers", "config_request_body_max_kb", "config_request_form_max_kb", "config_api_cache_inmemory_max_kb"), 100)
+        limits = dict.fromkeys(("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_uvicorn_workers", "config_request_body_max_kb", "config_request_form_max_kb", "config_api_cache_inmemory_max_kb"), 100)
         state = lambda roles: SimpleNamespace(**limits, config_retention_day_table_otp=None, config_retention_day_table_log_api=None, config_buffer_limit_default=100, config_buffer_rows_max=1000, config_permission_user_roles=roles)
         for roles in ([], [2], [2, 3, 6]): func_check_runtime_config(app_state=state(roles))
         for roles in ([1], [1, 2], ["2"], [True], 2):
@@ -183,6 +183,7 @@ class DatabaseConfigCheckTests(unittest.TestCase):
         for old, new in (("config_table_permission_write_allowed", "config_permission_table_write_allowed"), ("config_column_users_permission_blocked", "config_permission_user_column_blocked")):
             with self.subTest(old=old), self.assertRaisesRegex(Exception, f"{old} was renamed in Atom 15.0.0 to {new}"): func_check_runtime_config(app_state=SimpleNamespace(**vars(state([2])), **{old: []}))
         with self.assertRaisesRegex(Exception, "config_permission_table_write_allowed was replaced in Atom 18.0.0 by config_permission_table"): func_check_runtime_config(app_state=SimpleNamespace(**vars(state([2])), config_permission_table_write_allowed=["task"]))
+        with self.assertRaisesRegex(Exception, r"config_schedule_check_sec removed in Atom 21.3.0: fixed in code"): func_check_runtime_config(app_state=SimpleNamespace(**vars(state([2])), config_schedule_check_sec=600))
         with self.assertRaisesRegex(Exception, r"config_webhook_retry_max, config_webhook_poll_sec removed in Atom 21.3.0: webhook timing is fixed"): func_check_runtime_config(app_state=SimpleNamespace(**vars(state([2])), config_webhook_retry_max=3, config_webhook_poll_sec=1))
         func_check_runtime_config(app_state=SimpleNamespace(**vars(state([2])), config_permission_table={"ticket": {"read": 120, "update": 121}, "task": {"create": 210, "delete": 211}}))
         for table, error in (([], "must be a dict"), ({"users": {"read": 210}}, "users go through"), ({"task": {}}, "non-empty dict"), ({"task": {"write": 210}}, "non-empty dict"), ({"task": {"read": "210"}}, "permission id from 1"), ({"task": {"read": True}}, "permission id from 1"), ({"task": {"read": 210}, "note": {"read": 210}}, "used twice")):
@@ -191,7 +192,7 @@ class DatabaseConfigCheckTests(unittest.TestCase):
             with self.subTest(blocked=blocked), self.assertRaisesRegex(Exception, "config_permission_user_column_blocked must be"): func_check_runtime_config(app_state=SimpleNamespace(**vars(state([2])), config_permission_user_column_blocked=blocked))
 
     def test_buffer_rows_max_must_be_an_integer_of_at_least_1000(self):
-        limits = dict.fromkeys(("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_inmemory_cache_cleanup_auto_sec", "config_uvicorn_workers", "config_request_body_max_kb", "config_request_form_max_kb", "config_api_cache_inmemory_max_kb"), 100)
+        limits = dict.fromkeys(("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_uvicorn_workers", "config_request_body_max_kb", "config_request_form_max_kb", "config_api_cache_inmemory_max_kb"), 100)
         runtime_state = lambda value: SimpleNamespace(**limits, config_retention_day_table_otp=None, config_retention_day_table_log_api=None, config_buffer_limit_default=100, config_buffer_rows_max=value)
         for value in (1000, 100000):
             func_check_runtime_config(app_state=runtime_state(value))
@@ -381,7 +382,7 @@ class WorkerConfigCheckTests(unittest.TestCase):
         func_check_api_config(app=self.app(4, {"rate_limit": {"mode": "redis", "limit": 5, "window_sec": 60}, "cache": {"mode": "redis", "ttl_sec": 10}, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deleted": {"mode": "token"}}))
 
     def test_production_rejects_short_token_secret(self):
-        limits = dict.fromkeys(("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_inmemory_cache_cleanup_auto_sec", "config_uvicorn_workers", "config_request_body_max_kb", "config_request_form_max_kb", "config_api_cache_inmemory_max_kb"), 100)
+        limits = dict.fromkeys(("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_uvicorn_workers", "config_request_body_max_kb", "config_request_form_max_kb", "config_api_cache_inmemory_max_kb"), 100)
         check = lambda **values: func_check_runtime_config(app_state=SimpleNamespace(**limits, config_retention_day_table_otp=None, config_retention_day_table_log_api=None, config_buffer_limit_default=100, config_buffer_rows_max=1000, **values))
         for secret in ("short", 123456, "x" * 31):
             with self.subTest(secret=secret), self.assertRaisesRegex(Exception, "at least 32 bytes"):
@@ -391,21 +392,21 @@ class WorkerConfigCheckTests(unittest.TestCase):
         check(config_is_prod=False, config_token_secret_key="short")
 
     def test_keep_alive_must_be_a_positive_integer(self):
-        limits = dict.fromkeys(("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_inmemory_cache_cleanup_auto_sec", "config_uvicorn_workers", "config_request_body_max_kb", "config_request_form_max_kb", "config_api_cache_inmemory_max_kb"), 100)
+        limits = dict.fromkeys(("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_uvicorn_workers", "config_request_body_max_kb", "config_request_form_max_kb", "config_api_cache_inmemory_max_kb"), 100)
         check = lambda value: func_check_runtime_config(app_state=SimpleNamespace(**limits, config_retention_day_table_otp=None, config_retention_day_table_log_api=None, config_buffer_limit_default=100, config_buffer_rows_max=1000, config_uvicorn_timeout_keep_alive_sec=value))
         for value in (0, True, "75", 1.5):
             with self.subTest(value=value), self.assertRaisesRegex(Exception, "config_uvicorn_timeout_keep_alive_sec"): check(value)
         check(75)
 
     def test_request_size_limits_must_be_positive_integers(self):
-        limits = dict.fromkeys(("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_inmemory_cache_cleanup_auto_sec", "config_uvicorn_workers", "config_request_body_max_kb", "config_request_form_max_kb", "config_api_cache_inmemory_max_kb"), 100)
+        limits = dict.fromkeys(("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_uvicorn_workers", "config_request_body_max_kb", "config_request_form_max_kb", "config_api_cache_inmemory_max_kb"), 100)
         for key in ("config_request_body_max_kb", "config_request_form_max_kb"):
             for value in (0, True, None):
                 with self.subTest(key=key, value=value), self.assertRaisesRegex(Exception, key):
                     func_check_runtime_config(app_state=SimpleNamespace(**{**limits, key: value}, config_retention_day_table_otp=None, config_retention_day_table_log_api=None, config_buffer_limit_default=100, config_buffer_rows_max=1000))
 
     def test_workers_must_be_a_positive_integer(self):
-        limits = dict.fromkeys(("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_inmemory_cache_cleanup_auto_sec", "config_request_body_max_kb", "config_request_form_max_kb", "config_api_cache_inmemory_max_kb"), 100)
+        limits = dict.fromkeys(("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_request_body_max_kb", "config_request_form_max_kb", "config_api_cache_inmemory_max_kb"), 100)
         for value in (0, True, None):
             with self.subTest(value=value), self.assertRaisesRegex(Exception, "config_uvicorn_workers"):
                 func_check_runtime_config(app_state=SimpleNamespace(**limits, config_uvicorn_workers=value, config_retention_day_table_otp=None, config_retention_day_table_log_api=None, config_buffer_limit_default=100, config_buffer_rows_max=1000))

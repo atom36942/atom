@@ -223,7 +223,6 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_totp_issuer` | The app's name in the authenticator app (default `None`: the master database name) |
 | `config_oidc_provider` | Single sign-on providers, `{name: {issuer, client_id, jwks_uri?, tenants?, link_email?}}` (JSON in `.env`); each adds the users column `oidc_<name>`. `{}` (default): `/auth/login-oidc` answers "OIDC not configured" ([auth-oidc.md](auth-oidc.md)) |
 | `config_schedule_timezone` | Time zone of every `config_schedule_*` time (`UTC`; a zone name such as `Asia/Kolkata`) ([schedule.md](schedule.md)) |
-| `config_schedule_check_sec` | How often scheduled scripts are checked, in seconds (`600`; 60 to 3600) |
 | `config_schedule_script_<script>` | When `script/<script>.py` or `script_extend/<script>.py` runs by itself: `off`, `every 6h`, `daily 02:00`, `every 3d 02:00`, `weekly sun 02:00` or `monthly 1 02:00`. Atom's: `config_schedule_script_postgres_cleanup` (`every 1h`), `config_schedule_script_postgres_backup` (`off`) ([schedule.md](schedule.md)) |
 | `config_retention_day_table_otp` | OTP row retention in days (`1`); `None` skips it. Must exceed OTP expiry. Deleted by `script/postgres_cleanup.py` on `config_schedule_script_postgres_cleanup` |
 | `config_retention_day_table_log_api` | API-log row retention in days (`7`); `None` skips it. Deleted by `script/postgres_cleanup.py` on `config_schedule_script_postgres_cleanup` |
@@ -235,7 +234,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_api_key_cache_sec` | Seconds a resolved API key is reused per worker before it is read again (`60`), in the same cache as tokens (`config_token_cache_max`); a deleted key keeps working for at most this long. `0` reads the database on every request |
 | `config_cache_row_limit_config` | Rows of the `config` table (key → value) loaded into `cache_config` at startup and by `/admin/sync` (`1000`); `0` = not loaded |
 | `config_cache_row_limit_users_role`, `config_cache_row_limit_users_deactivated`, `config_cache_row_limit_users_deleted` | Users (lowest ids first) whose role, `deactivated_at` and `deleted_at` are loaded at startup and by `/admin/sync` for the `inmemory` user checks (`10000` each, about 1 MB in all); a user not loaded is read from the database. `0` = not loaded (a project that never uses `inmemory` checks can turn them off). Set them in `.env` like any number |
-| `config_token_cache_max` | Verified tokens cached per worker (`10000`, about 1 KB each); `0` turns the cache off. A token is fully verified on first use, then reused until its own `exp`; the key is the whole signed token, so an edited token is verified again. Expired entries are swept every `config_inmemory_cache_cleanup_auto_sec`; when full, the oldest entry is dropped |
+| `config_token_cache_max` | Verified tokens cached per worker (`10000`, about 1 KB each); `0` turns the cache off. A token is fully verified on first use, then reused until its own `exp`; the key is the whole signed token, so an edited token is verified again. Expired entries are swept every 5 minutes; when full, the oldest entry is dropped |
 | `config_request_body_max_kb` | Largest request body in KB, except multipart uploads (`10240`, 10 MB); a bigger one gets `413` before it is read, since a JSON body is held in memory and parsing takes several times its size |
 | `config_request_form_max_kb` | Largest multipart upload (`multipart/form-data`) in KB, all files and fields together (`102400`, 100 MB; files go to disk past 1 MB); a bigger one gets `413` |
 | `config_blob_limit_size_kb` | Maximum file upload size in KB (default: `500`) |
@@ -248,7 +247,6 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_postgres_buffer_flush_auto_sec` | Timer interval in seconds to auto-flush write buffers (`60`) |
 | `config_postgres_buffer_flush_auto_sec_<name>` | The same for one database's buffered rows (`config_postgres_url_<name>` must exist), e.g. `2` for device data while master keeps `60` ([database.md](database.md#periodic-background-flush-loop)) |
 | `config_api_cache_inmemory_max_kb` | Largest total size, in KB, of the `inmemory` API response cache per worker, counting the stored (gzipped) bodies (`102400`, 100 MB); over it, the oldest entries are dropped and read from the route again on their next request |
-| `config_inmemory_cache_cleanup_auto_sec` | Timer interval in seconds to purge expired cache entries (`300`) |
 | `config_batch_item_limit` | Maximum objects allowed per batch CRUD request, `/admin/user-update` included (`1000`) |
 | `config_sql_read_limit_default` | Default page size for object read queries (`100`) |
 | `config_sql_read_limit_max` | Hard cap limit for object read page size (`10000`) |

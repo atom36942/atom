@@ -95,7 +95,7 @@ def func_check_runtime_config(*, app_state: State) -> None:
         except Exception: raise Exception(f"invalid {key}: expected integer") from None
         if value < 1: raise Exception(f"invalid {key}: minimum 1")
         return value
-    values = {key: int_check(getattr(app_state, key, None), key) for key in ("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_inmemory_cache_cleanup_auto_sec", "config_uvicorn_workers", "config_request_body_max_kb", "config_request_form_max_kb", "config_api_cache_inmemory_max_kb")}
+    values = {key: int_check(getattr(app_state, key, None), key) for key in ("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_uvicorn_workers", "config_request_body_max_kb", "config_request_form_max_kb", "config_api_cache_inmemory_max_kb")}
     if values["config_sql_read_limit_default"] > values["config_sql_read_limit_max"]: raise Exception("config_sql_read_limit_default must not exceed config_sql_read_limit_max")
     values = getattr(app_state, "_state", None) or vars(app_state)
     if "config_table" in values: raise ValueError("config_table was removed in Atom 9.0.0: set a table's buffer size as config_buffer_limit_<table> (e.g. config_buffer_limit_log_api = 1000)")
@@ -116,6 +116,7 @@ def func_check_runtime_config(*, app_state: State) -> None:
     if "config_permission_user_create_roles" in values: raise ValueError("config_permission_user_create_roles was renamed in Atom 14.0.0 to config_permission_user_roles (used by /permission/user-create and /permission/user-update)")
     for old, new in (("config_table_permission_write_allowed", "config_permission_table_write_allowed"), ("config_column_users_permission_blocked", "config_permission_user_column_blocked")):
         if old in values: raise ValueError(f"{old} was renamed in Atom 15.0.0 to {new} (the /permission settings are together as config_permission_*)")
+    if removed := [key for key in ("config_inmemory_cache_cleanup_auto_sec", "config_schedule_check_sec") if key in values]: raise ValueError(f"{', '.join(removed)} removed in Atom 21.3.0: fixed in code (cache cleanup every 300 s, schedule check every 600 s); delete it from config_extend.py and .env")
     if removed := [key for key in ("config_webhook_timeout_sec", "config_webhook_retry_max", "config_webhook_retry_wait_sec", "config_webhook_poll_sec", "config_webhook_verify_tolerance_sec") if key in values]: raise ValueError(f"{', '.join(removed)} removed in Atom 21.3.0: webhook timing is fixed (10 s timeout, 8 retries from 60 s doubling, 5 s poll, 300 s signature tolerance); delete it from config_extend.py and .env")
     if "config_permission_table_write_allowed" in values: raise ValueError("config_permission_table_write_allowed was replaced in Atom 18.0.0 by config_permission_table: {table: {action: permission id}} with actions create, read, update, delete (e.g. {\"task\": {\"update\": 201, \"delete\": 202}}), each id labelled in config_column_int_mapping[\"users\"][\"permissions\"]")
     permission_table = values.get("config_permission_table")

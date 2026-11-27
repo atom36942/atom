@@ -85,7 +85,7 @@ class ScheduleReadTests(unittest.TestCase):
 
     def tearDown(self): self.root.cleanup()
 
-    def read(self, **values): return func_schedule_read(values={"config_schedule_timezone": "UTC", "config_schedule_check_sec": 600, **values}, root=self.root.name)
+    def read(self, **values): return func_schedule_read(values={"config_schedule_timezone": "UTC", **values}, root=self.root.name)
 
     def test_scheduled_scripts_and_their_folder(self):
         self.assertEqual(self.read(config_schedule_script_postgres_cleanup="every 1h", config_schedule_script_nightly="daily 02:00", config_schedule_script_other="off"), {
@@ -101,7 +101,7 @@ class ScheduleReadTests(unittest.TestCase):
 
     def test_startup_errors(self):
         for values, error in (({"config_schedule_script_missing": "daily 02:00"}, "no script named missing"), ({"config_schedule_script_twice": "off"}, "in both script/ and script_extend/"),
-                              ({"config_schedule_script_postgres_cleanup": "every 7h"}, "config_schedule_script_postgres_cleanup"), ({"config_schedule_check_sec": 30}, "60 to 3600"), ({"config_schedule_timezone": "IST"}, "unknown time zone"),
+                              ({"config_schedule_script_postgres_cleanup": "every 7h"}, "config_schedule_script_postgres_cleanup"), ({"config_schedule_timezone": "IST"}, "unknown time zone"),
                               ({"config_schedule_postgres_cleanup": "off"}, "rename it to config_schedule_script_postgres_cleanup")):
             with self.subTest(values=values), self.assertRaisesRegex(ValueError, error): self.read(**values)
 
