@@ -110,7 +110,7 @@ def func_app_tasks_start(*, app_state: State) -> None:
         if postgres_master is not None and schedules:
             app_state.runtime_task_schedule = asyncio.create_task(app_state.func_schedule_periodic_task(client_postgres=postgres_master, schedules=schedules, timezone=app_state.func_schedule_timezone(name=app_state.config_schedule_timezone), check_sec=app_state.config_schedule_check_sec, runtime_error_count=app_state.runtime_error_count))
         if postgres_master is not None and app_state.config_webhook_is_active:
-            app_state.runtime_task_webhook = asyncio.create_task(app_state.func_webhook_deliver_periodic_task(client_postgres=postgres_master, client_http=app_state.client_http, runtime_error_count=app_state.runtime_error_count, timeout_sec=app_state.config_webhook_timeout_sec, retry_max=app_state.config_webhook_retry_max, retry_wait_sec=app_state.config_webhook_retry_wait_sec, poll_sec=app_state.config_webhook_poll_sec))
+            app_state.runtime_task_webhook = asyncio.create_task(app_state.func_webhook_deliver_periodic_task(client_postgres=postgres_master, client_http=app_state.client_http, runtime_error_count=app_state.runtime_error_count))
     app_state.runtime_task_memory_history = asyncio.create_task(app_state.func_memory_history_periodic_task(app_state=app_state))
     app_state.runtime_task_inmemory_cache_cleanup = asyncio.create_task(app_state.func_inmemory_cache_cleanup_periodic_task(cache_api_response=app_state.cache_api_response, cache_api_response_bytes=app_state.cache_api_response_bytes, cache_ratelimiter=app_state.cache_ratelimiter, cache_token=app_state.cache_token, runtime_error_count=app_state.runtime_error_count, interval_sec=app_state.config_inmemory_cache_cleanup_auto_sec))
 

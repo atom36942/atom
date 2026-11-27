@@ -279,7 +279,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_table_my_read_blocked` | Tables refused on user `/my/object-read` endpoint |
 | `config_table_my_delete_all_allowed` | Tables supporting `/my/object-delete-all` through any column in `config_column_ownership_delete` that exists in the table; defaults to `created_by_id` |
 | `config_table_public_create_allowed` | Tables accessible on unauthenticated public create route |
-| `config_public_create_honeypot` | Hidden form field (`"website"`) that only bots fill: `/public/object-create` refuses a row where it has a value and drops it when empty; `None` turns it off |
+| `config_public_create_honeypot` | Hidden form field (`"website"`) that only bots fill: `/public/object-create` refuses a row where it has a value and drops it when empty; the form adds it off-screen with `tabindex="-1"` and `autocomplete="off"`; `None` turns it off |
 | `config_table_public_read_allowed` | Tables accessible on unauthenticated public read route |
 | `config_mongodb_my_create_allowed` | MongoDB collections writable on `/my/object-create-mongodb`, as `{database: [collection, ...]}`; empty disables the route |
 | `config_table_private_read_allowed` | Tables accessible on authenticated private read route |
@@ -290,7 +290,7 @@ The `/permission/*` routes' settings, together as `config_permission_*` (the rou
 
 | Key | Description |
 |---|---|
-| `config_permission_table` | The tables the `/permission/object-*` routes reach and the permission id each action needs: `{table: {"create"|"read"|"update"|"delete": id}}`; Atom's `ticket` (read 120, update 121, delete 122) and `ticket_comment` (create 123, read 124, update 125, delete 126). A missing table or action is refused; every id labelled in `config_column_int_mapping["users"]["permissions"]`, used once and by no route; never `users` |
+| `config_permission_table` | The tables the `/permission/object-*` routes reach and the permission id each action needs: `{table: {"create"|"read"|"update"|"delete": id}}`; Atom's is empty, a project adds its own in `config_extend.py`. A missing table or action is refused; every id labelled in `config_column_int_mapping["users"]["permissions"]`, used once and by no route; never `users` |
 | `config_permission_user_roles` | Roles the `/permission` user routes may act on (default `[]`: none): the role `/permission/user-create` may give, and the role of the user `/permission/user-update` may change. Roles from 2 only; startup refuses role 1. Renamed from `config_permission_user_create_roles` in 14.0.0 |
 | `config_permission_user_column_blocked` | `users` columns `/permission/user-update` refuses (`role`, `permissions`, the login ones `username`, `email`, `mobile`, ...); every other column, `password` and `deactivated_at` included, may change. Startup refuses a list without `role` and `permissions` |
 
@@ -319,13 +319,8 @@ The `/permission/*` routes' settings, together as `config_permission_*` (the rou
 | `config_queue_concurrency` | Jobs a consumer runs at once (default 10) |
 | `config_queue_retry_max` | Retries of a failed job before it is kept (Postgres: `status` 2 in `queue_job`; brokers: `<channel>_failed`) (default 3) |
 | `config_queue_retry_wait_sec` | Wait before the first retry, doubled each time: 2, 4, 8 s (default 2) |
-| `config_webhook_is_active` | Runs the webhook delivery loop in the app, one per worker (default `False`) ([webhook.md](webhook.md)) |
-| `config_webhook_timeout_sec` | Seconds a receiver has to answer one delivery (default 10) |
-| `config_webhook_retry_max` | Retries of a failed delivery before it is kept as failed (`status` 2 in `queue_job`) (default 8) |
-| `config_webhook_retry_wait_sec` | Wait before a delivery's first retry, doubled each time: 60 s, 2 min, 4 min… (default 60) |
-| `config_webhook_poll_sec` | Seconds the delivery loop waits when nothing is due (default 5) |
+| `config_webhook_is_active` | Runs the webhook delivery loop in the app, one per worker (default `False`); timing is fixed: 10 s per delivery, 8 retries from 60 s doubling, 300 s signature tolerance ([webhook.md](webhook.md)) |
 | `config_webhook_verify_scheme` | How each provider signs incoming webhooks: `standard`, `stripe`, `github`, `shopify`, `razorpay`; a project adds its own (`{**base, "acme": {...}}`), checked at startup ([webhook.md](webhook.md#schemes-are-data)) |
-| `config_webhook_verify_tolerance_sec` | Seconds an incoming webhook's timestamp may be off before it is refused as a replay (default 300) |
 | `config_blob_services` | Registered blob storage providers (`s3`, `azure`) |
 | `config_email_services` | Registered email providers (`ses`, `resend`, `azure`) |
 | `config_mobile_services` | Registered SMS providers (`sns`, `fast2sms`, `azure`) |

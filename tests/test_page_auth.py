@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-PAGES = {name: (ROOT / "static" / f"{name}.html").read_text() for name in ("analytics", "monitor", "api", "message", "ticket")}
+PAGES = {name: (ROOT / "static" / f"{name}.html").read_text() for name in ("analytics", "monitor", "api", "message")}
 BLOCKS = {
     "theme": r"<!-- ==== atom page: theme ==== -->.*?<!-- ==== end atom page: theme ==== -->",
     "look": r"/\* ==== atom page: look ==== \*/.*?/\* ==== end atom page: look ==== \*/",
@@ -19,7 +19,6 @@ SETTINGS = {
     "monitor": 'key: "monitor", title: "Monitor", role: 1, loginRequired: true, idb: false',
     "api": 'key: "api", title: "API", role: null, loginRequired: false, idb: true',
     "message": 'key: "message", title: "Message", role: null, loginRequired: true, idb: false',
-    "ticket": 'key: "ticket", title: "Tickets", role: null, loginRequired: true, idb: false',
 }
 
 
@@ -153,12 +152,6 @@ class PageThemeTests(unittest.TestCase):
         self.assertRegex(LOOK, r"\.dlg-head\{[^}]*background:var\(--brand\)")    # a filled header, like the projects' pages
         self.assertRegex(LOOK, r"\.dlg-body\{padding:18px")
         self.assertRegex(LOOK, r"\.dlg-actions\{[^}]*background:var\(--panel\)")
-
-    def test_add_ticket_is_the_customer_s_public_ticket(self):
-        # an agent's Add ticket goes without the token, so created_by_id stays empty (the agent is not the requester)
-        page = PAGES["ticket"]
-        self.assertIn('fetch("/public/object-create?table=ticket"', page)
-        self.assertNotIn("/my/object-create?table=ticket", page)
 
 
 if __name__ == "__main__":

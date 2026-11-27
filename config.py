@@ -129,11 +129,6 @@ config_celery_url = None
 
 # webhook
 config_webhook_is_active = False
-config_webhook_timeout_sec = 10
-config_webhook_retry_max = 8
-config_webhook_retry_wait_sec = 60
-config_webhook_poll_sec = 5
-config_webhook_verify_tolerance_sec = 300
 config_webhook_verify_scheme = {
 "standard": {"header": "webhook-signature", "prefix": "v1,", "encoding": "base64", "signed": "{id}.{timestamp}.{body}", "id": {"header": "webhook-id"}, "timestamp": {"header": "webhook-timestamp"}, "secret_encoding": "base64"},
 "stripe": {"header": "Stripe-Signature", "key": "v1", "encoding": "hex", "signed": "{timestamp}.{body}", "timestamp": {"key": "t"}},
@@ -201,17 +196,17 @@ config_posthog_project_key = None
 # table
 config_table_exclude_from_users_delete = ["spatial_ref_sys", "users", "log_users_delete"]
 config_table_write_blocked = ["log_api", "log_users_password", "log_users_delete", "script_run", "queue_job", "otp", "spatial_ref_sys"]
-config_table_my_create_blocked = ["users", "api_key", "webhook", "ticket_comment", "log_api", "log_users_password", "otp", "script_run", "queue_job", "spatial_ref_sys"]
+config_table_my_create_blocked = ["users", "api_key", "webhook", "log_api", "log_users_password", "otp", "script_run", "queue_job", "spatial_ref_sys"]
 config_table_my_read_blocked = ["users", "config", "webhook", "log_users_password", "otp", "script_run", "queue_job", "spatial_ref_sys"]
 config_table_my_delete_all_allowed = ["test", "message", "notification"]
-config_table_public_create_allowed = ["test", "ticket"]
+config_table_public_create_allowed = ["test"]
 config_table_public_read_allowed = ["test"]
 config_table_private_read_allowed = ["test"]
 config_public_create_honeypot = "website"
 config_mongodb_my_create_allowed = {"test": ["post"]}
 
 # permission
-config_permission_table = {"ticket": {"read": 120, "update": 121, "delete": 122}, "ticket_comment": {"create": 123, "read": 124, "update": 125, "delete": 126}}
+config_permission_table = {}
 config_permission_user_roles = []
 config_permission_user_column_blocked = ["role", "permissions", "totp_enabled_at", "username", "email", "mobile", "verified_at", "verified_by_id", "deactivated_by_id", "parent_id", "source", "id_ext", "oidc_google"]
 
@@ -247,7 +242,7 @@ config_options = {
 config_column_int_mapping = {
 "users": {
 "role": {1: "Admin"},
-"permissions": {61: "Create user", 62: "Update user", 86: "Postgres query runner write", 120: "Ticket read", 121: "Ticket update", 122: "Ticket delete", 123: "Ticket comment create", 124: "Ticket comment read", 125: "Ticket comment update", 126: "Ticket comment delete"},
+"permissions": {61: "Create user", 62: "Update user", 86: "Postgres query runner write"},
 },
 "blob": {
 "type": {1: "File", 2: "Presigned Url"},
@@ -257,11 +252,6 @@ config_column_int_mapping = {
 },
 "queue_job": {
 "status": {1: "Waiting", 2: "Failed"},
-},
-"ticket": {
-"type": {1: "Support", 2: "Feedback", 3: "Bug"},
-"priority": {1: "Low", 2: "Normal", 3: "High"},
-"status": {1: "New", 2: "In Progress", 3: "Blocked", 4: "Waiting", 5: "Done"},
 },
 "log_users_delete": {
 "type": {1: "User Soft Deleted", 2: "User Restored", 3: "User Hard Deleted"},
@@ -402,32 +392,6 @@ config_postgres_schema_master = {
 {"name":"reference_id","datatype":"bigint"},
 {"name":"read_at","datatype":"timestamptz"}
 ],
-"ticket":[
-{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
-{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
-{"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id,id)"},
-{"name":"updated_at","datatype":"timestamptz"},
-{"name":"updated_by_id","datatype":"bigint"},
-{"name":"type","datatype":"smallint","is_mandatory": True,"default":1,"in":(1,2,3),"index":"btree(type,id)"},
-{"name":"priority","datatype":"smallint","is_mandatory": True,"default":2,"in":(1,2,3),"index":"btree(priority,id)"},
-{"name":"status","datatype":"smallint","is_mandatory": True,"default":1,"in":(1,2,3,4,5),"index":"btree(status,id)"},
-{"name":"title","datatype":"text","is_mandatory": True,"index":"gin_trgm(title)"},
-{"name":"description","datatype":"text"},
-{"name":"name","datatype":"text","index":"gin_trgm(name)"},
-{"name":"email","datatype":"text","index":"gin_trgm(email)"},
-{"name":"mobile","datatype":"text","index":"gin_trgm(mobile)"},
-{"name":"closed_at","datatype":"timestamptz"},
-{"name":"search","datatype":"tsvector","generated":"setweight(to_tsvector('english', coalesce(title, '')), 'A') || setweight(to_tsvector('english', coalesce(description, '')), 'B')","index":"gin(search)"}
-],
-"ticket_comment":[
-{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
-{"name":"created_at","datatype":"timestamptz","default":"now()"},
-{"name":"created_by_id","datatype":"bigint","is_mandatory": True,"index":"btree(created_by_id,id)"},
-{"name":"updated_at","datatype":"timestamptz"},
-{"name":"updated_by_id","datatype":"bigint"},
-{"name":"ticket_id","datatype":"bigint","is_mandatory": True,"index":"btree(ticket_id,id)"},
-{"name":"description","datatype":"text","is_mandatory": True}
-],
 "log_api":[
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
@@ -524,9 +488,7 @@ config_postgres_schema_master = {
 "table_row_delete_disable_bulk":[["users", 100]],
 },
 "sql":{
-"ticket_closed_at":"CREATE OR REPLACE FUNCTION ticket_closed_at() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.status = 5 THEN NEW.closed_at = CASE WHEN TG_OP = 'UPDATE' AND OLD.status = 5 THEN OLD.closed_at ELSE now() END; ELSE NEW.closed_at = NULL; END IF; RETURN NEW; END $$; CREATE OR REPLACE TRIGGER ticket_closed_at BEFORE INSERT OR UPDATE OF status ON ticket FOR EACH ROW EXECUTE FUNCTION ticket_closed_at();",
 "users_totp_clear":"CREATE OR REPLACE FUNCTION users_totp_clear() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.totp_enabled_at IS NULL AND OLD.totp_enabled_at IS NOT NULL THEN NEW.totp_secret = NULL; NEW.totp_last_step = NULL; NEW.totp_recovery = NULL; END IF; RETURN NEW; END $$; CREATE OR REPLACE TRIGGER users_totp_clear BEFORE UPDATE OF totp_enabled_at ON users FOR EACH ROW EXECUTE FUNCTION users_totp_clear();",
-"ticket_delete_comments":"CREATE OR REPLACE FUNCTION ticket_delete_comments() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN DELETE FROM ticket_comment WHERE ticket_id = OLD.id; RETURN OLD; END $$; CREATE OR REPLACE TRIGGER ticket_delete_comments AFTER DELETE ON ticket FOR EACH ROW EXECUTE FUNCTION ticket_delete_comments();",
 },
 }
 

@@ -116,6 +116,7 @@ def func_check_runtime_config(*, app_state: State) -> None:
     if "config_permission_user_create_roles" in values: raise ValueError("config_permission_user_create_roles was renamed in Atom 14.0.0 to config_permission_user_roles (used by /permission/user-create and /permission/user-update)")
     for old, new in (("config_table_permission_write_allowed", "config_permission_table_write_allowed"), ("config_column_users_permission_blocked", "config_permission_user_column_blocked")):
         if old in values: raise ValueError(f"{old} was renamed in Atom 15.0.0 to {new} (the /permission settings are together as config_permission_*)")
+    if removed := [key for key in ("config_webhook_timeout_sec", "config_webhook_retry_max", "config_webhook_retry_wait_sec", "config_webhook_poll_sec", "config_webhook_verify_tolerance_sec") if key in values]: raise ValueError(f"{', '.join(removed)} removed in Atom 21.3.0: webhook timing is fixed (10 s timeout, 8 retries from 60 s doubling, 5 s poll, 300 s signature tolerance); delete it from config_extend.py and .env")
     if "config_permission_table_write_allowed" in values: raise ValueError("config_permission_table_write_allowed was replaced in Atom 18.0.0 by config_permission_table: {table: {action: permission id}} with actions create, read, update, delete (e.g. {\"task\": {\"update\": 201, \"delete\": 202}}), each id labelled in config_column_int_mapping[\"users\"][\"permissions\"]")
     permission_table = values.get("config_permission_table")
     if "config_permission_table" in values:
@@ -165,8 +166,6 @@ def func_check_api_config(*, app: FastAPI) -> None:
     schemes = getattr(app.state, "config_webhook_verify_scheme", None) or {}
     if not isinstance(schemes, dict): raise Exception("config_webhook_verify_scheme must be a dict of scheme name to scheme")
     for name, scheme in schemes.items(): func_webhook_verify_scheme_check(name=name, scheme=scheme)
-    tolerance = getattr(app.state, "config_webhook_verify_tolerance_sec", 300)
-    if isinstance(tolerance, bool) or not isinstance(tolerance, int) or tolerance < 1: raise Exception("config_webhook_verify_tolerance_sec must be an integer, 1 or more")
     if not isinstance(config_api, dict): raise Exception("config_api must be dict")
     route_paths = {route.path for route in func_app_route_list(app=app) if hasattr(route, "path")}
     websocket_paths = {route.path for route in func_app_route_list(app=app) if isinstance(route, WebSocketRoute)}

@@ -64,7 +64,7 @@ async def func_webhook_send(*, client_postgres: Any, event: str, data: dict) -> 
     func_webhook_event_check(event=event)
     return await client_postgres.fetchval(WEBHOOK_SEND, WEBHOOK_CHANNEL, event, orjson.dumps(data).decode())
 
-async def func_webhook_deliver(*, client_postgres: Any, client_http: httpx.AsyncClient, payload: Any, timeout_sec: float) -> None:
+async def func_webhook_deliver(*, client_postgres: Any, client_http: httpx.AsyncClient, payload: Any, timeout_sec: float = 10) -> None:
     """POST one queued delivery to its webhook, signed; raises on anything but a 2xx so the queue retries it. A webhook deleted or turned off since is skipped."""
     payload = orjson.loads(payload) if isinstance(payload, (str, bytes)) else payload
     webhook = await client_postgres.fetchrow("SELECT url, secret, is_active FROM webhook WHERE id = $1", payload["webhook_id"])
@@ -76,7 +76,7 @@ async def func_webhook_deliver(*, client_postgres: Any, client_http: httpx.Async
     response = await client_http.post(webhook["url"], content=body, headers=headers, timeout=timeout_sec, follow_redirects=False)
     if not 200 <= response.status_code < 300: raise Exception(f"webhook answered {response.status_code}")
 
-async def func_webhook_deliver_periodic_task(*, client_postgres: asyncpg.Pool, client_http: httpx.AsyncClient, runtime_error_count: dict, timeout_sec: float, retry_max: int, retry_wait_sec: float, poll_sec: float) -> None:
+async def func_webhook_deliver_periodic_task(*, client_postgres: asyncpg.Pool, client_http: httpx.AsyncClient, runtime_error_count: dict, timeout_sec: float = 10, retry_max: int = 8, retry_wait_sec: float = 60, poll_sec: float = 5) -> None:
     """Deliver queued webhooks, one at a time per app worker (FOR UPDATE SKIP LOCKED: workers never send the same one twice); a failed one waits retry_wait_sec, doubled each retry, and stays failed (queue_job status 2) after retry_max retries."""
     async def run(payload):
         try: await func_webhook_deliver(client_postgres=client_postgres, client_http=client_http, payload=payload, timeout_sec=timeout_sec)
@@ -110,7 +110,7 @@ def func_webhook_verify_scheme_check(*, name: str, scheme: Any) -> None:
         if ("{" + part + "}") in signed and not value: raise Exception(f"{where}: signed uses {{{part}}}, so the scheme needs {part}")
     if set(re.findall(r"\{(\w+)\}", signed)) - {"id", "timestamp", "body"}: raise Exception(f"{where}: signed may use only {{id}}, {{timestamp}} and {{body}}")
 
-def func_webhook_verify(*, scheme: dict, secret: str, headers: Any, body: bytes, tolerance_sec: int, now: float | None = None) -> dict:
+def func_webhook_verify(*, scheme: dict, secret: str, headers: Any, body: bytes, tolerance_sec: int = 300, now: float | None = None) -> dict:
     """Check an incoming webhook's HMAC-SHA256 signature as scheme describes (header, prefix or key, encoding, signed bytes); a timestamp more than tolerance_sec off is refused. Returns {"id", "timestamp"} or raises 401."""
     def refuse(message): return func_api_error(message=f"webhook signature invalid: {message}", status_code=401)
     raw = headers.get(scheme["header"])
@@ -138,11 +138,11 @@ def func_webhook_verify(*, scheme: dict, secret: str, headers: Any, body: bytes,
     if not any(hmac.compare_digest(expected.encode(), c.encode()) for c in candidates): raise refuse("signature does not match")
     return {"id": message_id or None, "timestamp": int(timestamp) if timestamp else None}
 
-async def func_webhook_verify_request(*, request: Any, receive: Any, webhook_verify: dict, config_webhook_verify_scheme: dict, config_webhook_verify_tolerance_sec: int, secret: str | None) -> Any:
+async def func_webhook_verify_request(*, request: Any, receive: Any, webhook_verify: dict, config_webhook_verify_scheme: dict, secret: str | None) -> Any:
     """Middleware step for a route with webhook_verify: verify the raw body's signature (401 if bad), put {"scheme", "id", "timestamp"} on request.state.webhook, and return a receive that replays the body to the route."""
     if not secret: raise func_api_error(message=f"webhook secret not set: {webhook_verify['secret']}", status_code=500)
     body = await request.body()
-    result = func_webhook_verify(scheme=config_webhook_verify_scheme[webhook_verify["scheme"]], secret=secret, headers=request.headers, body=body, tolerance_sec=config_webhook_verify_tolerance_sec)
+    result = func_webhook_verify(scheme=config_webhook_verify_scheme[webhook_verify["scheme"]], secret=secret, headers=request.headers, body=body)
     request.state.webhook = {"scheme": webhook_verify["scheme"], **result}
     sent = False
     async def receive_replay():

@@ -1,4 +1,4 @@
-"""Full-text search end to end on Atom's ticket table: the generated search column, the @@ filter, ranking with cursor paging, the column never returned, export, and the column rebuilt when its expression changes.
+"""Full-text search end to end on Atom's test table, given a search column here: the generated search column, the @@ filter, ranking with cursor paging, the column never returned, export, and the column rebuilt when its expression changes.
 
 Same real-app boot as test_http.py (support.app_start), against a throwaway database.
 """
@@ -15,7 +15,7 @@ from tests.integration.support import drop_database
 from tests.integration.support import fetch
 from tests.integration.support import requires_postgres
 
-TICKETS = [
+ROWS = [
     ("Printer stopped working", "Pune warehouse, since the update"),
     ("Login fails", "The printer page shows an error"),
     ("Toner empty", "Printer not working"),
@@ -23,17 +23,24 @@ TICKETS = [
     ("Pune: the printer works only on Wi-Fi", None),
 ]
 
+SEARCH_ON_TEST = """from config import config_postgres_schema_master as base_config_postgres_schema_master
+from config import config_column_int_mapping as base_config_column_int_mapping
+config_postgres_schema_master = {**base_config_postgres_schema_master, "table": {**base_config_postgres_schema_master["table"], "test": [*base_config_postgres_schema_master["table"]["test"], {"name": "search", "datatype": "tsvector", "generated": "setweight(to_tsvector('english', coalesce(title, '')), 'A') || setweight(to_tsvector('english', coalesce(description, '')), 'B')", "index": "gin(search)"}]}}
+config_permission_table = {"test": {"read": 120}}
+config_column_int_mapping = {**base_config_column_int_mapping, "users": {**base_config_column_int_mapping["users"], "permissions": {**base_config_column_int_mapping["users"]["permissions"], 120: "Test read"}}}
+"""    # a project's searchable table: test gets a weighted search column (title A, description B), readable through /permission/object-read (root holds 120)
+
 
 @requires_postgres
 class SearchTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.db_name, cls.url = create_database()
-        cls.handle = app_start(env={"config_postgres_url_master": cls.url})
+        cls.handle = app_start(env={"config_postgres_url_master": cls.url}, config_extend=SEARCH_ON_TEST)
         cls.app, cls.client = cls.handle["app"], cls.handle["client"]
         for path in ("/permission/object-read", "/permission/object-read-export"): cls.app.state.config_api[path]["rate_limit"] = None
         cls.admin = {"Authorization": "Bearer " + app_login(cls.client, path="/auth/login-username-password", body={"username": "admin", "password": "root-test-password"})}
-        cls.ids = [fetch(cls.url, "INSERT INTO ticket (title, description) VALUES ($1, $2) RETURNING id", title, description)[0]["id"] for title, description in TICKETS]
+        cls.ids = [fetch(cls.url, "INSERT INTO test (title, description) VALUES ($1, $2) RETURNING id", title, description)[0]["id"] for title, description in ROWS]
 
     @classmethod
     def tearDownClass(cls):
@@ -41,7 +48,7 @@ class SearchTests(unittest.TestCase):
         finally: drop_database(cls.db_name)
 
     def read(self, status=200, **params):
-        query = {"table": "ticket", **{k: json.dumps(v) if isinstance(v, list) else v for k, v in params.items()}}
+        query = {"table": "test", **{k: json.dumps(v) if isinstance(v, list) else v for k, v in params.items()}}
         response = self.client.get("/permission/object-read", params=query, headers=self.admin)
         self.assertEqual(response.status_code, status, response.text)
         return response.json()["message"]
@@ -50,10 +57,10 @@ class SearchTests(unittest.TestCase):
         return [row["id"] for row in self.read(filter=[f"search @@ {words}"], **params)["obj_list"]]
 
     def test_the_column_is_generated_with_its_index(self):
-        [column] = fetch(self.url, "SELECT attgenerated, col_description(attrelid, attnum) AS comment FROM pg_attribute WHERE attrelid = 'ticket'::regclass AND attname = 'search'")
+        [column] = fetch(self.url, "SELECT attgenerated, col_description(attrelid, attnum) AS comment FROM pg_attribute WHERE attrelid = 'test'::regclass AND attname = 'search'")
         self.assertEqual(column["attgenerated"], b"s")
         self.assertTrue(column["comment"].startswith("atom generated "))
-        self.assertEqual(fetch(self.url, "SELECT count(*) AS n FROM pg_indexes WHERE tablename = 'ticket' AND indexname = 'idx_ticket_search_gin'"), [{"n": 1}])
+        self.assertEqual(fetch(self.url, "SELECT count(*) AS n FROM pg_indexes WHERE tablename = 'test' AND indexname = 'idx_test_search_gin'"), [{"n": 1}])
 
     def test_words_in_any_order_word_forms_and_excluded_words(self):
         printer_work = {self.ids[0], self.ids[2], self.ids[4]}
@@ -82,7 +89,7 @@ class SearchTests(unittest.TestCase):
         self.assertTrue(all("search" not in row for row in self.read()["obj_list"]))
         self.assertIn("for search only", self.read(400, column="id,search"))
         self.assertIn("invalid operator", self.read(400, filter=["search = printer"]))
-        response = self.client.get("/permission/object-read-export", params={"table": "ticket", "filter": json.dumps(["search @@ scanner"])}, headers=self.admin)
+        response = self.client.get("/permission/object-read-export", params={"table": "test", "filter": json.dumps(["search @@ scanner"])}, headers=self.admin)
         self.assertEqual(response.status_code, 200, response.text)
         header, *rows = [line for line in response.content.decode().splitlines() if line]
         self.assertNotIn("search", header.split(","))
@@ -93,7 +100,7 @@ class SearchTests(unittest.TestCase):
         plan = lambda config: self.client.portal.call(functools.partial(state.func_postgres_schema_plan, app_state=state, client_postgres=state.client_postgres_dict["master"], config_postgres_schema=config))
         self.assertEqual([step["sql"] for step in plan(state.config_postgres_schema_master) if not step["is_routine"]], [], "nothing to change")
         changed = copy.deepcopy(state.config_postgres_schema_master)
-        column = next(c for c in changed["table"]["ticket"] if c["name"] == "search")
+        column = next(c for c in changed["table"]["test"] if c["name"] == "search")
         column["generated"] = "to_tsvector('simple', coalesce(title, ''))"
         sql = [step["sql"] for step in plan(changed)]
         self.assertTrue(any('DROP COLUMN "search"' in s for s in sql) and any("GENERATED ALWAYS AS (to_tsvector('simple'" in s for s in sql), sql)

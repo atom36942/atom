@@ -33,8 +33,8 @@ When something happens in your app, Atom calls another system's URL with a signe
              webhook-id: msg_…   webhook-timestamp: 1763712000   webhook-signature: v1,…
              {"type": "shipment.delivered", "timestamp": "2026-11-21T10:42:00Z", "data": {"shipment_id": 881}}
 4. result  2xx → row deleted (delivered)
-           else → retried after config_webhook_retry_wait_sec, doubled each time (60 s, 2 min, 4 min … about 4 h over 8 retries)
-           after config_webhook_retry_max retries → kept with status 2 (failed) and its error
+           else → retried after 60 s, doubled each time (60 s, 2 min, 4 min … about 4 h over 8 retries)
+           after 8 retries → kept with status 2 (failed) and its error
 ```
 
 ## Setup
@@ -86,7 +86,7 @@ ACME's ERP gets the signed POST within seconds and closes its purchase order; if
 
 ## Limits
 
-- One delivery at a time per app worker; a slow receiver (up to `config_webhook_timeout_sec`) delays the next. Fine for thousands a day, not for a firehose.
+- One delivery at a time per app worker; a slow receiver (up to 10 s) delays the next. Fine for thousands a day, not for a firehose.
 - Order is not guaranteed across retries; send the state in `data`, not only "it changed".
 - Incoming webhooks (another service calling you) are below.
 
@@ -101,7 +101,7 @@ Razorpay  POST /payment/webhook   X-Razorpay-Signature: 9f2c…   {"event":"paym
    │
 Atom middleware (route has webhook_verify)
    │  reads the raw body once → HMAC-SHA256(secret, signed bytes) → constant-time compare with the header
-   ├─ missing, wrong, or timestamp over config_webhook_verify_tolerance_sec (300) off → 401, the route never runs
+   ├─ missing, wrong, or timestamp over 300 s off → 401, the route never runs
    └─ match → request.state.webhook = {"scheme", "id", "timestamp"} → your route reads the body as usual
 ```
 

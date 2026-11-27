@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [21.3.0] - 2026-11-27
+
+- **Fewer settings: webhook timing is fixed.** `config_webhook_timeout_sec` (10), `config_webhook_retry_max` (8), `config_webhook_retry_wait_sec` (60, doubled each retry), `config_webhook_poll_sec` (5) and `config_webhook_verify_tolerance_sec` (300) are gone; their values are now the defaults of the webhook functions. `config_webhook_is_active` and `config_webhook_verify_scheme` stay. Startup stops if `config_extend.py`, `.env` or the environment still sets one of the five, so a value is never silently ignored ([docs/webhook.md](docs/webhook.md)).
+
 ## [21.2.0] - 2026-11-27
 
 - **pgweb: Download in more formats.** The query runner's **Download** (every row, no row limit) saves **CSV**, **SQL dump (COPY)** (a psql script as `pg_dump` writes it: `CREATE TABLE`, then `COPY ... FROM stdin` with PostgreSQL's own rows; `psql -d <db> -f file.sql` loads it into another database, 2 million rows in about 4 s), **SQL INSERTs** (500 rows a statement, for any SQL client) or **JSON Lines**, any of them gzipped in the browser. The SQL formats take the table to load into (the query's first `FROM` table by default) and an optional `CREATE TABLE` from the result's columns and types. `/pgweb` `stream` takes `file_format` (`csv`, `copy`, `insert`, `jsonl`), `table_name` and `is_create` ([docs/admin.md](docs/admin.md)).

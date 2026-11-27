@@ -160,7 +160,7 @@ Then open a pull request against `main`. Details: [CONTRIBUTING.md](https://gith
 |  | [redis](docs/redis.md) | Cache, rate limits and shared state in Redis |
 | Build | [backend](docs/backend.md) | How to write routes, functions and SQL the Atom way |
 |  | [frontend](docs/frontend.md) | Pages: login flow, lists, storage, export |
-| Operate | [admin](docs/admin.md) | Built-in pages (database, monitor, API, tickets), admin APIs |
+| Operate | [admin](docs/admin.md) | Built-in pages (database, monitor, API), admin APIs |
 |  | [performance](docs/performance.md) | Tuning, indexes and profiling slow routes |
 |  | [benchmark](docs/benchmark.md) | Measured requests per second and latency |
 |  | [security](docs/security.md) | How each request is checked, and what is protected |

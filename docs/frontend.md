@@ -51,4 +51,3 @@ Each logged-in Atom page carries five blocks, identical in every Atom page (`tes
 | Monitor | `key: "monitor", role: 1, loginRequired: true, idb: false` | none (every tab reads live) |
 | API | `key: "api", role: null, loginRequired: false, idb: true` | `openapi`: `/openapi.json` |
 | Message | `key: "message", role: null, loginRequired: true, idb: false` | none (messages are live) |
-| Tickets | `key: "ticket", role: null, loginRequired: true, idb: false` | none (live; ticket read 120 opens it) |

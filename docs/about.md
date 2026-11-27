@@ -38,7 +38,7 @@ atom/
 ├── function/       # every func_*, one module per area (clients, auth, postgres_*, queues, storage, ...)
 ├── config.py       # every default config_*: settings, config_api, config_postgres_schema_master (Atom's tables)
 ├── router/         # API routes by access scope: auth, my, public, private, admin, index
-├── static/         # Atom's pages (API console, Monitor, Tickets, pgweb) and their assets
+├── static/         # Atom's pages (API console, Monitor, pgweb) and their assets
 ├── script/         # scripts that work in every project: check, consumers, postgres_schema_plan, load_test, ...
 ├── files/          # read-only data (countries, currencies)
 ├── docs/           # these docs; AGENTS.md is the rules entry
