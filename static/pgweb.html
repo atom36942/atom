@@ -207,6 +207,8 @@ body.more-open .tab.on{background:transparent;color:var(--nav-fg)}    /* only on
 .card-title{flex:1 1 0;min-width:48px;overflow:hidden}    /* gives way first: the controls and the filter chip keep their room */
 .card-title b{display:block;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .card-sub{display:block;margin-top:1px;font:11.5px Menlo,Monaco,Consolas,"Courier New",monospace;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#tools .gh-group{display:flex;align-items:center;gap:4px;flex:none}
+#tools .gh-group + .gh-group{margin-left:6px;padding-left:10px;border-left:1px solid var(--card-line)}    /* page size and pages, then the actions, with a divider between */
 #tools .pagenav{gap:2px}
 #tools .pagenum{min-width:0;padding:0 4px;font-size:12px;white-space:nowrap}
 #tools #pagesize{height:26px;min-width:0;margin:0 2px;padding:2px 24px 2px 8px;font-size:12px;background-position:right 8px center}
@@ -765,17 +767,21 @@ dialog.fm .ft{box-sizing:border-box;min-height:54px;align-items:center;flex-wrap
         <div id="gridcard">
           <div id="tools" class="card-head">
             <div class="card-title"><b id="gh-table"></b><span class="card-sub" id="ftxt"></span></div>
-            <div class="pagenav" id="pagenav" hidden>
-              <button class="iconbtn pagebtn" id="prevbatch" title="Previous page" aria-label="Previous page"></button>
-              <span class="pagenum" id="pagenum">Page 1</span>
-              <button class="iconbtn pagebtn" id="nextbatch" title="Next page" aria-label="Next page"></button>
+            <div class="gh-group" aria-label="Rows per page and pages">
+              <select id="pagesize" title="Rows per page" aria-label="Rows per page"></select>
+              <div class="pagenav" id="pagenav" hidden>
+                <button class="iconbtn pagebtn" id="prevbatch" title="Previous page" aria-label="Previous page"></button>
+                <span class="pagenum" id="pagenum">Page 1</span>
+                <button class="iconbtn pagebtn" id="nextbatch" title="Next page" aria-label="Next page"></button>
+              </div>
             </div>
-            <select id="pagesize" title="Rows per page" aria-label="Rows per page"></select>
-            <button class="iconbtn" id="rowrefresh" title="Refresh table data" aria-label="Refresh table data"></button>
-            <button class="iconbtn" id="rowcsv" title="Download the rows on this page as CSV" aria-label="Download the rows on this page as CSV" disabled></button>
-            <button class="iconbtn" id="filterbtn" title="Filter rows" aria-label="Filter rows"></button>
-            <button class="iconbtn" id="fclearbtn" title="Clear the filter" aria-label="Clear the filter" disabled></button>
-            <button class="iconbtn" id="rowadd" title="Add a row" aria-label="Add a row" disabled></button>
+            <div class="gh-group" aria-label="Table actions">
+              <button class="iconbtn" id="rowrefresh" title="Refresh table data" aria-label="Refresh table data"></button>
+              <button class="iconbtn" id="rowcsv" title="Download the rows on this page as CSV" aria-label="Download the rows on this page as CSV" disabled></button>
+              <button class="iconbtn" id="filterbtn" title="Filter rows" aria-label="Filter rows"></button>
+              <button class="iconbtn" id="fclearbtn" title="Clear the filter" aria-label="Clear the filter" disabled></button>
+              <button class="iconbtn" id="rowadd" title="Add a row" aria-label="Add a row" disabled></button>
+            </div>
           </div>
           <div id="fslow" role="status" hidden></div>
           <div id="vp"><div id="inner">
