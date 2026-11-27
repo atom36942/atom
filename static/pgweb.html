@@ -208,7 +208,7 @@ body.more-open .tab.on{background:transparent;color:var(--nav-fg)}    /* only on
 .card-head{display:flex;align-items:center;gap:4px;flex:none;min-height:52px;padding:6px 8px 6px 14px;border-bottom:1px solid var(--card-line);background:var(--th-bg)}    /* both cards' headers: one height, one band */
 .card-head .iconbtn,.card-head .pagebtn{width:26px;height:26px;padding:0;flex:none}
 .card-head .iconbtn svg,.card-head .pagebtn svg{width:13px;height:13px}
-.card-title{flex:1 1 0;min-width:48px;overflow:hidden}    /* gives way first: the controls and the filter chip keep their room */
+.card-title{flex:1 1 0;min-width:48px;overflow:hidden}    /* gives way first: the controls keep their room */
 .card-title b{display:block;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .card-sub{display:block;margin-top:1px;font:11.5px Menlo,Monaco,Consolas,"Courier New",monospace;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #tools .gh-group{display:flex;align-items:center;gap:4px;flex:none}
@@ -2028,8 +2028,7 @@ function rowPanelOpen(index){
   if(isNew) $('rp-body').scrollTop=0;
   if(cutRows.has(row)) fullRow(index).then(full=>{ if(full && RP.index===index) rowPanelDraw(); }).catch(err=>{ if(RP.index===index) alertBox('Could not read the row',err.message); });    // a fresh panel starts at the first field; moving between rows keeps the place
 }
-// a table's rows (not a query result) open with the first row in the panel, so every table has the same layout; not when the panel was closed with × or Esc
-// (until a row is clicked again) or the window is under 1100 px wide; a table without rows keeps the panel with "No rows"
+// a table's rows (not a query result) always open with the first row in the panel, so every table has the same layout; a table without rows keeps the panel with "No rows"
 function rowPanelAuto(){
   if(S.local||!S.table) return;
   if(!S.total){ rowPanelEmpty(); return; }
@@ -2485,7 +2484,7 @@ function drawFilterActions(){
   $('fclearbtn').disabled=!on;
   $('fclearbtn').title=on?'Clear the filter':'No filter applied';
 }
-// one condition row of the dialog: the column box searches the table's columns (datalist), the operators follow the column's type
+// one condition row of the dialog: the column box searches the table's columns (colMenu), the operators follow the column's type
 function filterRow(f={col:'',op:'',val:''}){
   const row=el('div','fd-row'), col=el('input','fd-col'), op=el('select','fd-op'), val=el('input','fd-val'), del=iconButton('trash','Remove this condition','iconbtn fd-del');
   col.placeholder='Search a column'; col.autocomplete='off'; col.spellcheck=false; col.value=f.col; col.setAttribute('role','combobox'); col.setAttribute('aria-controls','fcolmenu');
@@ -2725,22 +2724,23 @@ for(const button of document.querySelectorAll('.detail-download')) button.onclic
 // the query runner's one Download: the rows shown (CSV, JSON or XML, from the browser) or every row the query returns (CSV, streamed: the query runs again, without a row limit)
 function openDownloadDialog(){
   const sql=$('sql').value.trim(); if(!sql&&!S.resultReady) return;
-  const shown=!!S.resultReady&&!!S.local;
+  const shown=!!S.resultReady&&!!S.local, whole=shown&&!S.localTruncated;    // whole: the rows shown are every row the query returns, so there is nothing to choose
   $('dlg-t').textContent='';
   const head=el('span','title','Download'); head.appendChild(el('span','dlg-type','Query result')); $('dlg-t').appendChild(head);
   const body=$('dlg-b'); body.textContent='';
   const group=(label,name,options)=>{ const box=el('div','dl-choice'); box.appendChild(el('b',null,label)); const wrap=name==='dlfmt'?el('div','dl-formats'):box;
     for(const o of options){ const l=el('label',o.off?'off':''), r=el('input'); r.type='radio'; r.name=name; r.value=o.value; r.checked=!!o.on; r.disabled=!!o.off; l.title=o.off||''; l.append(r,document.createTextNode(o.text)); wrap.appendChild(l); }
     if(wrap!==box) box.appendChild(wrap); body.appendChild(box); return box; };
-  group('Rows','dlrows',[
+  if(whole){ const box=el('div','dl-choice'); box.append(el('b',null,'Rows'),el('div',null,`All ${countOf(S.local.length,'row','rows')} the query returns`)); body.appendChild(box); }
+  else group('Rows','dlrows',[
     {value:'shown',text:shown?`The ${countOf(S.local.length,'row','rows')} shown`:'The rows shown',on:shown,off:shown?'':'Run the query with Execute first'},
-    {value:'all',text:'Every row the query returns (runs it again, CSV)',on:!shown,off:sql?'':'Write a query first'}]);
+    {value:'all',text:'Stream every row to a CSV file (no table, no row limit)',on:!shown,off:sql?'':'Write a query first'}]);    // for large results: the server runs the query and streams it straight to the file
   group('Format','dlfmt',[{value:'csv',text:'CSV',on:true},{value:'json',text:'JSON'},{value:'xml',text:'XML'}]);
   const nameBox=el('div','dl-choice'); nameBox.appendChild(el('b',null,'File name')); const name=el('input'); name.id='dlname'; name.autocomplete='off'; name.spellcheck=false; nameBox.appendChild(name); body.appendChild(nameBox);
   const pick=n=>body.querySelector(`input[name="${n}"]:checked`)?.value;
   const draw=()=>{    // every row comes as CSV only; the file name follows the format
     const all=pick('dlrows')==='all';
-    for(const r of body.querySelectorAll('input[name="dlfmt"]')){ const off=all&&r.value!=='csv'; r.disabled=off; r.parentElement.classList.toggle('off',off); r.parentElement.title=off?'Every row is streamed as CSV':''; if(off&&r.checked) body.querySelector('input[name="dlfmt"][value="csv"]').checked=true; }
+    for(const r of body.querySelectorAll('input[name="dlfmt"]')){ const off=all&&r.value!=='csv'; r.disabled=off; r.parentElement.classList.toggle('off',off); r.parentElement.title=off?'A stream is written as CSV':''; if(off&&r.checked) body.querySelector('input[name="dlfmt"][value="csv"]').checked=true; }
     const base=name.value.replace(/\.(csv|json|xml)$/i,'')||`query-result-${safeFilePart(S.db||'export')}`;
     name.value=`${base}.${pick('dlfmt')}`;
   };
@@ -2752,7 +2752,7 @@ function openDownloadDialog(){
   $('dlgo').onclick=()=>{
     const format=pick('dlfmt'), raw=name.value.trim()||`query-result.${format}`, filename=raw.toLowerCase().endsWith('.'+format)?raw:`${raw}.${format}`;
     $('dlg').close();
-    if(pick('dlrows')==='shown'){ saveResult(format,S.local,S.cols,filename); toast(`Downloaded ${countOf(S.local.length,'row','rows')}`); }
+    if(whole||pick('dlrows')==='shown'){ saveResult(format,S.local,S.cols,filename); toast(`Downloaded ${countOf(S.local.length,'row','rows')}`); }
     else streamQuery(false,filename);
   };
 }
@@ -2840,7 +2840,7 @@ $('cancelquery').onclick=async()=>{
 let querySeq=0;
 function showQueryResult(seq,m,message){
   if(seq!==querySeq||!$('v-query').classList.contains('on')) return;
-  S.local=m.rows; S.cols=m.cols; S.total=m.rows.length; S.pk=null; S.meta=null;    // a result has no table: no types, defaults or keys from the last table
+  S.local=m.rows; S.cols=m.cols; S.total=m.rows.length; S.pk=null; S.meta=null; S.localTruncated=!!m.truncated;    // a result has no table: no types, defaults or keys from the last table; truncated: more rows than shown
   S.rows=[]; lastFirst=-1;
   $('tools').style.display='none';       // column filters belong to a table, not a result set
   mountGrid($('qres'));
