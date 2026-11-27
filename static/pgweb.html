@@ -468,9 +468,9 @@ dialog .bd{padding:16px 18px;max-height:72vh;overflow:auto;font-size:13px;line-h
 dialog .ft{padding:12px 18px;border-top:1px solid var(--line);background:var(--side);display:flex;gap:8px;justify-content:flex-end}
 dialog.structured{width:min(760px,calc(100vw - 32px));min-width:min(540px,92vw);max-width:none}
 dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
-dialog.fm,dialog.fm.structured{width:min(640px,calc(100vw - 32px));min-width:0;max-width:none}    /* one width for every field, in view and edit */
+dialog.fm,dialog.fm.structured{width:min(560px,calc(100vw - 32px));min-width:0;max-width:none}    /* one width for every field, in view and edit */
 /* the field modal: one fixed body height for every type, in view and edit; only the body scrolls, long lines wrap */
-dialog.fm .bd,dialog.fm.structured .bd{box-sizing:border-box;height:min(240px,60vh);min-height:0;max-height:none;overflow:auto}
+dialog.fm .bd,dialog.fm.structured .bd{box-sizing:border-box;height:min(200px,55vh);min-height:0;max-height:none;overflow:auto}
 dialog.fm.structured .bd{padding:0}
 dialog.fm #cellbox.json{min-height:100%;max-height:none;overflow:visible;white-space:pre-wrap;overflow-wrap:anywhere}
 /* the create form, compact: label left, the same input as Edit right, one line per short field */
@@ -501,7 +501,7 @@ dialog.cf .fm-bools{gap:6px}dialog.cf .fm-bools button{height:30px;font-size:12p
 .save-err{margin-top:10px;padding:6px 9px;border:1px solid var(--err);border-radius:6px;color:var(--err);font-size:12px;white-space:pre-wrap}
 @media (max-width:520px){ .cf-field{grid-template-columns:minmax(0,1fr)} .cf-field .fm-check{grid-column:1} .cf-head{flex-direction:row;align-items:baseline;gap:8px;padding-top:0} }
 dl.fm-details{margin:18px 0 0;padding:12px 14px;border:1px solid var(--line);border-radius:6px;background:var(--side)}    /* facts about the value, set apart below it */
-dialog.fm #cellbox:not(.json){font-size:14px;line-height:1.6;color:var(--fg)}    /* the value itself reads first */
+dialog.fm #cellbox:not(.json){font-size:13px;line-height:1.6;color:var(--fg)}    /* the value itself reads first */
 dialog.fm .fm-list,dialog.fm .fm-items{max-height:none}
 dialog.fm.fm-editing .bd{display:flex;flex-direction:column}    /* the editor fills the fixed height */
 dialog.fm .fm-edit{flex:1;min-height:0;display:flex;flex-direction:column}
@@ -2346,7 +2346,11 @@ function openField(column,colIndex,row){
     const value=row[colIndex], body=$('dlg-b');
     $('dlg').classList.remove('structured','fm-editing');
     $('dlg-t').textContent='';
-    const title=el('span','title',column); if(facts) title.appendChild(el('span','dlg-type',facts));
+    const lines=typeof value==='string'?value.split('\n').length:1;
+    const size=value==null||kind==='bool'?'':Array.isArray(value)?`${value.length.toLocaleString()} ${value.length===1?'item':'items'}`
+      :kind==='bytes'?`${Math.max(0,(String(value).length-2)/2).toLocaleString()} bytes`
+      :kind==='number'||kind==='date'?'':`${String(kind==='json'?jsonText(value):value).length.toLocaleString()} characters${lines>1?` · ${lines.toLocaleString()} lines`:''}`;    // one place and one format for every field's size: the header
+    const title=el('span','title',column); title.appendChild(el('span','dlg-type',[facts,size].filter(Boolean).join(' · ')));
     const edit=iconButton('pencil',`Edit ${column}`), copy=iconButton('copy',`Copy ${column}`);
     const blocked=cellEditBlock(colIndex,row);    // a button that can't be used stays visible, disabled, with the reason on hover
     if(blocked){ edit.disabled=true; edit.title=blocked; }
@@ -2359,19 +2363,16 @@ function openField(column,colIndex,row){
     else if(kind==='json'){ $('dlg').classList.add('structured'); copyText_=prettyJson(jsonText(value)); pre('','json').innerHTML=highlightJsonText(copyText_).slice(0,-1); }
     else if(kind==='array'&&Array.isArray(value)){
       copyText_=pgArray(value);
-      sub(value.length?`${value.length} item${value.length===1?'':'s'}`:'Empty array');
+      if(!value.length) sub('Empty array');
       if(value.length){ const list=el('div','fm-list'); value.forEach((x,i)=>{ const r=el('div'); r.append(el('b',null,String(i+1)),el('span',x===null?'null':null,x===null?'NULL':typeof x==='object'?JSON.stringify(x):String(x))); list.appendChild(r); }); body.appendChild(list); }
     }
     else if(kind==='bool'){ const on=value===true||value==='t'||value==='true'; body.appendChild(el('span','fm-bool '+(on?'t':'f'),on?'true':'false')); copyText_=String(on); }
     else{
       copyText_=String(value); pre(copyText_);
-      const extra=[], lines=copyText_.split('\n').length;
+      const extra=[];    // what the header's size doesn't say: the local time, a number formatted
       if(kind==='date'){ const d=new Date(String(value).replace(' ','T')); if(!Number.isNaN(+d)) extra.push(['Your time',d.toLocaleString()],['When',ago(d)]); }
       else if(kind==='number'){ const n=Number(value); const f=Number.isFinite(n)?n.toLocaleString(undefined,{maximumFractionDigits:20}):''; if(f&&f!==copyText_) extra.push(['Formatted',f]); }    // only when it reads differently
-      else if(kind==='bytes') extra.push(['Size',`${Math.max(0,(copyText_.length-2)/2).toLocaleString()} bytes`]);
-      else extra.push(['Length',`${copyText_.length.toLocaleString()} characters${lines>1?` · ${lines} lines`:''}`]);
-      if(kind==='text') sub(extra[0][1]);    // long text keeps the room: its length only
-      else body.appendChild(details(extra));
+      body.appendChild(details(extra));
     }
     copy.onclick=()=>copyText(copyText_,`${column} copied`);
     edit.onclick=editor;
