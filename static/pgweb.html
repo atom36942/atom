@@ -374,7 +374,8 @@ body.more-open .tab.on{background:transparent;color:var(--nav-fg)}    /* only on
 .dl-choice{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
 .dl-choice>b{font-size:12px;color:var(--dim);font-weight:600}
 .dl-choice label{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
-.dl-lead{margin:0 0 14px}
+.dlg-note.dl-lead{margin:0 0 16px;padding:10px 12px;border-left:3px solid var(--sel);border-radius:4px;background:var(--hl);color:var(--fg)}    /* the dialog's lead: a highlighted box with room before the fields */
+.dl-lead b{font-weight:700}
 .dl-formats{display:flex;gap:16px}
 #dlname{width:100%;height:32px;padding:4px 9px;box-sizing:border-box}
 button.danger{background:var(--err);border-color:var(--err);color:#fff;font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
@@ -841,7 +842,7 @@ dialog.fm .ft{box-sizing:border-box;min-height:54px;align-items:center;flex-wrap
         <div id="qbar">
           <button id="explain" title="Show the estimated query plan without executing the query">Explain</button>
           <button id="analyze" title="Execute the query and show actual timing and row counts">Analyze</button>
-          <button id="stream" title="Stream every row this query returns to a CSV file, without showing them and without a row limit">Download</button>
+          <button id="stream" title="Download every row this query returns as CSV: no row limit, streamed straight to the file">Download</button>
           <button class="primary" id="run" title="Execute the query">Execute</button>
           <button id="cancelquery" hidden>Cancel</button>
           <span id="streamprogress" hidden><progress id="streambar"></progress><span id="streammsg"></span></span>
@@ -2729,7 +2730,7 @@ function downloadDialog(title,subtitle,note,choices,defaultName,run){
   $('dlg-t').textContent='';
   const head=el('span','title',title); head.appendChild(el('span','dlg-type',subtitle)); $('dlg-t').appendChild(head);
   const body=$('dlg-b'); body.textContent='';
-  if(note) body.appendChild(el('p','dlg-note dl-lead',note));
+  if(note){ const p=el('p','dlg-note dl-lead'); if(Array.isArray(note)){ p.append(el('b',null,note[0]),document.createTextNode(' '+note[1])); } else p.textContent=note; body.appendChild(p); }    // [bold lead, rest] or text
   let pick=()=>'csv';
   if(choices){
     const box=el('div','dl-choice'), wrap=el('div','dl-formats'); box.appendChild(el('b',null,'Format'));
@@ -2746,7 +2747,7 @@ function downloadDialog(title,subtitle,note,choices,defaultName,run){
 }
 function openStreamDialog(){
   if(!$('sql').value.trim()) return;
-  downloadDialog('Download','Every row · CSV','Runs the query and streams every row it returns straight to a CSV file: nothing is shown in the table and there is no row limit, so large results work.',
+  downloadDialog('Download','Every row · CSV · no row limit',['No row limit.','The query runs on the server and every row it returns streams straight to a CSV file, millions of rows included; nothing is shown in the table.'],
     null,`query-result-${safeFilePart(S.db||'export')}`,(format,filename)=>streamQuery(false,filename));
 }
 function openResultDialog(){
