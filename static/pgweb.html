@@ -1793,7 +1793,6 @@ function rowAt(i){
 function filterParams(){
   return S.filters.length?{filters:S.filters.map(filterForApi),filter_join:S.filterJoin}:{};
 }
-const compactCount=n=>n<10000?n.toLocaleString():n<1e6?`${(n/1e3).toFixed(n<1e5?1:0)}K`:n<1e9?`${(n/1e6).toFixed(n<1e7?1:0)}M`:`${(n/1e9).toFixed(1)}B`;
 function drawBatchNav(){
   const supported=!!S.pk, page=S.pageIndex+1;
   $('pagenav').hidden=false;
@@ -1804,9 +1803,9 @@ function drawBatchNav(){
   $('prevbatch').title=!supported?unsupported:S.pageIndex===0?'First page':`Go to Page ${page-1}`;
   $('nextbatch').title=!supported?unsupported:!S.after?'No more rows':`Go to Page ${page+1}`;
   const size=S.meta?.stats?.total_size, estimate=S.meta?.stats?.estimated_rows;
-  const rows=S.filters.length?`${S.total.toLocaleString()} shown · filtered`:estimate!=null?`~${compactCount(estimate)} rows`:`${S.total.toLocaleString()} shown`;    // an estimate needs no count of the table; a filtered total would
+  const rows=`${S.total.toLocaleString()} ${S.total===1?'row':'rows'}`;    // the rows in view: this page, with its filter
   $('ftxt').textContent=size?`${rows} · ${size}`:rows;
-  $('ftxt').title=S.filters.length?'Rows on this page; counting every filtered row would read the whole table':estimate!=null?`About ${estimate.toLocaleString()} rows: PostgreSQL's estimate, kept up to date by VACUUM and ANALYZE`:'';
+  $('ftxt').title=`${rows} on this page${S.filters.length?' (filtered)':''}`+(estimate!=null?`; about ${estimate.toLocaleString()} rows in the table (PostgreSQL's estimate)`:'');
 }
 // pages follow the server's cursor: Next sends the last response's after, Previous the after saved for that page (S.cursors[i] opens page i+1; null is the first page)
 async function changeBatch(direction){

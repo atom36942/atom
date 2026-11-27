@@ -7,7 +7,7 @@ Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/
 ## [21.1.0] - 2026-11-27
 
 - **pgweb: filters with several conditions.** The Filter rows dialog matches **all** (AND) or **any** (OR) of up to 10 conditions (column, operator, value). `/pgweb` `rows` takes `filters` (a list of `{col, op, value}`) and `filter_join` (`and` or `or`) in place of `filter_col`, `filter_op` and `filter_value`; columns are checked against the table, operators come from a fixed list and values go as parameters. The header shows a red clear icon while a filter is on ([docs/admin.md](docs/admin.md)).
-- **pgweb: an estimated row count.** The grid card's header shows PostgreSQL's estimate of the table's rows (`~1.0M rows`, from `pg_class.reltuples`, instant at any size) beside its size; the row panel is always there and has no close button.
+- **pgweb: rows in view and an estimate.** The grid card's header shows the rows in view beside the table's size (`100 rows · 244 MB`); hovering it gives PostgreSQL's estimate of the whole table (`pg_class.reltuples`, instant at any size). The row panel is always there and has no close button.
 - **Fix: pgweb's slow `LIKE` note.** A `%text%` filter taking 100 ms or more failed with "el is not a function" instead of offering the trigram index.
 
 ## [21.0.1] - 2026-11-26
