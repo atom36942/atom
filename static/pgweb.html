@@ -110,8 +110,8 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
   box-shadow:none;font-size:12px}
 #side .search input:focus{border:0;box-shadow:none}
 #qclr{position:absolute;right:10px;top:10px;width:20px;height:20px;padding:0;line-height:17px;
-  text-align:center;border-radius:50%;font-size:14px;color:var(--dim);border-color:transparent;background:transparent}
-#qclr:hover:not(:disabled){background:var(--hl);color:var(--fg);border-color:transparent}
+  text-align:center;border-radius:50%;font-size:16px;font-weight:700;color:var(--err);border-color:transparent;background:transparent}    /* red: plainly the way to clear the search */
+#qclr:hover:not(:disabled){background:var(--err);color:#fff;border-color:transparent}
 #qclr[hidden]{display:none}
 #tree{flex:1;overflow-y:auto;overflow-x:hidden;padding-bottom:8px;font-size:12px;background:var(--table-list-bg);
   scrollbar-width:thin;scrollbar-color:transparent transparent;transition:scrollbar-color .2s ease}
@@ -368,7 +368,7 @@ body.more-open .tab.on{background:transparent;color:var(--nav-fg)}    /* only on
 .rp-table td.rp-val{position:relative;font:12px Menlo,Monaco,Consolas,"Courier New",monospace;color:var(--fg)}
 .rp-table td.rp-val.null{color:var(--null)}
 .rp-table td.rp-val .rp-value{display:block;margin:0;max-height:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:inherit;color:inherit}
-#qbar #resetsql{background:var(--rp-head);border-color:var(--nav);color:var(--nav);font-weight:600}    /* highlighted: a query has run or the SQL changed */
+#qbar #resetsql{margin-left:14px;background:var(--rp-head);border-color:var(--nav);color:var(--nav);font-weight:600}    /* highlighted: a query has run or the SQL changed */
 #qbar #resetsql:hover:not(:disabled){background:var(--nav);border-color:var(--nav);color:#fff}
 :root[data-theme=dark] #qbar #resetsql{color:var(--nav-fg)}
 :root[data-theme=dark] #qbar #resetsql:hover:not(:disabled){color:#fff}
@@ -849,13 +849,13 @@ dialog.fm .ft{box-sizing:border-box;min-height:54px;align-items:center;flex-wrap
           <button id="analyze" title="Execute the query and show actual timing and row counts">Analyze</button>
           <button id="stream" title="Download all returned rows as a CSV">Download</button>
           <button class="primary" id="run" title="Execute the query">Execute</button>
-          <button id="resetsql" title="Reset to default SQL" hidden>Reset</button>
           <button id="cancelquery" hidden>Cancel</button>
           <span id="streamprogress" hidden><progress id="streambar"></progress><span id="streammsg"></span></span>
           <span id="qmsg"></span>
           <button class="export" data-format="json" disabled>JSON</button>
           <button class="export" data-format="xml" disabled>XML</button>
           <button class="export" data-format="csv" disabled>CSV</button>
+          <button id="resetsql" title="Reset to default SQL" hidden>Reset</button>
         </div>
         <div id="qres">
           <div id="qerror" hidden><div id="qerrorbox"><div id="qerrorhead"><span class="title" id="qerrortitle"></span><button type="button" class="iconbtn" id="qerrorcopy" title="Copy error" aria-label="Copy error"></button></div><pre id="qerrorbody"></pre></div></div>
@@ -2916,7 +2916,7 @@ async function runQuery(confirmed){
     const m = await api({action:'query', sql, is_confirmed: confirmed?1:0,
                          is_read_only:S.readOnly?1:0,query_id:queryId});
     const count=m.rows.length.toLocaleString();
-    showQueryResult(seq,m,`${m.truncated ? count+'+ rows · showing first '+count : count+' rows'} · ${(performance.now()-t0).toFixed(1)} ms`);
+    showQueryResult(seq,m,`${m.truncated ? count+'+ rows · showing first '+count : count+(m.rows.length===1?' row':' rows')} · ${(performance.now()-t0).toFixed(1)} ms`);
     sqlHistoryAdd(sql,{ok:true,rows:m.rows.length,truncated:!!m.truncated,ms:performance.now()-t0});
   }catch(err){
     if(S.cancelRequested){ $('qmsg').className=''; $('qmsg').textContent='Canceled'; hideQueryError(); }
