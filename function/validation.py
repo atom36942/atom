@@ -23,6 +23,10 @@ def func_validate_restricted_columns(*, app_state: State, obj_list: list) -> Non
     if restricted_key := next((key for item in obj_list for key in item if key in config_column_admin), None):
         raise Exception(f"unauthorized update to restricted field: {restricted_key}")
 
+def func_role_allowed_values(*, roles: list) -> list | None:
+    """The allowed values of a role parameter: None (any role) when roles is ["*"], else the list itself."""
+    return None if "*" in (roles or []) else roles
+
 def func_check_table_access(*, app_state: State, connection: str = None, table: str, group: str, action: str, relation: list = None) -> None:
     """Refuse a table (and every table a read joins through relation) whose schema does not list action under group (public, private, my, admin) in config_postgres_schema_<connection>: a table is closed unless listed. 403."""
     database = connection or "master"

@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [23.1.0] - 2026-11-27
+
+- **Every role may log in by default:** `config_login_allowed_roles` is `["*"]` (was roles 1 to 20), so any role works with no setting; a project limits login with a list, e.g. `[1, 2]`. Startup takes only `["*"]` or a list of role numbers. `func_role_allowed_values` turns `["*"]` into "any role" for the login routes.
+
 ## [23.0.1] - 2026-11-27
 
 - **`readme.md` is now `README.md`,** the conventional name. Sync renames a project's `readme.md` with `git mv` (Git keeps its history and the new case, on macOS too), then writes Atom's; the `.gitignore` line is `!README.md`. The `readme.md` in each `*_extend` folder stays.

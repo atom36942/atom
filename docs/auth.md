@@ -16,7 +16,7 @@ Atom's users, logins and tokens: **stateless JWT tokens**, **Argon2 password has
 ## 1. Users & Roles
 
 Users live in the `users` table:
-- **`role`** (`smallint`): the user's tier; routes allow roles with `user_check_role`. Login validates a supplied role against `config_login_allowed_roles` (default roles `1` to `20`); public signup uses `config_signup_allowed_roles`. **Role `1` is the root/admin role** and cannot be registered through public signup.
+- **`role`** (`smallint`): the user's tier; routes allow roles with `user_check_role`. Login validates a supplied role against `config_login_allowed_roles` (default `["*"]`: every role); public signup uses `config_signup_allowed_roles`. **Role `1` is the root/admin role** and cannot be registered through public signup.
 - **`permissions`** (`smallint[]`): ids that open routes and table actions beyond the role ([auth-permission.md](auth-permission.md)).
 - **Identity columns**: `username`, `email`, `mobile`, `id_ext`, and `oidc_<provider>` for each single sign-on provider.
 
@@ -80,7 +80,7 @@ config_login_allowed_roles = [1, 2, 5]
 In this example, new users can register only with role `5`. Login requests can supply roles `1`, `2`, or `5`.
 
 - `config_signup_allowed_roles` defaults to `[]`, which disables public registration. It applies to username/password signup and to new users created through email OTP, mobile OTP, or OIDC login. Existing users can still log in when registration is disabled. Role `1` is always rejected for public registration, even if listed.
-- `config_login_allowed_roles` defaults to roles `1` through `20`. It validates the supplied `role` in username, email, mobile, and external-ID password login, plus email OTP, mobile OTP, and OIDC login. OTP and OIDC login require `role`; password login allows it to be omitted. When omitted, password login does not apply this list and requires the identity to resolve to a single user.
+- `config_login_allowed_roles` defaults to `["*"]` (every role); a project lists roles to limit login, e.g. `[1, 2]`. Startup takes only `["*"]` or a list of role numbers. It validates the supplied `role` in username, email, mobile, and external-ID password login, plus email OTP, mobile OTP, and OIDC login. OTP and OIDC login require `role`; password login allows it to be omitted. When omitted, password login does not apply this list and requires the identity to resolve to a single user.
 
 For new users created through OTP or OIDC login, the requested role must pass both lists. These settings do not define role permissions or apply to the static `/auth/login-password` endpoint.
 

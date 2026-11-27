@@ -53,6 +53,20 @@ class RetentionConfigTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "otp retention_day must exceed the OTP expiry window"):
             func_check_runtime_config(app_state=state)
 
+    def test_login_roles_are_every_role_or_a_list(self):
+        from function import func_role_allowed_values
+        import config
+        self.assertEqual(config.config_login_allowed_roles, ["*"], "Atom's default: every role may log in")
+        self.assertIsNone(func_role_allowed_values(roles=["*"]))
+        self.assertEqual(func_role_allowed_values(roles=[1, 2]), [1, 2])
+        for value in (["*"], [1, 2], (1,)):
+            state = self.state(1); state.config_login_allowed_roles = value
+            func_check_runtime_config(app_state=state)
+        for value in ([], ["*", 1], ["1"], [True], "*", None):
+            state = self.state(1); state.config_login_allowed_roles = value
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "config_login_allowed_roles must be"):
+                func_check_runtime_config(app_state=state)
+
     def test_users_private_read_columns_are_checked(self):
         for value, message in (([], "non-empty list"), ("id", "non-empty list"), (["id", "password"], "never readable"), (["id", "mobile"], "no users column 'mobile'")):
             state = self.state(1)

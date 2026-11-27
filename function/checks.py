@@ -101,6 +101,8 @@ def func_check_runtime_config(*, app_state: State) -> None:
     moved.update({key: "buffer_limit" for key in values if key.startswith("config_buffer_limit_")})
     moved.update({key: "retention_day" for key in values if key.startswith("config_retention_day_table_")})
     if found := [key for key in moved if key in values]: raise ValueError(f"{found[0]} removed in Atom 23.0.0: set {moved[found[0]]} on each table in config_postgres_schema_<name>" + (f" (and {len(found) - 1} more: {', '.join(found[1:4])}{', ...' if len(found) > 4 else ''})" if len(found) > 1 else "") + "; delete it from config_extend.py and .env")
+    login_roles = values.get("config_login_allowed_roles")
+    if "config_login_allowed_roles" in values and not (isinstance(login_roles, (list, tuple)) and (list(login_roles) == ["*"] or login_roles and all(isinstance(role, int) and not isinstance(role, bool) for role in login_roles))): raise ValueError('config_login_allowed_roles must be ["*"] (every role) or a list of roles, e.g. [1, 2]')
     role_label = values.get("config_users_role_label")
     if "config_users_role_label" in values and (not isinstance(role_label, dict) or not all(isinstance(code, int) and not isinstance(code, bool) and isinstance(label, str) for code, label in role_label.items())): raise ValueError("config_users_role_label must be {role: \"label\"}, e.g. {1: \"Admin\", 2: \"User\"}")
     if "config_sql" in values: raise ValueError("config_sql was removed in Atom 9.0.0: its queries are Atom's own; set config_cache_row_limit_config, config_cache_row_limit_users_role, config_cache_row_limit_users_deactivated, config_cache_row_limit_users_deleted and config_profile_metadata_sql instead")
