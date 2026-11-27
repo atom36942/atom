@@ -23,6 +23,10 @@ def func_validate_restricted_columns(*, app_state: State, obj_list: list) -> Non
     if restricted_key := next((key for item in obj_list for key in item if key in config_column_admin), None):
         raise Exception(f"unauthorized update to restricted field: {restricted_key}")
 
+def func_column_regex(*, app_state: State, table: str, connection: str = None) -> dict:
+    """The format rules of one table's columns, {column: [pattern, message]}: each column's regex and regex_message in config_postgres_schema_<connection> (users.password included, checked before it is hashed)."""
+    return ((getattr(app_state, "cache_column_regex", None) or {}).get(connection or "master") or {}).get(table) or {}
+
 def func_role_allowed_values(*, roles: list) -> list | None:
     """The allowed values of a role parameter: None (any role) when roles is ["*"], else the list itself."""
     return None if "*" in (roles or []) else roles

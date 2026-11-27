@@ -123,7 +123,7 @@ Both updates accept any `users` column (Atom's and a project's own), checked aga
 Rules for both updates:
 - A column in `config_column_single_update` (`username`, `password`, `email`, `mobile`) is updated alone: `{password}`, `{email, otp}`, never `{password, name}`.
 - Columns in `config_column_users_blocked` (`created_*`, `updated_*`, `deleted_*`, `is_protected`, `last_active_at`) are refused by both; columns in `config_column_users_my_blocked` only by `/my/user-update`; every other column, a project's own included, is allowed. A project adds its own columns to either list in `config_extend.py`.
-- `password` is hashed (Argon2) and logged in `log_users_password`; `email` is saved in lowercase; formats follow `config_column_regex`.
+- `password` is hashed (Argon2) and logged in `log_users_password`; `email` is saved in lowercase; formats follow each `users` column's `regex` (`username`, `password`, `email_secondary`, `mobile_secondary`), with its `regex_message` as the error.
 
 ### Deactivated or deleted accounts
 

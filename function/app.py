@@ -198,7 +198,7 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: State) -> dict:
                                 if not isinstance(p, dict) or "name" not in p: continue
                                 p_name = p["name"]
                                 op["parameters"] = [x for x in op["parameters"] if x["name"] != p_name]
-                                reg_info = getattr(app_state, "config_column_regex", {}).get(p_name) if is_regex_enabled else None
+                                reg_info = (((getattr(app_state, "cache_column_regex", None) or {}).get("master") or {}).get("users") or {}).get(p_name) if is_regex_enabled else None    # the routes that check formats take users fields
                                 op["parameters"].append({
                                     "name": p_name, "in": p_loc, "required": bool(p.get("required", False)),
                                     **({"description": reg_info[1]} if reg_info and len(reg_info) > 1 else {}),
@@ -212,7 +212,7 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: State) -> dict:
                             for p in p_list:
                                 if not isinstance(p, dict) or "name" not in p: continue
                                 p_name = p["name"]
-                                reg_info = getattr(app_state, "config_column_regex", {}).get(p_name) if is_regex_enabled else None
+                                reg_info = (((getattr(app_state, "cache_column_regex", None) or {}).get("master") or {}).get("users") or {}).get(p_name) if is_regex_enabled else None    # the routes that check formats take users fields
                                 props[p_name] = {**spec_schema(p, reg_info), **({"description": reg_info[1]} if reg_info and len(reg_info) > 1 else {})}
                                 if bool(p.get("required", False)): reqs.append(p_name)
                     except Exception as e: print(f"⚠️ openapi {path}: parameters skipped: {e}")

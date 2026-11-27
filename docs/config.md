@@ -77,7 +77,7 @@ config_payment_gateway_url=https://payments.example.com
 
 The sections are only comments: the backend and every script load the whole file, and a repeated key silently takes the last value. So `# atom` and `# extend` are active, and every line in a `# script.<name>` section is commented out; a developer uncomments the section where the script runs. An active copy of a backend key would change the backend's value, and an active `config_<db>_url_<name>` line makes the backend open a pool to that database at startup (startup fails when it can't be reached).
 
-A script reads these values in its `# config` section with `load_dotenv(os.environ.get("ATOM_ENV_FILE", ".env"))` and `os.getenv("<exact key>")`, so the names in the script and in `.env` match. Settings that have a default in code (`config_column_regex`, buffer limits) are imported in `# import` with `from config import ...`.
+A script reads these values in its `# config` section with `load_dotenv(os.environ.get("ATOM_ENV_FILE", ".env"))` and `os.getenv("<exact key>")`, so the names in the script and in `.env` match. Settings that have a default in code (`config_batch_item_limit`, `config_column_read_blocked`) are imported in `# import` with `from config import ...`.
 
 ### Accessing in Routes:
 ```python
@@ -273,6 +273,8 @@ Which routes may use a table is set on the table itself ([table keys](#table-key
 
 ### Column Rules
 
+Rules by column name, the same in every table and database (a format rule is per column instead: `regex` on the column, in the schema).
+
 | Key | Usage |
 |---|---|
 | `config_column_token_encode` | User columns encoded into JWT claims (`id`, `role`, `username`, etc.) |
@@ -405,7 +407,8 @@ Startup refuses any other key, an action a group's routes don't have (`"private"
 | `default` | `str` / `int` | Default value/expression (e.g. `"now()"`, `1`) |
 | `unique` | `str` | Unique constraint (`"code,type"` for composite; `"code,type\|code,slug"` for multiple) |
 | `check` | `str` | SQL `CHECK` clause (e.g. `"rating >= 0 AND rating <= 10"`) |
-| `regex` | `str` | Validation pattern checked on write by `func_regex_check` |
+| `regex` | `str` | The column's format: the API checks every create and update with it (`func_regex_check`), and the database enforces it as a `CHECK`. `users.password` is checked by the API only, before hashing (the database stores the hash). Each column has its own rule, so `email` in two tables may differ |
+| `regex_message` | `str` | The error the API returns when the value does not match `regex` (default `<column>: invalid format`) |
 | `index` | `str` | Index spec (`"btree(email)"`, `"gin_trgm(title)"`, `"gist(coordinate)"`, `"hnsw(embedding)"` for a vector column); several joined by `\|`; a btree column may add its sort order, so a list sorted that way reads in index order: `"btree(score desc nulls last,id)"` for `ORDER BY score desc nulls last, id` |
 | `in` | `tuple` | Allowed integer value set (e.g. `(1, 2, 3, 4)`) |
 | `old` | `str` | Renames existing column from `old` to `name` safely without dropping data |
@@ -426,17 +429,6 @@ Auto-migration and safety guards in `config_postgres_schema_master["control"]`.
 | `is_log_users_delete` | `True` | Automatically logs user soft/hard deletion actions into `log_users_delete` |
 | `is_root_user_create` | `True` | Automatically seeds initial root admin user on startup |
 | `is_root_user_delete_disabled` | `True` | Protects root admin user account from deletion |
-
----
-
-### `config_column_regex`
-
-Write-time regex validation rules enforced by `func_regex_check`.
-
-| Field Name | Pattern (Index 0) | Error Message (Index 1) |
-|---|---|---|
-| `username` | `^(?=.{1,120}\Z)\S+\Z` | Username must be 1-120 characters and contain no spaces |
-| `password` | `^(?=.{6,120}\Z)\S+\Z` | Password must be 6-120 characters and contain no spaces |
 
 ---
 

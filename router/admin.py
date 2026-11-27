@@ -81,7 +81,7 @@ async def func_api_admin_object_create(*, request: Request):
     app_state.func_check_table_column_exists(app_state=app_state, cache_postgres_schema=request.state.cache_postgres_schema, table=oq["table"], column="created_by_id", purpose="ownership tracking")
     app_state.func_check_audit_columns(app_state=app_state, obj_list=obj_list)
     obj_list = app_state.func_attach_user_audit_fields(request=request, obj_list=obj_list, field="created_by_id")
-    return {"status": 1, "message": await app_state.func_postgres_create(client_postgres=request.state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, buffer_postgres=app_state.buffer_postgres_create, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="reject", config_column_regex=app_state.config_column_regex, buffer_limit=app_state.func_buffer_limit(app_state=app_state, table=oq["table"], connection=request.state.connection), mode=oq["mode"], table=oq["table"], obj_list=obj_list, connection=request.state.connection)}
+    return {"status": 1, "message": await app_state.func_postgres_create(client_postgres=request.state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, buffer_postgres=app_state.buffer_postgres_create, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="reject", config_column_regex=app_state.func_column_regex(app_state=app_state, table=oq["table"], connection=request.state.connection), buffer_limit=app_state.func_buffer_limit(app_state=app_state, table=oq["table"], connection=request.state.connection), mode=oq["mode"], table=oq["table"], obj_list=obj_list, connection=request.state.connection)}
 
 @router.get("/admin/object-read")
 async def func_api_admin_object_read(*, request: Request):
@@ -127,14 +127,14 @@ async def func_api_admin_object_update(*, request: Request):
     app_state.func_check_audit_columns(app_state=app_state, obj_list=obj_list)
     obj_list = app_state.func_attach_user_audit_fields(request=request, obj_list=obj_list, field="updated_by_id")
     created_by_id = None
-    result = await app_state.func_postgres_update(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, table=oq["table"], obj_list=obj_list, created_by_id=created_by_id, client_postgres_conn=None, config_column_regex=app_state.config_column_regex)
+    result = await app_state.func_postgres_update(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, table=oq["table"], obj_list=obj_list, created_by_id=created_by_id, client_postgres_conn=None, config_column_regex=app_state.func_column_regex(app_state=app_state, table=oq["table"], connection=request.state.connection))
     return {"status": 1, "message": result}
 
 @router.post("/admin/user-create")
 async def func_api_admin_user_create(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "role", "type": "int", "required": True}, {"name": "username", "type": "str", "required": True}, {"name": "password", "type": "str", "required": True}], strict_types=True)    # other users columns pass through to func_user_create, which refuses blocked ones
-    user_id = await app_state.func_user_create(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_column_regex=app_state.config_column_regex, role=ob["role"], username=ob["username"], password=ob["password"], created_by_id=request.state.user["id"], columns={k: v for k, v in ob.items() if k not in ("role", "username", "password")}, columns_blocked=[*(app_state.config_column_users_my_blocked or []), *(app_state.config_column_single_update or []), *(app_state.config_column_users_blocked or [])])    # set later through /admin/user-update
+    user_id = await app_state.func_user_create(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_column_regex=app_state.func_column_regex(app_state=app_state, table="users"), role=ob["role"], username=ob["username"], password=ob["password"], created_by_id=request.state.user["id"], columns={k: v for k, v in ob.items() if k not in ("role", "username", "password")}, columns_blocked=[*(app_state.config_column_users_my_blocked or []), *(app_state.config_column_single_update or []), *(app_state.config_column_users_blocked or [])])    # set later through /admin/user-update
     return {"status": 1, "message": {"id": user_id}}
 
 @router.put("/admin/user-update")
@@ -143,7 +143,7 @@ async def func_api_admin_user_update(*, request: Request):
     # one user ({id, otp, ...columns}) or several ({"obj_list": [...]}); every field is checked against the users table
     obj_list = await app_state.func_extract_request_object_list(request=request)
     app_state.func_check_batch_limit(app_state=app_state, items=obj_list)
-    ids = await app_state.func_user_update(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_column_regex=app_state.config_column_regex, obj_list=obj_list, updated_by_id=request.state.user["id"], is_otp_required=app_state.config_is_otp_require_users_update, config_column_single_update=app_state.config_column_single_update, config_column_users_blocked=app_state.config_column_users_blocked, config_column_users_my_blocked=app_state.config_column_users_my_blocked, config_otp_expiry_sec=app_state.config_otp_expiry_sec, config_otp_static=app_state.config_otp_static, config_otp_max_attempt=app_state.config_otp_max_attempt, config_permission_label=app_state.cache_int_mapping["master"]["users"]["permissions"])
+    ids = await app_state.func_user_update(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_column_regex=app_state.func_column_regex(app_state=app_state, table="users"), obj_list=obj_list, updated_by_id=request.state.user["id"], is_otp_required=app_state.config_is_otp_require_users_update, config_column_single_update=app_state.config_column_single_update, config_column_users_blocked=app_state.config_column_users_blocked, config_column_users_my_blocked=app_state.config_column_users_my_blocked, config_otp_expiry_sec=app_state.config_otp_expiry_sec, config_otp_static=app_state.config_otp_static, config_otp_max_attempt=app_state.config_otp_max_attempt, config_permission_label=app_state.cache_int_mapping["master"]["users"]["permissions"])
     return {"status": 1, "message": "user updated" if len(ids) == 1 else f"{len(ids)} users updated"}
 
 @router.delete("/admin/user-delete")
@@ -168,7 +168,7 @@ async def func_api_admin_postgres_import(*, request: Request):
     app_state = request.app.state
     of = await app_state.func_request_param_read(request=request, mode="form", param_specs=[{"name": "mode", "type": "str", "required": True, "allowed": ["create", "update", "delete"]}, {"name": "table", "type": "str", "required": True}, {"name": "file", "type": "file", "required": True}])
     if of["table"] != "users": app_state.func_check_table_access(app_state=app_state, connection=request.state.connection, table=of["table"], group="admin", action=of["mode"])    # users rows import too (passwords hashed), as documented
-    res = await app_state.func_postgres_import(app_state=app_state, mode=of["mode"], table=of["table"], file=of["file"][-1], client_postgres=request.state.client_postgres, cache_postgres_schema=request.state.cache_postgres_schema, created_by_id=request.state.user["id"])
+    res = await app_state.func_postgres_import(app_state=app_state, mode=of["mode"], table=of["table"], file=of["file"][-1], client_postgres=request.state.client_postgres, cache_postgres_schema=request.state.cache_postgres_schema, created_by_id=request.state.user["id"], connection=request.state.connection)
     return {"status": 1, "message": res}
 
 @router.post("/admin/mongodb-import")

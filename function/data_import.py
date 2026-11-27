@@ -39,7 +39,7 @@ async def func_mongodb_import(*, client_mongodb: Any, mode: str, database: str, 
         count += len(ol)
     return f"{count} rows processed"
 
-async def func_postgres_import(*, app_state: State, mode: str, table: str, file: Any, client_postgres: asyncpg.Pool | None = None, cache_postgres_schema: dict = None, created_by_id: int | None = None) -> str:
+async def func_postgres_import(*, app_state: State, mode: str, table: str, file: Any, client_postgres: asyncpg.Pool | None = None, cache_postgres_schema: dict = None, created_by_id: int | None = None, connection: str | None = None) -> str:
     """Imports, updates, or deletes records in PostgreSQL from a CSV upload file in batches, all in one transaction.
     Audit columns (config_column_audit_blocked) in the CSV are refused; created rows get created_by_id (the importing admin) when the table has that column."""
     client_postgres = client_postgres or app_state.client_postgres_dict.get("master")
@@ -54,9 +54,9 @@ async def func_postgres_import(*, app_state: State, mode: str, table: str, file:
                 if mode in ("create", "update"): func_check_audit_columns(app_state=app_state, obj_list=ol)
                 if mode == "create" and created_by_id is not None and "created_by_id" in cache_postgres_schema.get(table, {}): ol = [{**obj, "created_by_id": created_by_id} for obj in ol]
                 if mode == "create":
-                    await app_state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=conn, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=cache_postgres_schema, buffer_postgres=app_state.buffer_postgres_create, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.func_buffer_limit(app_state=app_state, table=table), mode="now", table=table, obj_list=ol)
+                    await app_state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=conn, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=cache_postgres_schema, buffer_postgres=app_state.buffer_postgres_create, config_column_regex=app_state.func_column_regex(app_state=app_state, table=table, connection=connection), buffer_limit=app_state.func_buffer_limit(app_state=app_state, table=table), mode="now", table=table, obj_list=ol)
                 elif mode == "update":
-                    await app_state.func_postgres_update(client_postgres=client_postgres, client_postgres_conn=conn, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=cache_postgres_schema, config_column_regex=app_state.config_column_regex, table=table, obj_list=ol, created_by_id=None)
+                    await app_state.func_postgres_update(client_postgres=client_postgres, client_postgres_conn=conn, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=cache_postgres_schema, config_column_regex=app_state.func_column_regex(app_state=app_state, table=table, connection=connection), table=table, obj_list=ol, created_by_id=None)
                 elif mode == "delete":
                     await app_state.func_postgres_delete(client_postgres=client_postgres, client_postgres_conn=conn, cache_postgres_schema=cache_postgres_schema, table=table, ids=[obj["id"] for obj in ol], created_by_id=None)
                 count += len(ol)

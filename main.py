@@ -81,6 +81,7 @@ async def func_lifespan(app: FastAPI):
         postgres_schemas = app.state.func_postgres_schema_dict(values=getattr(app.state, "_state", None) or vars(app.state))
         cache_postgres_table_rule = app.state.func_postgres_table_rule_dict(schemas=postgres_schemas)
         cache_int_mapping = app.state.func_postgres_int_mapping(schemas=postgres_schemas, config_users_role_label=app.state.config_users_role_label, config_api=app.state.config_api)
+        cache_column_regex = app.state.func_postgres_column_regex_dict(schemas=postgres_schemas)
         cache_log_api_database = app.state.func_postgres_log_database(schemas=postgres_schemas) if app.state.config_is_log_api else None
         if not app.state.config_is_read_only:
             root_user_password_hash = client_password_hasher.hash(str(app.state.config_root_user_password)) if app.state.config_root_user_password and app.state.config_is_postgres_schema_init else None

@@ -23,7 +23,7 @@ class QueueChannelTests(unittest.TestCase):
 
     def test_unknown_channel_stops_before_connecting(self):
         with patch("function.queues.func_run_broker") as run_broker, self.assertRaisesRegex(Exception, "unknown channel: func_postgres_create"):
-            func_consumer_run(queue="redis", channel="func_postgres_create", broker_settings={}, postgres_url="postgresql://x", config_column_regex={}, config_buffer_rows_max=1)
+            func_consumer_run(queue="redis", channel="func_postgres_create", broker_settings={}, postgres_url="postgresql://x", config_buffer_rows_max=1)
         run_broker.assert_not_called()
 
     def test_each_broker_script_runs_its_own_broker(self):
@@ -36,11 +36,12 @@ class QueueChannelTests(unittest.TestCase):
 
 class QueueChannelDispatchTests(unittest.IsolatedAsyncioTestCase):
     async def test_update_message_reaches_func_postgres_update_with_its_owner(self):
-        context = {"client_postgres_dict": {"master": object()}, "cache_postgres_schema_dict": {"master": {}}, "client_password_hasher": None, "config_column_regex": {}}
+        context = {"client_postgres_dict": {"master": object()}, "cache_postgres_schema_dict": {"master": {}}, "client_password_hasher": None, "cache_column_regex": {"master": {"post": {"title": ["^.{1,9}$", "short title"]}}}}
         with patch("function.queues.func_postgres_update", new=AsyncMock(return_value="ok")) as update:
             result = await func_consumer_object_update(payload={"table": "post", "obj_list": [{"id": 1}], "created_by_id": 7}, context=context)
         self.assertEqual(result, "ok")
         self.assertEqual((update.await_args.kwargs["table"], update.await_args.kwargs["created_by_id"], update.await_args.kwargs["ownership_column"]), ("post", 7, "created_by_id"))
+        self.assertEqual(update.await_args.kwargs["config_column_regex"], {"title": ["^.{1,9}$", "short title"]}, "the job's table's format rules")
 
 
 if __name__ == "__main__":
@@ -51,7 +52,7 @@ class QueueChannelConnectionTests(unittest.IsolatedAsyncioTestCase):
     def context(self):
         import asyncio
         return {"client_postgres_dict": {"master": "master-pool"}, "cache_postgres_schema_dict": {"master": {}}, "postgres_url_dict": {"master": "postgresql://m", "telemetry": "postgresql://t"},
-                "lock_postgres_open": asyncio.Lock(), "client_password_hasher": None, "config_column_regex": {}, "buffer_postgres_create": {}, "config_buffer_rows_max": 10, "config_postgres_table_rule": {"telemetry": {"reading": {"buffer_limit": 500}}}}
+                "lock_postgres_open": asyncio.Lock(), "client_password_hasher": None, "cache_column_regex": {}, "buffer_postgres_create": {}, "config_buffer_rows_max": 10, "config_postgres_table_rule": {"telemetry": {"reading": {"buffer_limit": 500}}}}
 
     async def test_a_job_writes_to_the_database_its_request_used(self):
         from function import func_consumer_object_create

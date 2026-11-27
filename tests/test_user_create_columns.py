@@ -12,7 +12,7 @@ ALLOWED = {"name", "country", "state", "city", "email_secondary", "mobile_second
 
 class UserCreateColumnsTests(unittest.TestCase):
     def test_every_users_column_is_allowed_or_blocked_on_create(self):
-        block = CONFIG[CONFIG.index('"users": {'):]; block = block[:block.index("\n]},")]
+        block = CONFIG[CONFIG.index('"users": {'):]; block = block[:block.index("\n],\n},")]
         columns = set(re.findall(r'"name":\s*"([a-z_]+)"', block))
         blocked = REFUSED_ALWAYS | set(config.config_column_users_my_blocked) | set(config.config_column_single_update) | set(config.config_column_users_blocked)
         self.assertEqual(sorted(columns - blocked - ALLOWED), [], "a new users column: block it in config_column_users_my_blocked or config_column_users_blocked, or add it to ALLOWED here")

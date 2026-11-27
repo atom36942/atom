@@ -201,7 +201,7 @@ async def func_gps_point_push(*, app_state, point: dict) -> str:
     row = {"time": datetime.fromtimestamp(point["time_ms"] / 1000, UTC), "device_id": point["device_id"], "lat": point["lat"], "lng": point["lng"], "speed": point.get("speed")}
     return await app_state.func_postgres_create(client_postgres=app_state.client_postgres_dict["telematics"], client_postgres_conn=None, client_password_hasher=None,
         cache_postgres_schema=app_state.cache_postgres_schema_dict["telematics"], buffer_postgres=app_state.buffer_postgres_create,
-        buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="reject", config_column_regex=app_state.config_column_regex,
+        buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="reject", config_column_regex=app_state.func_column_regex(app_state=app_state, table="gps_point", connection="telematics"),
         buffer_limit=app_state.func_buffer_limit(app_state=app_state, table="gps_point", connection="telematics"), mode="buffer", table="gps_point", obj_list=[row],
         connection="telematics", on_conflict="nothing")
 ```

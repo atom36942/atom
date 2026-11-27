@@ -30,6 +30,7 @@ from function import func_middleware_client_ip
 from function import func_middleware_security_headers
 from function import func_middleware_log_api_write
 from function import func_buffer_limit
+from function import func_column_regex
 from function import func_middleware_api_config
 from function import func_middleware_log_detail_is_text
 from function import func_middleware_log_detail_header
@@ -63,7 +64,7 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
         request = Request({"type": "http", "method": "GET", "path": "/my/profile", "query_string": b"token=abc&limit=5", "headers": [], "client": ("1.2.3.4", 5000)})
         def state(**changes):
             return SimpleNamespace(**{"config_is_read_only": False, "client_postgres_log_api": object(), "func_postgres_create": AsyncMock(), "runtime_error_count": {}, "client_password_hasher": None,
-                "cache_postgres_schema_dict": {}, "cache_log_api_database": "master", "buffer_postgres_log_api": {}, "config_buffer_rows_max": 10, "config_column_regex": {},
+                "cache_postgres_schema_dict": {}, "cache_log_api_database": "master", "buffer_postgres_log_api": {}, "config_buffer_rows_max": 10, "func_column_regex": func_column_regex,
                 "func_buffer_limit": func_buffer_limit, **changes})
         write = lambda app_state: func_middleware_log_api_write(app_state=app_state, request=request, response_type="error", status_code=401, start=0.0, error="token missing")
         for app_state in (state(config_is_read_only=True), state(client_postgres_log_api=None)):
@@ -192,7 +193,7 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
             client_azure_blob=None, config_blob_limit_upload=2, config_blob_limit_size_kb=1,
             config_aws_s3_region_name="ap-south-1",
             func_postgres_create=AsyncMock(), client_password_hasher=None, cache_postgres_schema_dict={"master": {}}, buffer_postgres_create={},
-            config_column_regex={}, func_buffer_limit=func_buffer_limit)
+            func_column_regex=func_column_regex, func_buffer_limit=func_buffer_limit)
 
     async def test_oversized_upload_reads_only_limit_plus_one_and_does_not_upload(self):
         state = self.storage_state()

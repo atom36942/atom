@@ -47,6 +47,15 @@ def func_postgres_int_mapping(*, schemas: dict, config_users_role_label: dict = 
     users["permissions"] = {cfg["id"]: path for path, cfg in sorted((config_api or {}).items(), key=lambda item: item[1].get("id", 0) if isinstance(item[1], dict) else 0) if isinstance(cfg, dict) and cfg.get("user_check_permission") and isinstance(cfg.get("id"), int)}
     return mapping
 
+def func_postgres_column_regex_dict(*, schemas: dict) -> dict:
+    """{database: {table: {column: [pattern, message]}}}: each column's regex and regex_message (default "<column>: invalid format"), the format the API checks on create and update."""
+    rules = {}
+    for name, schema in schemas.items():
+        for table, columns in func_postgres_schema_columns(config_postgres_schema=schema).items():
+            for col in columns or []:
+                if col.get("regex"): rules.setdefault(name, {}).setdefault(table, {})[col["name"]] = [col["regex"], col.get("regex_message") or f"{col['name']}: invalid format"]
+    return rules
+
 def func_postgres_schema_table_validate(*, table_name: str, spec: Any) -> None:
     """One table's own keys: column (required), who may do what (public, private, my, admin: lists of actions; closed unless listed), row_lock, row_delete_max, users_delete_skip, buffer_limit, retention_day."""
     if not isinstance(spec, dict): raise Exception(f"{table_name} must be a dict with a column list: {{\"column\": [...]}} (Atom 23.0.0)")
@@ -113,6 +122,12 @@ def func_postgres_schema_config_validate(*, config_postgres_schema: dict) -> Non
             if "generated" in col:
                 if not isinstance(col["generated"], str) or not col["generated"].strip(): raise Exception(f"{table_name}.{name} generated must be the SQL expression of the column")
                 if mixed := [key for key in ("default", "is_mandatory", "in", "regex", "check", "unique", "old") if key in col]: raise Exception(f"{table_name}.{name} is generated: Postgres fills it, so it takes no {', '.join(mixed)}")
+            if "regex_message" in col and (not col.get("regex") or not isinstance(col["regex_message"], str) or not col["regex_message"]): raise Exception(f"{table_name}.{name}: regex_message is the error for its regex: a text, and the column needs regex")
+            if "regex" in col:
+                if not isinstance(col["regex"], str) or not col["regex"]: raise Exception(f"{table_name}.{name}: regex must be a pattern")
+                if "'" in col["regex"]: raise Exception(f"{table_name}.{name}: regex may not contain a single quote")
+                try: re.compile(col["regex"])
+                except re.error as error: raise Exception(f"{table_name}.{name}: invalid regex: {error}") from None
             if "regex" in col and "[]" in dtype.lower():
                 raise Exception(f"Regex constraint is not supported for array column {table_name}.{name}. Remove 'regex' key to resolve.")
             if col.get("index"):
@@ -347,7 +362,7 @@ async def func_postgres_schema_tables_sync(*, conn: asyncpg.Connection, tables: 
                     else:
                         await conn.execute(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{chk_name}" CHECK ("{col_name}" IN {col_cfg["in"]});')
                         table_changed = True
-            if func_postgres_schema_col_setting_enabled(col_cfg, "regex"):
+            if func_postgres_schema_col_setting_enabled(col_cfg, "regex") and (table_name, col_name) != ("users", "password"):    # the stored password is its hash: the API checks the typed one
                 regex_name = f"check_{table_name}_{col_name}_regex_{func_postgres_schema_hash(col_cfg['regex'])}"
                 catalog["chk"].add(regex_name)
                 if regex_name not in existing_meta:

@@ -121,8 +121,8 @@ A route that takes rows from another system (a device webhook, a feed) calls `fu
 ```python
 await app_state.func_postgres_create(client_postgres=app_state.client_postgres_dict["telemetry"], client_postgres_conn=None, client_password_hasher=None,
     cache_postgres_schema=app_state.cache_postgres_schema_dict["telemetry"], buffer_postgres=app_state.buffer_postgres_create,
-    buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="reject", config_column_regex=app_state.config_column_regex,
-    buffer_limit=app_state.func_buffer_limit(app_state=app_state, table="gps_point"), mode="buffer", table="gps_point", obj_list=points,
+    buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="reject", config_column_regex=app_state.func_column_regex(app_state=app_state, table="gps_point", connection="telemetry"),
+    buffer_limit=app_state.func_buffer_limit(app_state=app_state, table="gps_point", connection="telemetry"), mode="buffer", table="gps_point", obj_list=points,
     connection="telemetry", on_conflict="nothing")
 ```
 | Argument | Effect |

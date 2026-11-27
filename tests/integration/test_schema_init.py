@@ -57,6 +57,13 @@ class SchemaInitTests(unittest.IsolatedAsyncioTestCase):
         self.assertLessEqual(len(second), 25, f"{len(second)} statements on an unchanged start")
         self.assertEqual(await self.pool.fetch("SELECT oid, tgname FROM pg_trigger WHERE NOT tgisinternal ORDER BY oid"), trigger_ids, "no trigger was recreated (same oids)")
 
+    async def test_format_rules_are_database_checks_except_the_hashed_password(self):
+        await self.init()
+        checks = {row["conname"] for row in await self.pool.fetch("SELECT conname FROM pg_constraint WHERE conrelid = 'users'::regclass AND contype = 'c'")}
+        self.assertTrue(any(name.startswith("check_users_username_regex_") for name in checks), checks)
+        self.assertFalse(any(name.startswith("check_users_password_regex_") for name in checks), "the stored password is its hash: only the API checks the typed one")
+        with self.assertRaises(asyncpg.exceptions.CheckViolationError): await self.pool.execute("INSERT INTO users (username, role) VALUES ('has space', 5)")
+
     async def test_an_index_column_keeps_its_sort_order(self):
         config = config_postgres_schema_master()
         config["table"]["sorted_item"] = {"column": [{"name": "id", "datatype": "bigint", "identity": "always", "is_primary": True}, {"name": "score", "datatype": "numeric", "index": "btree(score desc nulls last,id)|btree(score,id)"}]}

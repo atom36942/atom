@@ -5,6 +5,8 @@ import config
 from function import func_check_postgres_schema
 from function import func_check_table_access
 from function import func_buffer_limit
+from function import func_column_regex
+from function import func_postgres_column_regex_dict
 from function import func_page_keys
 from function import func_postgres_delete
 from function import func_postgres_int_mapping
@@ -118,6 +120,21 @@ class TableRuleTests(unittest.TestCase):
             with self.subTest(kwargs=kwargs), self.assertRaisesRegex(Exception, message) as raised: func_check_table_access(app_state=state, **kwargs)
             self.assertEqual(raised.exception.status_code, 403)
         self.assertEqual((func_buffer_limit(app_state=state, table="task"), func_buffer_limit(app_state=state, table="tag"), func_buffer_limit(app_state=state, table="event", connection="logs")), (500, 100, 100))
+
+    def test_format_rules_live_on_their_columns(self):
+        schemas = {"master": {"table": {"customer": {"column": [{"name": "email", "datatype": "text", "regex": "^[^@]+@[^@]+$", "regex_message": "Email must look like name@example.com"}, {"name": "code", "datatype": "text", "regex": "^[A-Z]{2}$"}]},
+                                        "contact": {"column": [{"name": "email", "datatype": "text"}]}}}, "logs": {"table": {"event": {"column": [{"name": "code", "datatype": "text", "regex": "^[0-9]+$"}]}}}}
+        rules = func_postgres_column_regex_dict(schemas=schemas)
+        self.assertEqual(rules, {"master": {"customer": {"email": ["^[^@]+@[^@]+$", "Email must look like name@example.com"], "code": ["^[A-Z]{2}$", "code: invalid format"]}}, "logs": {"event": {"code": ["^[0-9]+$", "code: invalid format"]}}})
+        state = SimpleNamespace(cache_column_regex=rules)
+        self.assertEqual(func_column_regex(app_state=state, table="contact"), {}, "the same column name in another table has its own rule, or none")
+        self.assertEqual(func_column_regex(app_state=state, table="event", connection="logs"), {"code": ["^[0-9]+$", "code: invalid format"]})
+        for column, message in (({"name": "n", "datatype": "text", "regex_message": "x"}, "the column needs regex"), ({"name": "n", "datatype": "text", "regex": "^(a$"}, "invalid regex"),
+                                ({"name": "n", "datatype": "text", "regex": "^a'$"}, "single quote"), ({"name": "n", "datatype": "text", "regex": "^a$", "regex_message": ""}, "regex_message is the error")):
+            with self.subTest(column=column), self.assertRaisesRegex(Exception, message): func_postgres_schema_config_validate(config_postgres_schema={"table": {"t": {"column": [column]}}})
+        atom = func_postgres_column_regex_dict(schemas={"master": MASTER})["master"]["users"]
+        self.assertEqual(sorted(atom), ["email_secondary", "mobile_secondary", "password", "username"])
+        self.assertEqual(atom["password"][1], "Password must be 6-120 characters and contain no spaces")
 
     def test_atom_tables_keep_their_access(self):
         rules = func_postgres_table_rule_dict(schemas={"master": MASTER})["master"]

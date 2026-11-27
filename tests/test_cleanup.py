@@ -53,6 +53,11 @@ class RetentionConfigTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "otp retention_day must exceed the OTP expiry window"):
             func_check_runtime_config(app_state=state)
 
+    def test_flat_regex_setting_stops_startup(self):
+        state = self.state(1); state.config_column_regex = {"email": ["^.+$", "x"]}
+        with self.assertRaisesRegex(ValueError, "config_column_regex removed in Atom 24.0.0: set regex and regex_message on each column"):
+            func_check_runtime_config(app_state=state)
+
     def test_login_roles_are_every_role_or_a_list(self):
         from function import func_role_allowed_values
         import config

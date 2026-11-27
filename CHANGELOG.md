@@ -4,6 +4,14 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [24.0.0] - 2026-11-27
+
+**Upgrade (projects must change):** `config_column_regex` is gone; a format rule lives on its column: `{"name": "email", "datatype": "text", "regex": "^[^@\\s]+@[^@\\s]+$", "regex_message": "Email must look like name@example.com"}`. Move each entry of the project's `config_column_regex` onto every column it should check (Atom's `username`, `password`, `email_secondary` and `mobile_secondary` are already on the `users` columns). Code that passed `config_column_regex=app_state.config_column_regex` passes `app_state.func_column_regex(app_state=app_state, table=<table>, connection=<db>)`. Startup stops while `config_column_regex` is set. Before deploying, check that every existing value matches its column's `regex`: the database adds it as a `CHECK`.
+
+- **Format rules per column.** A column's `regex` is checked by the API on every create and update (with `regex_message` as the error, default `<column>: invalid format`) and enforced by the database as a `CHECK`, so raw SQL can't break it either. Each column has its own rule: `email` in two tables may differ, or have none. `users.password` is checked by the API only, before it is hashed (the database stores the hash).
+- **Rules by database and table.** Startup builds `cache_column_regex` (`{database: {table: {column: [pattern, message]}}}`); `func_column_regex` gives one table's rules, and every route, user function, import, consumer and the OpenAPI spec use it.
+- **Readable schema:** each table in `config_postgres_schema_master` lists its keys one per line (`public`, `private`, `my`, `admin`, ..., then `column`).
+
 ## [23.1.0] - 2026-11-27
 
 - **Every role may log in by default:** `config_login_allowed_roles` is `["*"]` (was roles 1 to 20), so any role works with no setting; a project limits login with a list, e.g. `[1, 2]`. Startup takes only `["*"]` or a list of role numbers. `func_role_allowed_values` turns `["*"]` into "any role" for the login routes.

@@ -107,7 +107,7 @@ An error in `func_extend` stops startup. An error in `func_extend_shutdown` is p
 
 ## Extend Atom's dictionaries
 
-`config.py` has five dictionary settings a project extends: `config_column_regex`, `config_options`, `config_users_role_label`, `config_postgres_schema_master` and `config_api`. Define each one you change once in `config_extend.py`; `main.py` uses that value in place of Atom's and does not merge for you, so start from Atom's value and add or override keys:
+`config.py` has four dictionary settings a project extends: `config_options`, `config_users_role_label`, `config_postgres_schema_master` and `config_api`. Define each one you change once in `config_extend.py`; `main.py` uses that value in place of Atom's and does not merge for you, so start from Atom's value and add or override keys:
 
 - spread Atom's base at the top level only: `{**base_config_x, "key": value}`. To change one of Atom's keys, write that key's whole value (copy from `config.py` what you keep); never spread a nested base like `**base_config_x["users"]`, so every override shows its full value in one place;
 - `config_postgres_schema_master` is the one exception, because its tables sit one level down: `{**base_config_postgres_schema_master, "table": {**base_config_postgres_schema_master["table"], "task": {"my": [...], "column": [...]}}}`; an Atom table changed keeps its other keys: `"test": {**base_config_postgres_schema_master["table"]["test"], "public": []}`.
@@ -163,7 +163,7 @@ Three variables are checked, and only when `config_extend.py` defines them:
 
 Values are not checked: change a route's policy, a table's columns or access, or a label, and add your own routes, tables, roles and labels, freely. What counts as Atom's is read from `config.py` on every start, so entries Atom adds later are covered without changing the check. How the dict is written does not matter either: `{**base_config_api, ...}` or a copy both pass. The message names the missing entries and the fix, for example `config_postgres_schema_master drops 3 of Atom's entries (table.users, extension.pg_trgm, control.is_index_drop); fix: {**base_config_postgres_schema_master, "table": {**base_config_postgres_schema_master["table"], ...}}`.
 
-Not checked: `config_options`, `config_column_regex` and any `config_*` the project adds; a missing key there only removes that option.
+Not checked: `config_options` and any `config_*` the project adds; a missing key there only removes that option.
 
 One more check covers the whole file: a base imported under a name starting with `config_` (`config_api_base = ...` instead of `base_config_api`) stops startup, because every `config_*` name is read as a setting.
 

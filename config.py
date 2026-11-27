@@ -204,13 +204,6 @@ config_column_read_blocked = ["password", "key_hash", "secret", "totp_secret", "
 config_column_users_private_read = ["id", "username", "name", "role", "permissions", "created_at", "deactivated_at"]
 
 # column dict
-config_column_regex = {
-"username": ["^(?=.{1,120}\\Z)\\S+\\Z", "Username must be 1-120 characters and contain no spaces"],
-"password": ["^(?=.{6,120}\\Z)\\S+\\Z", "Password must be 6-120 characters and contain no spaces"],
-"email_secondary": ["^(?=.{3,254}\\Z)[^\\s@]+@[^\\s@]+\\.[^\\s@]+\\Z", "Email must look like name@example.com"],
-"mobile_secondary": ["^\\+?[0-9][0-9 -]{5,19}\\Z", "Mobile must be 6-20 digits (spaces, dashes and a leading + allowed)"],
-}
-
 config_options = {
 "gender": ["male", "female"],
 "country": "files/country.txt",
@@ -222,7 +215,12 @@ config_options = {
 config_postgres_schema_master = {
 "extension": ["postgis", "pg_trgm", "btree_gin", "vector"],
 "table":{
-"test": {"public": ["create", "read"], "private": ["read"], "my": ["create", "read", "update", "delete", "delete_all"], "admin": ["create", "read", "update", "delete"], "column": [
+"test": {
+"public": ["create", "read"],
+"private": ["read"],
+"my": ["create", "read", "update", "delete", "delete_all"],
+"admin": ["create", "read", "update", "delete"],
+"column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id,id)"},
@@ -233,7 +231,7 @@ config_postgres_schema_master = {
 {"name":"description","datatype":"text"},
 {"name":"slug","datatype":"text","index":"btree(slug)"},
 {"name":"code","datatype":"text","is_mandatory": False,"unique":"code,type|code,slug"},
-{"name":"email","datatype":"text","regex":"^[a-zA-Z0-9+_.-]+@[a-zA-Z0-9.-]+$","index":"btree(email)"},
+{"name":"email","datatype":"text","regex":"^[a-zA-Z0-9+_.-]+@[a-zA-Z0-9.-]+$","regex_message":"Email must look like name@example.com","index":"btree(email)"},
 {"name":"tags","datatype":"text[]","index":"gin(tags)"},
 {"name":"tags_int","datatype":"integer[]","index":"gin(tags_int)"},
 {"name":"tags_bigint","datatype":"bigint[]","index":"gin(tags_bigint)"},
@@ -242,8 +240,12 @@ config_postgres_schema_master = {
 {"name":"status","datatype":"smallint","default":1,"index":"btree(status,type)"},
 {"name":"address","datatype":"text","old":"adress"},
 {"name":"metadata","datatype":"jsonb","index":"gin(metadata)"}
-]},
-"test_comment": {"my": ["create", "read", "update", "delete"], "admin": ["create", "read", "update", "delete"], "column": [
+],
+},
+"test_comment": {
+"my": ["create", "read", "update", "delete"],
+"admin": ["create", "read", "update", "delete"],
+"column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
 {"name":"created_by_id","datatype":"bigint","is_mandatory": True,"index":"btree(created_by_id,id)"},
@@ -251,8 +253,14 @@ config_postgres_schema_master = {
 {"name":"updated_by_id","datatype":"bigint"},
 {"name":"test_id","datatype":"bigint","is_mandatory": True,"index":"btree(test_id)"},
 {"name":"description","datatype":"text","is_mandatory": True},
-]},
-"users": {"admin": ["read"], "row_lock": ["delete"], "row_delete_max": 100, "users_delete_skip": True, "column": [
+],
+},
+"users": {
+"admin": ["read"],
+"row_lock": ["delete"],
+"row_delete_max": 100,
+"users_delete_skip": True,
+"column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"created_by_id","datatype":"bigint"},
@@ -267,19 +275,19 @@ config_postgres_schema_master = {
 {"name":"is_protected","datatype":"boolean"},
 {"name":"role","datatype":"smallint","is_mandatory": True,"index":"btree(role)"},
 {"name":"permissions","datatype":"smallint[]","default": None},
-{"name":"username","datatype":"text","unique":"username,role"},
+{"name":"username","datatype":"text","unique":"username,role","regex":"^(?=.{1,120}\\Z)\\S+\\Z","regex_message":"Username must be 1-120 characters and contain no spaces"},
 {"name":"email","datatype":"text","unique":"email,role"},
 {"name":"mobile","datatype":"text","unique":"mobile,role"},
 {"name":"id_ext","datatype":"text","unique":"id_ext,role"},
-{"name":"password","datatype":"text","index":"btree(password)"},
+{"name":"password","datatype":"text","index":"btree(password)","regex":"^(?=.{6,120}\\Z)\\S+\\Z","regex_message":"Password must be 6-120 characters and contain no spaces"},
 {"name":"oidc_google","datatype":"text","old":"google_login_id","unique":"oidc_google,role"},
 {"name":"last_active_at","datatype":"timestamptz"},
 {"name":"name","datatype":"text","index":"gin_trgm(name)"},
 {"name":"country","datatype":"text","index":"gin_trgm(country)"},
 {"name":"state","datatype":"text"},
 {"name":"city","datatype":"text"},
-{"name":"email_secondary","datatype":"text",},
-{"name":"mobile_secondary","datatype":"text"},
+{"name":"email_secondary","datatype":"text","regex":"^(?=.{3,254}\\Z)[^\\s@]+@[^\\s@]+\\.[^\\s@]+\\Z","regex_message":"Email must look like name@example.com"},
+{"name":"mobile_secondary","datatype":"text","regex":"^\\+?[0-9][0-9 -]{5,19}\\Z","regex_message":"Mobile must be 6-20 digits (spaces, dashes and a leading + allowed)"},
 {"name":"address","datatype":"text"},
 {"name":"job_title","datatype":"text"},
 {"name":"about","datatype":"text"},
@@ -292,8 +300,12 @@ config_postgres_schema_master = {
 {"name":"totp_enabled_at","datatype":"timestamptz"},
 {"name":"totp_last_step","datatype":"bigint"},
 {"name":"totp_recovery","datatype":"text[]"},
-]},
-"config": {"admin": ["create", "read", "update", "delete"], "row_lock": ["delete"], "column": [
+],
+},
+"config": {
+"admin": ["create", "read", "update", "delete"],
+"row_lock": ["delete"],
+"column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"created_by_id","datatype":"bigint"},
@@ -303,8 +315,12 @@ config_postgres_schema_master = {
 {"name":"deactivated_by_id","datatype":"bigint"},
 {"name":"key","datatype":"text","is_mandatory": True,"unique":"key"},
 {"name":"value","datatype":"jsonb","is_mandatory": True},
-]},
-"otp": {"admin": ["read"], "retention_day": 1, "column": [
+],
+},
+"otp": {
+"admin": ["read"],
+"retention_day": 1,
+"column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"created_by_id","datatype":"bigint"},
@@ -312,8 +328,12 @@ config_postgres_schema_master = {
 {"name":"email","datatype":"text","index":"btree(email)"},
 {"name":"mobile","datatype":"text","index":"btree(mobile)"},
 {"name":"attempt","datatype":"smallint","default":0},
-]},
-"blob": {"my": ["create", "read", "update", "delete"], "admin": ["create", "read", "update", "delete"], "column": [
+],
+},
+"blob": {
+"my": ["create", "read", "update", "delete"],
+"admin": ["create", "read", "update", "delete"],
+"column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
 {"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
@@ -322,8 +342,12 @@ config_postgres_schema_master = {
 {"name":"type","datatype":"smallint","is_mandatory": True,"int_mapping":{1: "File", 2: "Presigned Url"}},
 {"name":"service","datatype":"text","is_mandatory": True},
 {"name":"file_url","datatype":"text","is_mandatory": True}
-]},
-"message": {"my": ["create", "read", "update", "delete", "delete_all"], "admin": ["create", "read", "update", "delete"], "column": [
+],
+},
+"message": {
+"my": ["create", "read", "update", "delete", "delete_all"],
+"admin": ["create", "read", "update", "delete"],
+"column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"created_by_id","datatype":"bigint","is_mandatory": True,"index":"btree(created_by_id)"},
@@ -334,8 +358,12 @@ config_postgres_schema_master = {
 {"name":"received_by_id","datatype":"bigint","is_mandatory": True,"index":"btree(received_by_id)"},
 {"name":"description","datatype":"text","is_mandatory": True},
 {"name":"read_at","datatype":"timestamptz"}
-]},
-"notification": {"my": ["create", "read", "update", "delete", "delete_all"], "admin": ["create", "read", "update", "delete"], "column": [
+],
+},
+"notification": {
+"my": ["create", "read", "update", "delete", "delete_all"],
+"admin": ["create", "read", "update", "delete"],
+"column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
@@ -350,8 +378,15 @@ config_postgres_schema_master = {
 {"name":"reference_table","datatype":"text"},
 {"name":"reference_id","datatype":"bigint"},
 {"name":"read_at","datatype":"timestamptz"}
-]},
-"log_api": {"my": ["read"], "admin": ["read"], "row_lock": ["update"], "buffer_limit": 1000, "retention_day": 7, "column": [
+],
+},
+"log_api": {
+"my": ["read"],
+"admin": ["read"],
+"row_lock": ["update"],
+"buffer_limit": 1000,
+"retention_day": 7,
+"column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id,created_at)"},
@@ -368,8 +403,13 @@ config_postgres_schema_master = {
 {"name":"response_header","datatype":"jsonb"},
 {"name":"request_body","datatype":"text"},
 {"name":"response_body","datatype":"text"}
-]},
-"api_key": {"my": ["read", "delete"], "admin": ["create", "read", "update", "delete"], "row_lock": ["update"], "column": [
+],
+},
+"api_key": {
+"my": ["read", "delete"],
+"admin": ["create", "read", "update", "delete"],
+"row_lock": ["update"],
+"column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
 {"name":"created_by_id","datatype":"bigint","is_mandatory": True,"index":"btree(created_by_id)"},
@@ -378,8 +418,11 @@ config_postgres_schema_master = {
 {"name":"key_prefix","datatype":"text","is_mandatory": True},
 {"name":"scopes","datatype":"text[]"},
 {"name":"expires_at","datatype":"timestamptz"}
-]},
-"webhook": {"admin": ["create", "read", "update", "delete"], "column": [
+],
+},
+"webhook": {
+"admin": ["create", "read", "update", "delete"],
+"column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
 {"name":"updated_at","datatype":"timestamptz"},
@@ -389,15 +432,23 @@ config_postgres_schema_master = {
 {"name":"events","datatype":"text[]","is_mandatory": True},
 {"name":"secret","datatype":"text","is_mandatory": True},
 {"name":"is_active","datatype":"boolean","is_mandatory": True,"default":"true"}
-]},
-"log_users_password": {"admin": ["read"], "row_lock": ["update", "delete"], "column": [
+],
+},
+"log_users_password": {
+"admin": ["read"],
+"row_lock": ["update", "delete"],
+"column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
 {"name":"created_by_id","datatype":"bigint"},
 {"name":"user_id","datatype":"bigint"},
 {"name":"password","datatype":"text"}
-]},
-"script_run": {"admin": ["read"], "retention_day": 90, "column": [
+],
+},
+"script_run": {
+"admin": ["read"],
+"retention_day": 90,
+"column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(script,created_at)"},
 {"name":"updated_at","datatype":"timestamptz"},
@@ -409,8 +460,11 @@ config_postgres_schema_master = {
 {"name":"message","datatype":"text","is_private_read_blocked": True},
 {"name":"peak_memory_mb","datatype":"integer","is_private_read_blocked": True},
 {"name":"finished_at","datatype":"timestamptz"}
-]},
-"queue_job": {"admin": ["read"], "column": [
+],
+},
+"queue_job": {
+"admin": ["read"],
+"column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
 {"name":"updated_at","datatype":"timestamptz"},
@@ -420,8 +474,14 @@ config_postgres_schema_master = {
 {"name":"attempt","datatype":"integer","is_mandatory": True,"default":0},
 {"name":"run_at","datatype":"timestamptz","is_mandatory": True,"default":"now()","index":"btree(channel,status,run_at,id)"},
 {"name":"error","datatype":"text"}
-]},
-"log_users_delete": {"my": ["read"], "admin": ["read"], "row_lock": ["delete"], "users_delete_skip": True, "column": [
+],
+},
+"log_users_delete": {
+"my": ["read"],
+"admin": ["read"],
+"row_lock": ["delete"],
+"users_delete_skip": True,
+"column": [
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"created_by_id","datatype":"bigint"},
@@ -432,7 +492,8 @@ config_postgres_schema_master = {
 {"name":"worker_next_retry_at","datatype":"timestamptz","default":"now()"},
 {"name":"worker_processed_at","datatype":"timestamptz"},
 {"name":"worker_last_error","datatype":"text"}
-]},
+],
+},
 },
 "control":{
 "is_updated_at_set": True,
