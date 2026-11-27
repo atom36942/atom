@@ -368,7 +368,15 @@ body.more-open .tab.on{background:transparent;color:var(--nav-fg)}    /* only on
 .rp-table td.rp-val{position:relative;font:12px Menlo,Monaco,Consolas,"Courier New",monospace;color:var(--fg)}
 .rp-table td.rp-val.null{color:var(--null)}
 .rp-table td.rp-val .rp-value{display:block;margin:0;max-height:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:inherit;color:inherit}
-#qbar #resetsql{margin-left:6px;padding:4px 10px}    /* like the export buttons, always in place: disabled until there is something to reset */
+#qbar #resetsql{padding:4px 12px}    /* always in place after Download: greyed out until there is something to reset, then red */
+#qbar #resetsql:not(:disabled){background:var(--err);border-color:var(--err);color:#fff;font-weight:600}
+#qbar #resetsql:not(:disabled):hover{filter:brightness(.92)}
+.dl-choice{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.dl-choice>b{font-size:12px;color:var(--dim);font-weight:600}
+.dl-choice label{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
+.dl-choice label.off{color:var(--dim);cursor:not-allowed}
+.dl-formats{display:flex;gap:16px}
+#dlname{width:100%;height:32px;padding:4px 9px;box-sizing:border-box}
 button.danger{background:var(--err);border-color:var(--err);color:#fff;font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
 button.danger:hover:not(:disabled){background:var(--err);border-color:var(--err);filter:brightness(.92);box-shadow:0 2px 8px rgba(192,57,43,.35)}
 :root[data-theme=dark] button.danger,:root[data-theme=dark] button.danger:hover:not(:disabled){color:#141419}
@@ -435,7 +443,7 @@ body.resizing-col *{user-select:none!important}
 #qmsg{color:#888;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:auto;min-width:0;flex:0 1 auto}    /* fills the middle and gives way first: the buttons keep their places */
 #qbar > button{flex:none}
 #qmsg.err{color:var(--err)}
-#qbar .export{padding:4px 10px}
+#qbar #stream{padding:4px 12px}
 #streamprogress{display:flex;align-items:center;gap:7px;color:var(--dim);font-size:11px;white-space:nowrap}
 #streamprogress[hidden]{display:none}
 #streambar{width:110px;height:7px;accent-color:var(--green)}
@@ -831,14 +839,11 @@ dialog.fm .ft{box-sizing:border-box;min-height:54px;align-items:center;flex-wrap
         <div id="qbar">
           <button id="explain" title="Show the estimated query plan without executing the query">Explain</button>
           <button id="analyze" title="Execute the query and show actual timing and row counts">Analyze</button>
-          <button id="stream" title="Download all returned rows as a CSV">Download</button>
           <button class="primary" id="run" title="Execute the query">Execute</button>
           <button id="cancelquery" hidden>Cancel</button>
           <span id="streamprogress" hidden><progress id="streambar"></progress><span id="streammsg"></span></span>
           <span id="qmsg"></span>
-          <button class="export" data-format="json" disabled>JSON</button>
-          <button class="export" data-format="xml" disabled>XML</button>
-          <button class="export" data-format="csv" disabled>CSV</button>
+          <button id="stream" title="Download the result: the rows shown or every row, as CSV, JSON or XML">Download</button>
           <button id="resetsql" title="Reset to the default SQL" disabled>Reset</button>
         </div>
         <div id="qres">
@@ -2605,9 +2610,7 @@ function showQueryError(title,message){
   $('qerrorcopy').innerHTML=icon('copy');
   $('qerrorcopy').onclick=()=>copyText(message,'Error copied');
 }
-function setExports(on){
-  for(const b of document.querySelectorAll('#qbar .export')) b.disabled=!on;
-}
+function setExports(on){ S.resultReady=!!on; }    // whether the Download dialog offers the rows shown
 // a value in full for a file (never the grid's shortened preview): arrays as {a,b}, objects as JSON
 const fileText=value=>value==null?'':Array.isArray(value)?pgArray(value):typeof value==='object'?JSON.stringify(value):String(value);
 const csvCell=value=>'"'+fileText(value).replace(/"/g,'""')+'"';
@@ -2718,11 +2721,39 @@ for(const button of document.querySelectorAll('.detail-download')) button.onclic
     data.length<total?'Only the rows the search and filters show.':'',
     ()=>{ downloadCsv(headers,data,filename); toast(`Downloaded ${countOf(data.length,'row','rows')}`); });
 };
-function exportResult(format){
-  if(!S.local) return;
-  const rows=S.local, cols=S.cols, filename=`query-result.${format}`;
-  confirmDownload(`Download ${format.toUpperCase()}`,[['Rows',`${rows.length.toLocaleString()} (the result shown)`],['Columns',String(cols.length)],['File',filename]],
-    'Only the rows the result shows; Download gives every row the query returns.',()=>{ saveResult(format,rows,cols,filename); toast(`Downloaded ${countOf(rows.length,'row','rows')}`); },'Query result');
+// the query runner's one Download: the rows shown (CSV, JSON or XML, from the browser) or every row the query returns (CSV, streamed: the query runs again, without a row limit)
+function openDownloadDialog(){
+  const sql=$('sql').value.trim(); if(!sql&&!S.resultReady) return;
+  const shown=!!S.resultReady&&!!S.local;
+  $('dlg-t').textContent='';
+  const head=el('span','title','Download'); head.appendChild(el('span','dlg-type','Query result')); $('dlg-t').appendChild(head);
+  const body=$('dlg-b'); body.textContent='';
+  const group=(label,name,options)=>{ const box=el('div','dl-choice'); box.appendChild(el('b',null,label)); const wrap=name==='dlfmt'?el('div','dl-formats'):box;
+    for(const o of options){ const l=el('label',o.off?'off':''), r=el('input'); r.type='radio'; r.name=name; r.value=o.value; r.checked=!!o.on; r.disabled=!!o.off; l.title=o.off||''; l.append(r,document.createTextNode(o.text)); wrap.appendChild(l); }
+    if(wrap!==box) box.appendChild(wrap); body.appendChild(box); return box; };
+  group('Rows','dlrows',[
+    {value:'shown',text:shown?`The ${countOf(S.local.length,'row','rows')} shown`:'The rows shown',on:shown,off:shown?'':'Run the query with Execute first'},
+    {value:'all',text:'Every row the query returns (runs it again, CSV)',on:!shown,off:sql?'':'Write a query first'}]);
+  group('Format','dlfmt',[{value:'csv',text:'CSV',on:true},{value:'json',text:'JSON'},{value:'xml',text:'XML'}]);
+  const nameBox=el('div','dl-choice'); nameBox.appendChild(el('b',null,'File name')); const name=el('input'); name.id='dlname'; name.autocomplete='off'; name.spellcheck=false; nameBox.appendChild(name); body.appendChild(nameBox);
+  const pick=n=>body.querySelector(`input[name="${n}"]:checked`)?.value;
+  const draw=()=>{    // every row comes as CSV only; the file name follows the format
+    const all=pick('dlrows')==='all';
+    for(const r of body.querySelectorAll('input[name="dlfmt"]')){ const off=all&&r.value!=='csv'; r.disabled=off; r.parentElement.classList.toggle('off',off); r.parentElement.title=off?'Every row is streamed as CSV':''; if(off&&r.checked) body.querySelector('input[name="dlfmt"][value="csv"]').checked=true; }
+    const base=name.value.replace(/\.(csv|json|xml)$/i,'')||`query-result-${safeFilePart(S.db||'export')}`;
+    name.value=`${base}.${pick('dlfmt')}`;
+  };
+  name.value=`query-result-${safeFilePart(S.db||'export')}.csv`;
+  body.addEventListener('change',draw); draw();
+  $('dlg-f').innerHTML='<button value="cancel">Cancel</button><button class="primary" type="button" id="dlgo">Download</button>';
+  $('dlg').showModal(); name.focus(); name.select();
+  name.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('dlgo').click(); } });
+  $('dlgo').onclick=()=>{
+    const format=pick('dlfmt'), raw=name.value.trim()||`query-result.${format}`, filename=raw.toLowerCase().endsWith('.'+format)?raw:`${raw}.${format}`;
+    $('dlg').close();
+    if(pick('dlrows')==='shown'){ saveResult(format,S.local,S.cols,filename); toast(`Downloaded ${countOf(S.local.length,'row','rows')}`); }
+    else streamQuery(false,filename);
+  };
 }
 function saveResult(format,rows,cols,filename){
   const objects=rows.map(row=>Object.fromEntries(cols.map((col,i)=>[col,row[i]])));
@@ -2740,35 +2771,8 @@ function saveResult(format,rows,cols,filename){
   }
   saveFile(text,type,filename);
 }
-for(const b of document.querySelectorAll('#qbar .export')) b.onclick=()=>exportResult(b.dataset.format);
 const streamSize=bytes=>bytes<1024 ? `${bytes} B` : bytes<1048576 ? `${(bytes/1024).toFixed(1)} KB` : `${(bytes/1048576).toFixed(1)} MB`;
-function promptStreamFilename(){
-  return new Promise((resolve)=>{
-    const defaultName=`query-result-${safeFilePart(S.db||'export')}.csv`;
-    $('dlg-t').textContent='Download CSV';
-    $('dlg-b').innerHTML=`<div style="display:flex;flex-direction:column;gap:8px">
-      <label for="sfname" style="font-size:12px;color:var(--dim)">Save file as:</label>
-      <input id="sfname" type="text" value="" style="width:100%;height:32px;padding:4px 9px;box-sizing:border-box" autocomplete="off" spellcheck="false"/>
-      <span style="font-size:11px;color:var(--dim)">Downloads every row this query returns as a CSV file, without a row limit.</span>
-    </div>`;
-    $('dlg-f').innerHTML='<button value="cancel">Cancel</button><button class="primary" type="button" id="streamgo">Save CSV</button>';
-    $('dlg').showModal();
-    const inp=$('sfname'); inp.value=defaultName; inp.focus(); inp.select();    // set as a value, never markup: a database name may hold " or <
-    inp?.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('streamgo').click(); } });
-    let resolved=false;
-    $('streamgo').onclick=()=>{
-      resolved=true;
-      const val=inp?.value.trim()||defaultName;
-      $('dlg').close();
-      resolve(val.endsWith('.csv')?val:`${val}.csv`);
-    };
-    $('dlg').addEventListener('close',function onClose(){
-      $('dlg').removeEventListener('close',onClose);
-      if(!resolved) resolve(null);
-    },{once:true});
-  });
-}
-async function streamQuery(confirmed=false){
+async function streamQuery(confirmed=false,filename=''){
   const sql=$('sql').value.trim(); if(!sql) return;
   hideQueryError();
   const normalized=sql.toLowerCase().replace(/\s+/g,' ').trim();
@@ -2778,10 +2782,9 @@ async function streamQuery(confirmed=false){
     $('dlg-b').textContent='This query can affect every row. Run it and download the rows it returns?';
     $('dlg-f').innerHTML='<button value="cancel">Cancel</button><button class="primary" id="streamyes">Run and download</button>';
     $('dlg').showModal();
-    $('streamyes').onclick=e=>{ e.preventDefault(); $('dlg').close(); streamQuery(true); };
+    $('streamyes').onclick=e=>{ e.preventDefault(); $('dlg').close(); streamQuery(true,filename); };
     return;
   }
-  const filename=await promptStreamFilename();
   if(!filename) return;
 
   $('stream').disabled=true; $('streamprogress').hidden=false; $('streambar').removeAttribute('value');
@@ -2811,7 +2814,7 @@ async function streamQuery(confirmed=false){
     setTimeout(()=>$('streamprogress').hidden=true,3500);
   }
 }
-$('stream').onclick=()=>streamQuery(false);
+$('stream').onclick=openDownloadDialog;
 function beginQuery(){
   const id=globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random()}`;
   S.activeQueryId=id; S.cancelRequested=false;
