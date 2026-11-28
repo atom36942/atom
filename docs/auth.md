@@ -16,9 +16,10 @@ Atom's users, logins and tokens: **stateless JWT tokens**, **Argon2 password has
 
 ## 1. Users & Roles
 
-Users live in the `users` table:
+Users live in the `users` table of the **`master` database only**: logins, tokens, API keys, two-factor, permissions and the user routes all read and write `master`. Another database (`config_postgres_url_<name>`, reached with `?connection=<name>`) holds data only; a `users` table there is a plain table that logs nobody in ([database.md](database.md#master-holds-auth-other-databases-hold-data)).
+
 - **`role`** (`smallint`): the user's tier; routes allow roles with `user_check_role`. Login validates a supplied role against `config_login_allowed_roles` (default `["*"]`: every role); public signup uses `config_signup_allowed_roles`. **Role `1` is the root/admin role** and cannot be registered through public signup.
-- **`permissions`** (`smallint[]`): ids that open routes and table actions beyond the role ([auth-permission.md](auth-permission.md)).
+- **`permissions`** (`smallint[]`): the `config_api` ids of the routes (with `user_check_permission`) the user may call, beyond the role ([auth-permission.md](auth-permission.md)).
 - **Identity columns**: `username`, `email`, `mobile`, `id_ext`, and `oidc_<provider>` for each single sign-on provider.
 
 ---
@@ -109,15 +110,15 @@ Compares the input against `config_login_password` configured in `.env`. If unco
 
 ## 4. Managing Users
 
-Rows of `users` are written only through these APIs; the generic object APIs (`/my/object-update`, `/my/object-delete`, `/admin/object-create`, `/admin/object-update`, `/admin/object-delete`) refuse `table=users` (`write disabled for table: users`). The one exception is `/admin/postgres-import` (admins only, any table): a CSV can create or update `users` in bulk, and its `password` cells are hashed like everywhere else. Reading stays generic: `GET /my/profile` (own row plus `config_profile_metadata_sql`) and `/admin/object-read?table=users` (`password` is never readable).
+Rows of `users` are written only through these APIs; the generic object APIs (`/my/object-update`, `/my/object-delete`, `/my/object-delete-all`, `/admin/object-create`, `/admin/object-update`, `/admin/object-delete`) refuse `table=users` (400 `write disabled for table: users`), and startup refuses `users` in any write list of `control` (`public_create`, `my_create`, `my_update`, `my_delete`, `my_delete_all`). The one exception is `/admin/postgres-import` (admins only, any table): a CSV can create or update `users` in bulk, and its `password` cells are hashed like everywhere else. Reading stays generic: `GET /my/profile` (own row plus `config_profile_metadata_sql`) and `/admin/object-read?table=users` (`password` is never readable).
 
 | API | Query | Body | Rules |
 |---|---|---|---|
 | `POST /admin/user-create` | | `{role, username, password, ...columns}` | The three required; any other `users` column (profile fields, a project's own columns) is set in the same insert, except columns `write_blocked` for `my` or `admin` and the `config_users_update_alone_column` ones (sign-up, login, verification, permissions, system: set them with an update) and `id`, `deactivated_at`; returns `{"id": ...}` |
 | `PUT /admin/user-update` | | `{id, ...users columns}`, or several as `{"obj_list": [{id, ...}, ...]}` | Up to `config_batch_item_limit` users, ids unique, each with its own columns and checked by the same rules; one transaction, so a missing id (404) or any refused user updates none. `email`/`mobile` need `otp` only when `config_is_otp_require_users_update` is on. The root user's `role` and `deactivated_at` cannot change. `permissions` must be ids of routes with `user_check_permission` in `config_api` |
-| `DELETE /admin/user-delete` | `id`, `mode` | | One user; never the root user. `mode`: `hard` (default), `soft` (`deleted_at = now()`, `deleted_by_id` = the admin), `restore` (`deleted_at` back to `NULL`) |
+| `DELETE /admin/user-delete` | `id`, `mode` | | One user; never the root user (403). `mode`: `hard` (default; needs the two switches below), `soft` (`deleted_at = now()`, `deleted_by_id` = the admin; 404 `user not found or already deleted`), `restore` (`deleted_at` and `deleted_by_id` back to `NULL`; 404 `user not found or not deleted`). Answers `user deleted`, `user soft deleted` or `user restored` |
 | `PUT /my/user-update` | | `{...own users columns}` | Own row from the token (an `id`, if sent, must be the user's own). `email`/`mobile` always need `otp` (sent to the new value with `/public/otp-send-email` or `-mobile`). columns `write_blocked` for `my` (`role`, `permissions`, `deactivated_at`, ...) are refused |
-| `DELETE /my/user-delete` | `mode` | | Own account; token only. `mode`: `hard` (default) or `soft` (only an admin restores it) |
+| `DELETE /my/user-delete` | `mode` | | Own account; token only. `mode`: `hard` (default; needs the two switches below) or `soft` (`deleted_by_id` = the user; only an admin restores it) |
 
 Both updates accept any `users` column (Atom's and a project's own), checked against the table; only the fields sent are updated.
 
@@ -140,7 +141,7 @@ A page handles it the same way in every case:
 - On a 403 with either message, or a profile with `deactivated_at` or `deleted_at`: log out, clear its storage, and say which, e.g. "Your account is deactivated. Please contact your admin." or "Your account was deleted. Please contact your admin." (never "Session expired").
 - No extra request for it: the page's regular sync (token renewal, then `/my/profile`, e.g. every 3 hours) catches a block on an open page. The server keeps accepting an access token issued before the block until it expires (`config_access_token_expires_sec`, 7 days); use `realtime` on routes that must stop at once.
 
-Hard deleting needs two switches, because the database guards `users` too: `config_is_user_delete=true` and `users` removed from `control.row_delete_disabled` in `config_postgres_schema_master` (listed by default: the API then answers "users hard delete blocked in the database"). Soft delete needs neither. The root user (`id` 1) is never deleted.
+Hard deleting needs two switches, because the database guards `users` too: `config_is_user_delete=true` and `users` removed from `control.row_delete_disabled` in `config_postgres_schema_master` (listed by default: the API then answers "users hard delete blocked in the database"). Soft delete needs neither. The root user (`id` 1) is never deleted, soft or hard. Every soft delete, restore and hard delete is recorded in `log_users_delete` (`type` 1, 2, 3) when `config_is_users_delete_log` is on (default); the users-delete worker reads it to clean a deleted user's rows (`config_retention_day_user_soft_deleted` days after a soft delete).
 
 ## 5. OTP Flow
 
@@ -200,7 +201,7 @@ With `config_is_root_user` on (default), Atom keeps a superadministrator (**root
 | Attribute | Value | Configuration / Source |
 | :--- | :--- | :--- |
 | **Username** | `admin` | Hardcoded default superadmin identity |
-| **Role** | `1` | Full access to `/admin/*` routes |
+| **Role** | `1` | Holds every `/admin/*` route id in `permissions` |
 | **Password** | String from `.env` | `config_root_user_password` (Argon2 hashed) |
 | **Database ID** | `1` | Guaranteed primary slot `users.id = 1` |
 
@@ -208,14 +209,13 @@ With `config_is_root_user` on (default), Atom keeps a superadministrator (**root
 At startup, Atom ensures the `admin` user exists with `role: 1`, updates the password hash if `config_root_user_password` changed, restores active status if deleted/deactivated, and guarantees `id = 1`.
 
 ### Built-in Defenses:
-1. **PostgreSQL Trigger Protection (`config_is_root_user` = True)**:
+1. **PostgreSQL Trigger Protection**:
    Installs `trigger_protect_root_users` on the `users` table. Any direct SQL `DELETE` or API delete targeting `id = 1` raises an exception:
    ```sql
    RAISE EXCEPTION 'DELETE not allowed for root user (id=1)';
    ```
 2. **Public Signup Immunity**:
-   All public registration endpoints explicitly reject `role: 1`:
-   ```python
-   if ob["role"] == 1:
-       raise Exception("role 1 not allowed for user creation")
-   ```
+   Every public registration (username signup, and new users from OTP or OIDC login) refuses `role: 1`, even when `config_signup_allowed_roles` lists it: 403 `signup not allowed for role 1`.
+3. **Permissions synced**: root's `permissions` is set to every `/admin/*` route id at each start (`func_root_user_permissions_sync`), so root reaches every admin route ([auth-permission.md](auth-permission.md#admin-routes-one-id-each)).
+
+With `config_is_root_user` off, Atom neither seeds `admin` nor installs the delete guard.

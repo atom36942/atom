@@ -226,18 +226,10 @@ async def func_middleware_check_permission(*, user_dict: dict, user_check_permis
     if permissions == "absent": raise func_api_error(message="user permissions missing from token", status_code=500)
     if int(permission_id) not in (permissions or []): raise func_api_error(message="permission denied", status_code=403)
 
-async def func_middleware_check_ratelimiter(*, client_redis: Redis | None, rate_limit: Any = None, api_ratelimiting_times_sec: Any = None, url_path: str, identifier: str, cache_ratelimiter: dict) -> None:
-    """Check and enforce API rate limits using either Redis or in-memory storage."""
-    rl_config = rate_limit if rate_limit is not None else api_ratelimiting_times_sec
-    if not rl_config: return
-    if isinstance(rl_config, dict):
-        mode = rl_config.get("mode")
-        limit = rl_config.get("limit", 0)
-        window = rl_config.get("window_sec", 0)
-    elif isinstance(rl_config, (list, tuple)):
-        mode, limit, window = rl_config
-    else:
-        return
+async def func_middleware_check_ratelimiter(*, client_redis: Redis | None, rate_limit: dict | None = None, url_path: str, identifier: str, cache_ratelimiter: dict) -> None:
+    """Check and enforce API rate limits using either Redis or in-memory storage: rate_limit is the route's {"mode", "limit", "window_sec"}."""
+    if not rate_limit: return
+    mode, limit, window = rate_limit.get("mode"), rate_limit.get("limit", 0), rate_limit.get("window_sec", 0)
     limit, window = int(limit), int(window)
     if limit <= 0 or window <= 0: return
     cache_key = func_redis_key(client_redis=client_redis if mode == "redis" else None, key=f"ratelimiter:{url_path}:{identifier}")
@@ -266,21 +258,11 @@ def func_middleware_postgres_select(*, client_postgres_dict: dict, cache_postgre
     if name not in client_postgres_dict and name != "master": raise func_api_error(message=f"connection '{name}' not found", status_code=404)
     return client_postgres_dict.get(name), cache_postgres_schema_dict.get(name, {})
 
-async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict, cache: Any = None, api_cache_sec: Any = None, client_redis: Redis | None = None, user_id: int = 0, cache_api_response: dict = None, cache_api_response_bytes: dict = None, response: Any = None, is_gzip_accepted: bool = False, config_api_cache_inmemory_max_kb: int = 102400) -> Any:
+async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict, cache: dict | None = None, client_redis: Redis | None = None, user_id: int = 0, cache_api_response: dict = None, cache_api_response_bytes: dict = None, response: Any = None, is_gzip_accepted: bool = False, config_api_cache_inmemory_max_kb: int = 102400) -> Any:
     """Get or set middleware API cache for a request. Bodies are stored gzipped; a hit is sent still gzipped when the client accepts gzip (no decompress, fewer bytes). The inmemory cache holds at most config_api_cache_inmemory_max_kb of stored bodies per worker: over it, the oldest entries are dropped (they are read from the route again on their next request). cache_api_response_bytes ({"total": n}) keeps the stored size, so a set does not re-add every entry; without it the size is counted."""
     if mode not in ("get", "set"): raise func_api_error(message=f"invalid cache operation: {mode}, allowed: get, set", status_code=500)
-    cfg = cache if cache is not None else api_cache_sec
-    if isinstance(cfg, dict):
-        cache_mode = cfg.get("mode")
-        ttl = int(cfg.get("ttl_sec", 0))
-        is_user_cache = cfg.get("is_per_user", cfg.get("is_user_cache", cfg.get("stale_sec", 0)))
-    elif isinstance(cfg, (list, tuple)):
-        cache_mode = cfg[0] if cfg else None
-        ttl = int(cfg[1]) if cfg else 0
-        is_user_cache = cfg[2] if cfg else 0
-    else:
-        cache_mode, ttl, is_user_cache = None, 0, 0
-    is_user_cache = str(is_user_cache) == "1" or is_user_cache is True
+    cfg = cache or {}
+    cache_mode, ttl, is_user_cache = cfg.get("mode"), int(cfg.get("ttl_sec", 0)), cfg.get("is_per_user") is True
     is_disable_cache = func_query_bool_parse(query_params.get("is_disable_cache"), default=False)
     is_enabled = not is_disable_cache and bool(cfg) and bool(cache_mode) and ttl > 0
     if mode == "set" and not is_enabled: return response
@@ -530,7 +512,7 @@ def func_middleware_api_config(*, config_api: dict, path: str, cache_config_api_
 async def func_middleware_log_api_write(*, app_state: Any, request: Request, response_type: str, status_code: int | None, start: float, error: str | None, detail: dict | None = None) -> None:
     """Buffer one log_api row for a finished request; skipped when read-only or no log_api database, and write errors are counted, never raised."""
     if app_state.config_is_read_only or not getattr(app_state, "client_postgres_log_api", None): return
-    try: await app_state.func_postgres_create(client_postgres=app_state.client_postgres_log_api, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema_dict.get(app_state.cache_log_api_database, {}), buffer_postgres=app_state.buffer_postgres_log_api, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="drop_oldest", runtime_error_count=app_state.runtime_error_count, is_trusted=True, config_column_regex=app_state.func_column_regex(app_state=app_state, table="log_api", connection=app_state.cache_log_api_database), buffer_limit=app_state.func_buffer_limit(app_state=app_state, table="log_api", connection=app_state.cache_log_api_database), mode="buffer", table="log_api", connection=app_state.cache_log_api_database, obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": func_middleware_client_ip(request=request), "path": request.scope["path"], "method": request.method, "query_param": func_middleware_log_query_params(query_params=request.query_params), "status_code": status_code, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error, "request_id": getattr(request.state, "request_id", None)} | (func_middleware_log_detail_row(request=request, detail=detail) if detail is not None else {})])
+    try: await app_state.func_postgres_create(client_postgres=app_state.client_postgres_log_api, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema_dict.get(app_state.cache_log_api_database, {}), buffer_postgres=app_state.buffer_postgres_log_api, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="drop_oldest", runtime_error_count=app_state.runtime_error_count, is_trusted=True, column_regex=app_state.func_column_regex(app_state=app_state, table="log_api", connection=app_state.cache_log_api_database), buffer_limit=app_state.func_buffer_limit(app_state=app_state, table="log_api", connection=app_state.cache_log_api_database), mode="buffer", table="log_api", connection=app_state.cache_log_api_database, obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": func_middleware_client_ip(request=request), "path": request.scope["path"], "method": request.method, "query_param": func_middleware_log_query_params(query_params=request.query_params), "status_code": status_code, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error, "request_id": getattr(request.state, "request_id", None)} | (func_middleware_log_detail_row(request=request, detail=detail) if detail is not None else {})])
     except Exception as e: func_runtime_error_record(runtime_error_count=app_state.runtime_error_count, key="log_api_write", error=e, print_every=100)
     return
 

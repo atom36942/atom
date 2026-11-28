@@ -21,14 +21,14 @@ KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 JWKS = {"keys": [{**jwt.algorithms.RSAAlgorithm.to_jwk(KEY.public_key(), as_dict=True), "kid": "k1", "alg": "RS256", "use": "sig"}]}
 PROVIDERS = {
     "google": {"issuer": ["https://accounts.google.com", "accounts.google.com"], "client_id": "google-app", "jwks_uri": "https://idp.test/google"},
-    "microsoft": {"issuer": "https://login.microsoftonline.com/{tenantid}/v2.0", "client_id": "ms-app", "jwks_uri": "https://idp.test/microsoft", "tenants": ["mgh"], "link_email": True},
+    "microsoft": {"issuer": "https://login.microsoftonline.com/{tenantid}/v2.0", "client_id": "ms-app", "jwks_uri": "https://idp.test/microsoft", "tenants": ["tenant1"], "link_email": True},
 }
 
 
 def id_token(provider, sub, **claims):
     now = int(time.time())
-    issuer = "https://accounts.google.com" if provider == "google" else "https://login.microsoftonline.com/mgh/v2.0"
-    body = {"iss": issuer, "aud": PROVIDERS[provider]["client_id"], "sub": sub, "iat": now, "exp": now + 300, **({"tid": "mgh"} if provider == "microsoft" else {}), **claims}
+    issuer = "https://accounts.google.com" if provider == "google" else "https://login.microsoftonline.com/tenant1/v2.0"
+    body = {"iss": issuer, "aud": PROVIDERS[provider]["client_id"], "sub": sub, "iat": now, "exp": now + 300, **({"tid": "tenant1"} if provider == "microsoft" else {}), **claims}
     return jwt.encode(body, KEY, algorithm="RS256", headers={"kid": "k1"})
 
 
@@ -71,20 +71,20 @@ class OidcTests(unittest.TestCase):
         self.assertEqual(self.user_id(self.login("google", id_token("google", "g-old"))), 500)
 
     def test_one_person_many_providers_one_user(self):
-        first = self.user_id(self.login("google", id_token("google", "g-ravi", email="Ravi@MGH.test", email_verified=True, name="Ravi")))
-        self.assertEqual(fetch(self.url, "SELECT email, name, oidc_google FROM users WHERE id = $1", first), [{"email": "ravi@mgh.test", "name": "Ravi", "oidc_google": "g-ravi"}])
-        self.assertEqual(self.user_id(self.login("google", id_token("google", "g-ravi", email="new@mgh.test"))), first, "found by sub, whatever the email says now")
-        self.assertEqual(self.user_id(self.login("microsoft", id_token("microsoft", "m-ravi", email="ravi@mgh.test"))), first, "link_email: Microsoft links by email")
+        first = self.user_id(self.login("google", id_token("google", "g-ravi", email="Ravi@Example.test", email_verified=True, name="Ravi")))
+        self.assertEqual(fetch(self.url, "SELECT email, name, oidc_google FROM users WHERE id = $1", first), [{"email": "ravi@example.test", "name": "Ravi", "oidc_google": "g-ravi"}])
+        self.assertEqual(self.user_id(self.login("google", id_token("google", "g-ravi", email="new@example.test"))), first, "found by sub, whatever the email says now")
+        self.assertEqual(self.user_id(self.login("microsoft", id_token("microsoft", "m-ravi", email="ravi@example.test"))), first, "link_email: Microsoft links by email")
         self.assertEqual(fetch(self.url, "SELECT oidc_microsoft FROM users WHERE id = $1", first), [{"oidc_microsoft": "m-ravi"}])
         self.assertIn("signup not allowed for role 6", self.login("google", id_token("google", "g-ravi"), status=403, role=6), "each role is its own user")
 
     def test_untrusted_email_that_is_taken_is_refused(self):
-        self.login("google", id_token("google", "g-asha", email="asha@mgh.test", email_verified=True))
-        self.assertIn("email already used", self.login("google", id_token("google", "g-other", email="asha@mgh.test", email_verified=False), status=409))
-        self.assertIn("already linked to another google account", self.login("google", id_token("google", "g-other", email="asha@mgh.test", email_verified=True), status=409))
+        self.login("google", id_token("google", "g-asha", email="asha@example.test", email_verified=True))
+        self.assertIn("email already used", self.login("google", id_token("google", "g-other", email="asha@example.test", email_verified=False), status=409))
+        self.assertIn("already linked to another google account", self.login("google", id_token("google", "g-other", email="asha@example.test", email_verified=True), status=409))
 
     def test_untrusted_email_alone_creates_a_user_without_it(self):
-        user = self.user_id(self.login("google", id_token("google", "g-anon", email="anon@mgh.test", email_verified=False)))
+        user = self.user_id(self.login("google", id_token("google", "g-anon", email="anon@example.test", email_verified=False)))
         self.assertEqual(fetch(self.url, "SELECT email, oidc_google FROM users WHERE id = $1", user), [{"email": None, "oidc_google": "g-anon"}])
 
     def test_refusals(self):
@@ -94,7 +94,7 @@ class OidcTests(unittest.TestCase):
         self.assertEqual(self.client.post("/auth/login-google", json={"google_token": "x", "role": 5}).status_code, 404, "the old route is gone")
 
     def test_two_factor_still_applies(self):
-        tokens = self.login("google", id_token("google", "g-2fa", email="twofa@mgh.test", email_verified=True))
+        tokens = self.login("google", id_token("google", "g-2fa", email="twofa@example.test", email_verified=True))
         user = self.user_id(tokens)
         self.client.post("/my/totp-setup", headers={"Authorization": "Bearer " + tokens["access_token"]})
         fetch(self.url, "UPDATE users SET totp_enabled_at = now() WHERE id = $1", user)

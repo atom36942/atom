@@ -71,7 +71,7 @@ class AuthTests(unittest.IsolatedAsyncioTestCase):
     async def tokens(self, **changes):
         args = dict(user=self.user, config_token_secret_key=self.secret,
                     config_access_token_expires_sec=60, config_refresh_token_expires_sec=120,
-                    config_column_token_encode=["id", "role"])
+                    token_column=["id", "role"])
         return await func_token_encode(**(args | changes))
 
     async def decode(self, token, **changes):
@@ -226,8 +226,8 @@ class AuthTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await func_token_decode(headers={"Authorization": "Bearer atk_abc"}, config_token_secret_key=self.secret), {})
 
     async def test_api_key_decode_ignores_other_headers_and_stores_only_a_hash(self):
-        self.assertEqual(await func_api_key_decode(headers={"Authorization": "Bearer x"}, client_postgres=None, cache_token=None, config_token_cache_max=0, config_api_key_cache_sec=60, config_column_token_encode=["id"]), {})
-        self.assertEqual(await func_api_key_decode(headers={}, client_postgres=None, cache_token=None, config_token_cache_max=0, config_api_key_cache_sec=60, config_column_token_encode=["id"]), {})
+        self.assertEqual(await func_api_key_decode(headers={"Authorization": "Bearer x"}, client_postgres=None, cache_token=None, config_token_cache_max=0, config_api_key_cache_sec=60, token_column=["id"]), {})
+        self.assertEqual(await func_api_key_decode(headers={}, client_postgres=None, cache_token=None, config_token_cache_max=0, config_api_key_cache_sec=60, token_column=["id"]), {})
         self.assertEqual(len(func_api_key_hash(key="atk_x")), 64)
         self.assertNotIn("atk_x", func_api_key_hash(key="atk_x"))
 

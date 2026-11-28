@@ -373,6 +373,8 @@ config_postgres_schema_master = {
 }
 ```
 
+That shows the format. In a project, master's schema is written in `config_extend.py` starting from Atom's (`base_config_postgres_schema_master`: its tables, every `control` key and Atom's extensions must stay, or startup stops), as in [extend.md](extend.md#extend-atoms-dictionaries); another database's schema is written whole, as above ([database.md](database.md#2-declarative-schema-management)). Every part and key but `table` is optional.
+
 Naming: a key ending in `_disabled` is enforced by the database (a trigger or constraint), one ending in `_blocked` by Atom's routes.
 
 #### Column keys
@@ -391,12 +393,12 @@ Naming: a key ending in `_disabled` is enforced by the database (a trigger or co
 | `unique` | `list[list[str]]` | Database rule | One list of columns per unique constraint: `[["code"]]`, `[["code", "type"], ["code", "slug"]]` |
 | `check` | `str` | Database rule | SQL `CHECK` clause (`"rating >= 0 AND rating <= 10"`) |
 | `allowed_values` | `list` | Database rule | The only values the column holds, integers or texts: `[1, 2, 3]`, `["schedule", "manual"]` (a `CHECK`) |
-| `regex` | `str` | Both | The column's format: the API checks every create and update (error `regex_message`) and the database adds it as a `CHECK`. `users.password` is checked by the API only, before hashing (the database stores the hash). Each column has its own rule |
+| `regex` | `str` | Both | The column's format: the API checks every create and update (error `regex_message`) and the database adds it as a `CHECK` (existing rows must already match). `users.password` is checked by the API only, before hashing (the database stores the hash). Each column has its own rule; no single quote in the pattern, not on an array column |
 | `regex_message` | `str` | API rule | The error when the value does not match `regex` (default `<column>: invalid format`) |
-| `int_mapping` | `dict` | API rule | Labels for an integer column's codes, `{1: "Open", 2: "Done"}` (`None` for no value yet); with `allowed_values`, the codes must be the same. Served by `/info` ([labels](#labels-int_mapping)) |
+| `int_mapping` | `dict` | API rule | Labels for an integer (or integer array) column's codes, `{1: "Open", 2: "Done"}` (`None` for no value yet); with `allowed_values`, the codes must be the same. Display only, never checked: use `allowed_values` to limit the values. Served by `/info` ([labels](#labels-int_mapping)) |
 | `read_blocked` | `list[str]` | API rule | The route groups (`my`, `public`, `private`, `admin`) that may not select, filter, sort or group by the column; left out = none. Atom's `users.password`, `users.totp_secret`, `users.totp_recovery`, `api_key.key_hash` and `webhook.secret` list all four |
 | `write_blocked` | `list[str]` | API rule | The route groups whose create and update refuse the column (400); left out = none. `["my"]`: only an admin sets it (`users.role`, `permissions`, `verified_at`, `deactivated_at`, ...); all four: only Atom or the database sets it (`users.is_protected`, `last_active_at`, `totp_secret`, `totp_last_step`, `totp_recovery`) |
-| `ownership` | `list[str]` | API rule | The `/my` actions (`read`, `update`, `delete`) that may find a user's rows by this column (`?ownership_column=`); `created_by_id` is always the owner and takes no key. Atom's: `message.received_by_id` and `notification.received_by_id` `["read", "delete"]`, `log_users_password.user_id` and `log_users_delete.user_id` `["read"]`. The users-delete worker cleans a deleted user's rows by the `delete` owners ([ownership.md](ownership.md)) |
+| `ownership` | `list[str]` | API rule | The `/my` actions (`read`, `update`, `delete`) that may find a user's rows by this column (`?ownership_column=`; `delete` covers `/my/object-delete` and `-delete-all`); `created_by_id` is always the owner and takes no key (startup refuses one). Atom's: `message.received_by_id` and `notification.received_by_id` `["read", "delete"]`, `log_users_password.user_id` and `log_users_delete.user_id` `["read"]`. The users-delete worker cleans a deleted user's rows by the `delete` owners ([ownership.md](ownership.md)) |
 
 `read_blocked`, `write_blocked` and `ownership` bind only Atom's routes: the table routes (`/public`, `/private`, `/my`, `/admin` object and table-column routes, CSV import) through `func_object_access`, and the user routes for `users`. A project route is free, and the SQL runners are not affected.
 
@@ -427,26 +429,26 @@ A route reads a token column as `request.state.user["company_id"]` (a change rea
 
 #### `control`
 
-Flat, one per database. Lists and numbers name tables of the same schema.
+Flat, one per database. Lists and numbers name tables of the same schema. Every key is optional: a key left out is an empty list or map, and a switch left out takes its default, so a schema without `control` gets the three switches on and no table open to `/public`, `/private` or `/my`.
 
 | Key | Type (default) | Enforced by | Usage |
 |---|---|---|---|
 | `extension` | `list[str]` | Structure | PostgreSQL extensions to install at startup (Atom's master: `["postgis", "pg_trgm", "btree_gin", "vector"]`); one the server lacks or the user may not install is skipped with a warning, and a column that needs it stops startup naming it |
 | `is_updated_at_set` | `bool` (`True`) | Database rule | A trigger sets `updated_at` on every update |
 | `is_protected_delete_disabled` | `bool` (`True`) | Database rule | A trigger refuses deleting a row with `is_protected = true` |
-| `is_truncate_disabled` | `bool` (`True`) | Database rule | `True`: a trigger refuses `TRUNCATE` on every table of the schema |
+| `is_truncate_disabled` | `bool` (`True`) | Database rule | `True`: a trigger refuses `TRUNCATE` on every table of the schema, in every database. A database that truncates on purpose (nightly reloads) sets `False` in its own `control` |
 | `row_update_disabled` | `list` of tables | Database rule | A trigger refuses every `UPDATE`, raw SQL included (Atom's: `log_api`, `api_key`, `log_users_password`). Not on `users`, `otp`, `script_run`, `queue_job` (Atom updates them) |
 | `row_delete_disabled` | `list` of tables | Database rule | A trigger refuses every `DELETE`, raw SQL included (Atom's: `users`, `config`, `log_users_password`, `log_users_delete`) |
 | `row_delete_max` | `{table: int}`, 1 up | Database rule | A trigger fails a single `DELETE` removing more rows (Atom's: `users` 100). Never on a table cleanup or the users-delete worker purges (they delete 5,000 at a time), nor on a hypertable |
-| `public_create`, `public_read` | `list` of tables | API rule | `/public/*` object and table routes: anyone, no login |
+| `public_create`, `public_read` | `list` of tables | API rule | `/public/*` object and table routes: anyone, no login. A create needs a `created_by_id` column (left empty) |
 | `private_read` | `list` of tables | API rule | `/private/*` object and table routes: any logged-in user, all rows |
-| `my_create`, `my_read`, `my_update`, `my_delete`, `my_delete_all` | `list` of tables | API rule | `/my/object-*`: a user's own rows (`created_by_id`, or a column whose `ownership` lists the action) |
+| `my_create`, `my_read`, `my_update`, `my_delete`, `my_delete_all` | `list` of tables | API rule | `/my/object-*`: a user's own rows (`created_by_id`, or a column whose `ownership` lists the action). The table needs `created_by_id` for create, `updated_by_id` for update |
 | `buffer_limit` | `{table: int}`, 10-5000 | API rule | Rows held for a buffered create before they are written (default `100`; Atom's: `log_api` 1000) |
 | `retention_day` | `{table: int}`, 1-36500 | Script | `script/postgres_cleanup.py` deletes rows older than this many days ([cleanup](#automatic-cleanup-retention_day); Atom's: `otp` 1, `log_api` 7, `script_run` 90) |
 
 A table not in an access list is closed to that group and action: 403 naming the fix (`my delete not allowed for table: task (add "task" to control.my_delete in config_postgres_schema_master)`). The `/admin/*` object and table routes and `/admin/postgres-import` reach every table of the schema; who may call them is only the route's id in `users.permissions` ([auth-permission.md](auth-permission.md#admin-routes-one-id-each)). A table in no schema is refused by every table route. Each route checks the schema of the database it runs on (`?connection=<name>`, default `master`); a read with `relation=` needs the same group's read on each joined table. Rows of `users` change only through `/my/user-*` and `/admin/user-*` (`/admin/postgres-import` still imports `users`, hashing passwords).
 
-Startup refuses an unknown key, a name that is not a table of the schema, `users` in any write access list, `row_update_disabled` on `users`, `otp`, `script_run` or `queue_job`, and `retention_day` on `users`, on a table in `row_delete_disabled` or `row_delete_max`, or on a table without `created_at`. To change Atom's lists, start from Atom's: `"control": {**base_config_postgres_schema_master["control"], "public_read": []}`.
+Startup refuses an unknown key, a name that is not a table of the schema, `users` in any write access list, `row_update_disabled` on `users`, `otp`, `script_run` or `queue_job`, and `retention_day` on `users`, on a table in `row_delete_disabled` or `row_delete_max`, or on a table without `created_at`. In master, start from Atom's `control` and add to its lists, so Atom's tables stay open: `"control": {**base_config_postgres_schema_master["control"], "my_read": [*base_config_postgres_schema_master["control"]["my_read"], "task"]}`; a list replaced whole (`"public_read": []`) closes Atom's tables in it.
 
 ---
 

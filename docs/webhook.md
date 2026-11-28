@@ -40,16 +40,16 @@ When something happens in your app, Atom calls another system's URL with a signe
 ## Setup
 
 1. `.env` or `config_extend.py`: `config_webhook_is_active=True`. The delivery loop runs inside the app, one per worker; there is no other process to deploy.
-2. Create the webhook with `/admin/webhook-create` (role 1). The URL must be `https` and resolve to a public address (checked at creation and before every delivery, so a webhook can never reach `localhost`, `10.x`, `169.254.169.254` and the like).
+2. Create the webhook with `/admin/webhook-create` (id 101: root, or a user granted it). The URL must be `https` and resolve to a public address (checked at creation and before every delivery, so a webhook can never reach `localhost`, `10.x`, `169.254.169.254` and the like).
 3. Call `func_webhook_send` where the event happens: a route in `router_extend/`, a function or a script. Pass the connection of the open transaction (`client_postgres=conn`) to queue the deliveries only if the change commits; a pool sends them on its own.
 
 ## Manage
 
 | Need | How |
 |---|---|
-| List webhooks | `/admin/object-read?table=webhook` (the `secret` is never returned) |
-| Pause or change events | `/admin/object-update?table=webhook` with `is_active` or `events`; a paused webhook's queued deliveries are skipped |
-| Remove | `/admin/object-delete?table=webhook` |
+| List webhooks | `GET /admin/object-read?table=webhook` (the `secret` is `read_blocked` for every group, so never returned) |
+| Pause or change events | `PUT /admin/object-update?table=webhook` with `{"id": 3, "is_active": false}` or `events`; a paused webhook's queued deliveries are skipped |
+| Remove | `POST /admin/object-delete` with `{"table": "webhook", "ids": [3]}` |
 | Rotate the secret | Create a new webhook for the same URL, give the receiver the new secret, delete the old one |
 | See failed deliveries | `/admin/postgres-query-runner-read`: `SELECT * FROM queue_job WHERE channel = 'channel_webhook' AND status = 2` |
 | Resend failed ones | `/admin/postgres-query-runner-write`: `UPDATE queue_job SET status = 1, attempt = 0, run_at = now() WHERE channel = 'channel_webhook' AND status = 2` |

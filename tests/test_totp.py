@@ -46,7 +46,7 @@ class TotpSecretTests(unittest.TestCase):
         with self.assertRaisesRegex(Exception, "32 characters"): func_totp_key(config_totp_encryption_key="short")
 
     def test_otpauth_link_uses_the_defaults_every_app_reads(self):
-        self.assertEqual(func_totp_uri(secret=RFC_SECRET, issuer="pulse", username="ravi@x.com"), "otpauth://totp/pulse:ravi@x.com?secret=GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ&issuer=pulse&algorithm=SHA1&digits=6&period=30")
+        self.assertEqual(func_totp_uri(secret=RFC_SECRET, issuer="myapp", username="ravi@x.com"), "otpauth://totp/myapp:ravi@x.com?secret=GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ&issuer=myapp&algorithm=SHA1&digits=6&period=30")
 
     def test_recovery_codes(self):
         codes, hashes = func_totp_recovery_create(key=KEY)

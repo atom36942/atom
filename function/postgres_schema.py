@@ -313,12 +313,12 @@ async def func_postgres_schema_types_check(*, conn: asyncpg.Connection, tables: 
             base = str(col.get("datatype", "")).lower().split("(")[0].replace("[]", "").strip()
             if base in EXTENSION_TYPES: needed.setdefault(base, f"{table_name}.{col['name']}")
     for base, column in needed.items():
-        if await conn.fetchval("SELECT to_regtype($1) IS NULL", base): raise Exception(f"{column} is a {base} column: it needs the PostgreSQL extension {EXTENSION_TYPES[base]}, which this database doesn't have (add it to the extension part of that database's config_postgres_schema_<name>, or install it: CREATE EXTENSION {EXTENSION_TYPES[base]})")
+        if await conn.fetchval("SELECT to_regtype($1) IS NULL", base): raise Exception(f"{column} is a {base} column: it needs the PostgreSQL extension {EXTENSION_TYPES[base]}, which this database doesn't have (add it to control.extension of that database's config_postgres_schema_<name>, or install it: CREATE EXTENSION {EXTENSION_TYPES[base]})")
     return
 
 async def func_postgres_schema_tables_sync(*, conn: asyncpg.Connection, tables: dict, catalog: dict) -> None:
-    await func_postgres_schema_types_check(conn=conn, tables=tables)
     """Synchronize configured tables, columns, indexes, and constraints: the current state is read once for all tables, then only what differs is changed."""
+    await func_postgres_schema_types_check(conn=conn, tables=tables)
     names = list(tables)
     existing_tables = {r[0] for r in await conn.fetch("SELECT c.relname FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p') AND c.relname = ANY($1::text[])", names)}
     for table_name in names:

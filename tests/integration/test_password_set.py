@@ -50,13 +50,13 @@ class PasswordSetTests(unittest.TestCase):
         return self.client.post("/auth/login-email-password", json={"role": 2, "email": email, "password": password})
 
     def test_an_invited_user_sets_a_first_password_with_an_email_code(self):
-        user_id = self.invite("asha", email="asha@mgh.test")
-        self.code(email="asha@mgh.test")
-        self.assertEqual(self.password_set(role=2, email="Asha@MGH.test", otp=482913, password="asha-own-pass"), "password set")
-        self.assertEqual(self.login_email("asha@mgh.test", "asha-own-pass").status_code, 200)
-        self.assertNotEqual(self.login_email("asha@mgh.test", "random-unknown-1").status_code, 200, "the invite password no longer works")
+        user_id = self.invite("asha", email="asha@example.test")
+        self.code(email="asha@example.test")
+        self.assertEqual(self.password_set(role=2, email="Asha@Example.test", otp=482913, password="asha-own-pass"), "password set")
+        self.assertEqual(self.login_email("asha@example.test", "asha-own-pass").status_code, 200)
+        self.assertNotEqual(self.login_email("asha@example.test", "random-unknown-1").status_code, 200, "the invite password no longer works")
         self.assertEqual(fetch(self.url, "SELECT count(*) AS n FROM log_users_password WHERE user_id = $1", user_id)[0]["n"] >= 1, True)
-        self.assertEqual(fetch(self.url, "SELECT count(*) AS n FROM otp WHERE email = 'asha@mgh.test'"), [{"n": 0}], "a code works once")
+        self.assertEqual(fetch(self.url, "SELECT count(*) AS n FROM otp WHERE email = 'asha@example.test'"), [{"n": 0}], "a code works once")
 
     def test_forgot_password_with_a_mobile_code(self):
         self.invite("ravi", mobile="+919800000001")
@@ -65,23 +65,23 @@ class PasswordSetTests(unittest.TestCase):
         self.assertEqual(self.client.post("/auth/login-mobile-password", json={"role": 2, "mobile": "+919800000001", "password": "ravi-new-pass"}).status_code, 200)
 
     def test_without_the_right_code_nothing_tells_whether_an_account_exists(self):
-        self.invite("neha", email="neha@mgh.test")
-        for email in ("neha@mgh.test", "nobody@mgh.test"):
+        self.invite("neha", email="neha@example.test")
+        for email in ("neha@example.test", "nobody@example.test"):
             with self.subTest(email=email): self.assertEqual(self.password_set(400, role=2, email=email, otp=1, password="whatever-1"), "otp not found")
-        self.code(email="neha@mgh.test", otp=555666)
-        self.assertEqual(self.password_set(400, role=2, email="neha@mgh.test", otp=555667, password="whatever-1"), "invalid otp code")
-        self.code(email="nobody@mgh.test", otp=777888)
-        self.assertIn("no account with this email", self.password_set(404, role=2, email="nobody@mgh.test", otp=777888, password="whatever-1"), "only the owner of the email, holding its code, learns there is no account")
+        self.code(email="neha@example.test", otp=555666)
+        self.assertEqual(self.password_set(400, role=2, email="neha@example.test", otp=555667, password="whatever-1"), "invalid otp code")
+        self.code(email="nobody@example.test", otp=777888)
+        self.assertIn("no account with this email", self.password_set(404, role=2, email="nobody@example.test", otp=777888, password="whatever-1"), "only the owner of the email, holding its code, learns there is no account")
 
     def test_refusals(self):
-        self.assertIn("role 1", self.password_set(403, role=1, email="admin@mgh.test", otp=1, password="whatever-1"))
-        self.assertIn("one of email or mobile", self.password_set(400, role=2, email="a@mgh.test", mobile="+919800000009", otp=1, password="whatever-1"))
-        self.assertIn("Password must be", self.password_set(400, role=2, email="a@mgh.test", otp=1, password="short"))
-        self.assertEqual(self.client.post("/public/password-set", json={"role": 2, "email": "a@mgh.test", "otp": 1, "password": "whatever-1", "id": 5}).status_code, 400, "unknown fields are refused")
-        blocked = self.invite("gone", email="gone@mgh.test")
+        self.assertIn("role 1", self.password_set(403, role=1, email="admin@example.test", otp=1, password="whatever-1"))
+        self.assertIn("one of email or mobile", self.password_set(400, role=2, email="a@example.test", mobile="+919800000009", otp=1, password="whatever-1"))
+        self.assertIn("Password must be", self.password_set(400, role=2, email="a@example.test", otp=1, password="short"))
+        self.assertEqual(self.client.post("/public/password-set", json={"role": 2, "email": "a@example.test", "otp": 1, "password": "whatever-1", "id": 5}).status_code, 400, "unknown fields are refused")
+        blocked = self.invite("gone", email="gone@example.test")
         self.client.put("/admin/user-update", json={"id": blocked, "deactivated_at": "2026-01-01T00:00:00Z"}, headers=self.admin)
-        self.code(email="gone@mgh.test", otp=999000)
-        self.assertEqual(self.password_set(403, role=2, email="gone@mgh.test", otp=999000, password="whatever-1"), "account deactivated")
+        self.code(email="gone@example.test", otp=999000)
+        self.assertEqual(self.password_set(403, role=2, email="gone@example.test", otp=999000, password="whatever-1"), "account deactivated")
 
     def test_user_create_still_needs_a_password(self):
         response = self.client.post("/admin/user-create", json={"role": 2, "username": "nopass"}, headers=self.admin)

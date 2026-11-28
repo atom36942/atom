@@ -315,15 +315,15 @@ Type `2` rows are recorded when credentials are issued, before browser upload.
 Their existence does not prove that bytes reached storage. There is no upload
 completion verification endpoint in the current implementation.
 
-Subject to your table policies, list your metadata using:
+`blob` is in `control.my_read` (and `my_create`, `my_update`, `my_delete`) of `config_postgres_schema_master`, so a user lists their own rows (`filter` is a JSON list, URL-encoded):
 
 ```text
-GET /my/object-read?table=blob&filter=deleted_at%20is%20null&limit=20
+GET /my/object-read?table=blob&filter=%5B%22deleted_at%20is%20null%22%5D&limit=20
 ```
 
 The response is `{"status": 1, "message": {"obj_list": [...], "after": null}}`
 (send `after` for the next page: [crud.md](crud.md#paging)). Use each row's `service` and `file_url` to request
-previews. Admins can use `/admin/object-read?table=blob` subject to admin policies.
+previews. Users granted `/admin/object-read` (id 67) read every user's rows with `/admin/object-read?table=blob`.
 
 ## Deleting files
 

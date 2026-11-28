@@ -138,12 +138,12 @@ def func_mfa_token_decode(*, mfa_token: str, config_token_secret_key: str) -> in
     if payload.get("type") != "mfa": raise func_api_error(message="mfa token invalid or expired", status_code=401)
     return orjson.loads(payload["data"])["id"]
 
-async def func_auth_login_finish(*, user: dict, config_token_secret_key: str, config_access_token_expires_sec: int, config_refresh_token_expires_sec: int, config_column_token_encode: list) -> dict:
+async def func_auth_login_finish(*, user: dict, config_token_secret_key: str, config_access_token_expires_sec: int, config_refresh_token_expires_sec: int, token_column: list) -> dict:
     """The end of every login: access and refresh tokens, or, for a user with 2FA on, {"mfa_required": true, "mfa_token"} for /auth/login-totp."""
     if user and user.get("totp_enabled_at"): return {"mfa_required": True, "mfa_token": func_mfa_token_encode(user_id=user["id"], config_token_secret_key=config_token_secret_key)}
-    return await func_token_encode(user=user, config_token_secret_key=config_token_secret_key, config_access_token_expires_sec=config_access_token_expires_sec, config_refresh_token_expires_sec=config_refresh_token_expires_sec, config_column_token_encode=config_column_token_encode)
+    return await func_token_encode(user=user, config_token_secret_key=config_token_secret_key, config_access_token_expires_sec=config_access_token_expires_sec, config_refresh_token_expires_sec=config_refresh_token_expires_sec, token_column=token_column)
 
-async def func_auth_login_totp(*, client_postgres: asyncpg.Pool, mfa_token: str, code: str, config_totp_encryption_key: str | None, config_token_secret_key: str, config_access_token_expires_sec: int, config_refresh_token_expires_sec: int, config_column_token_encode: list) -> Any:
+async def func_auth_login_totp(*, client_postgres: asyncpg.Pool, mfa_token: str, code: str, config_totp_encryption_key: str | None, config_token_secret_key: str, config_access_token_expires_sec: int, config_refresh_token_expires_sec: int, token_column: list) -> Any:
     """The second login step: a valid mfa token and a current or recovery code give the same tokens as a login without 2FA."""
     user_id = func_mfa_token_decode(mfa_token=mfa_token, config_token_secret_key=config_token_secret_key)
     key = func_totp_key(config_totp_encryption_key=config_totp_encryption_key)
@@ -152,4 +152,4 @@ async def func_auth_login_totp(*, client_postgres: asyncpg.Pool, mfa_token: str,
     func_auth_check_user_active(user=user)
     if not user.get("totp_enabled_at"): raise func_api_error(message="2FA is no longer on for this user: log in again", status_code=401)
     await func_totp_check(client_postgres=client_postgres, key=key, user=user, code=code, is_recovery_allowed=True)
-    return await func_token_encode(user=user, config_token_secret_key=config_token_secret_key, config_access_token_expires_sec=config_access_token_expires_sec, config_refresh_token_expires_sec=config_refresh_token_expires_sec, config_column_token_encode=config_column_token_encode)
+    return await func_token_encode(user=user, config_token_secret_key=config_token_secret_key, config_access_token_expires_sec=config_access_token_expires_sec, config_refresh_token_expires_sec=config_refresh_token_expires_sec, token_column=token_column)

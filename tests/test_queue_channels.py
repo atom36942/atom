@@ -41,7 +41,7 @@ class QueueChannelDispatchTests(unittest.IsolatedAsyncioTestCase):
             result = await func_consumer_object_update(payload={"table": "post", "obj_list": [{"id": 1}], "created_by_id": 7}, context=context)
         self.assertEqual(result, "ok")
         self.assertEqual((update.await_args.kwargs["table"], update.await_args.kwargs["created_by_id"], update.await_args.kwargs["ownership_column"]), ("post", 7, "created_by_id"))
-        self.assertEqual(update.await_args.kwargs["config_column_regex"], {"title": ["^.{1,9}$", "short title"]}, "the job's table's format rules")
+        self.assertEqual(update.await_args.kwargs["column_regex"], {"title": ["^.{1,9}$", "short title"]}, "the job's table's format rules")
 
 
 if __name__ == "__main__":

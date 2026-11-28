@@ -91,7 +91,7 @@ def func_client_redis(*, url: str, max_connections: int = 100, timeout_sec: floa
     return client
 
 def func_redis_key_prefix(*, postgres_url: str | None) -> str:
-    """The app's Redis key prefix: its master database name and a colon (finance -> "finance:"), "" without one. Apps on one Redis have different databases, so their keys differ with nothing to set."""
+    """The app's Redis key prefix: its master database name and a colon (shop -> "shop:"), "" without one. Apps on one Redis have different databases, so their keys differ with nothing to set."""
     try: parts = urlsplit(postgres_url or "")
     except ValueError: return ""
     name = parts.path.strip("/") if parts.scheme else ""

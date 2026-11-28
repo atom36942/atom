@@ -117,12 +117,12 @@ def func_postgres_search_query(*, column: dict, bind: int) -> str:
     """The tsquery of a search for a tsvector column: the words bound as $bind, read as a search box reads them (websearch: "a phrase", -excluded, or)."""
     return f"websearch_to_tsquery('{func_postgres_search_language(column=column)}', ${bind})"
 
-async def func_postgres_where_build(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, table: str, filter: list, prefix: str = "", config_column_read_blocked: list = None) -> tuple:
+async def func_postgres_where_build(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, table: str, filter: list, prefix: str = "", read_blocked: list = None) -> tuple:
     """Build a SQL WHERE clause with support for recursion, logical operators (_or, _and), flat SQL strings, and explicit operator syntax."""
     if not table: raise Exception("table required")
     if cache_postgres_schema is not None and table not in cache_postgres_schema: raise Exception(f"table '{table}' not found")
     values = []
-    blocked_cols = set(config_column_read_blocked) if config_column_read_blocked is not None else {"password"}
+    blocked_cols = set(read_blocked) if read_blocked is not None else {"password"}
     filter_pattern = r'^((?:"[^"]+")|[a-zA-Z_][a-zA-Z0-9_]*)\s+(is\s+not\s+distinct\s+from|is\s+distinct\s+from|is\s+not|not\s+in|@@|<=>|>=|<=|==|!=|<>|~\*|=|>|<|eq|neq|gt|lt|gte|lte|is|in|between|like|ilike|~|contains|exists|overlap|any|point)\s+(.*)$'
     value_ops = {"=":"=","==":"=","eq":"=","!=":"!=","<>":"!=","neq":"!=",">":">","gt":">","<":"<","lt":"<",">=":">=","gte":">=","<=":"<=","lte":"<=","is":"IS","is not":"IS NOT","in":"IN","not in":"NOT IN","between":"BETWEEN","is distinct from":"IS DISTINCT FROM","is not distinct from":"IS NOT DISTINCT FROM"}
     string_ops = {"like":"LIKE","ilike":"ILIKE","~":"~","~*":"~*"}
@@ -283,11 +283,11 @@ async def func_postgres_where_build(*, client_postgres: asyncpg.Pool | None, cli
     where_sql = await build_filter(filter)
     return where_sql, values
 
-async def func_postgres_relation(*, client_postgres: asyncpg.Pool | None, client_postgres_conn: asyncpg.Connection | None = None, obj_list: list, relation: list, config_sql_read_relation_fetch_limit_max: int, blocked_tables: list = None, config_column_read_blocked: list = None, cache_postgres_schema: dict = None) -> list:
+async def func_postgres_relation(*, client_postgres: asyncpg.Pool | None, client_postgres_conn: asyncpg.Connection | None = None, obj_list: list, relation: list, config_sql_read_relation_fetch_limit_max: int, blocked_tables: list = None, read_blocked: list = None, cache_postgres_schema: dict = None) -> list:
     """Standardized relationship logic: handles both aggregates (count, sum, etc) and associations (fetching rows) from source to target."""
     if not relation or not obj_list: return obj_list
     blocked_tables_set = set(blocked_tables) if blocked_tables is not None else set()
-    blocked_columns = set(config_column_read_blocked) if config_column_read_blocked is not None else {"password"}
+    blocked_columns = set(read_blocked) if read_blocked is not None else {"password"}
     relations = relation if isinstance(relation, (list, tuple)) else [relation]
     for rel_str in relations:
         if not rel_str: continue

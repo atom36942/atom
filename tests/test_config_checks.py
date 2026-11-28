@@ -63,6 +63,16 @@ class ConfigExtendKeepsAtomTests(unittest.TestCase):
         with self.assertRaisesRegex(Exception, r"drops 2 of Atom's entries \(control.is_index_drop, control.extension.pg_trgm\)"):
             self.check(config_postgres_schema_master={**base, "control": {"extension": ["postgis"]}})
 
+    def test_access_lists_keep_atom_tables_unless_moved(self):
+        base = {**self.BASE.config_postgres_schema_master, "control": {**self.BASE.config_postgres_schema_master["control"], "my_read": ["log_api", "message"]}}
+        atom = SimpleNamespace(**{**vars(self.BASE), "config_postgres_schema_master": base})
+        check = lambda **extend: func_check_config_extend_keeps_atom(config_module=atom, config_extend_module=SimpleNamespace(**extend))
+        check(config_postgres_schema_master={**base, "control": {**base["control"], "my_read": [*base["control"]["my_read"], "task"]}})    # added to
+        with self.assertRaisesRegex(Exception, r"drops 2 of Atom's entries \(control.my_read.log_api, control.my_read.message\)"):
+            check(config_postgres_schema_master={**base, "control": {**base["control"], "my_read": ["task"]}})
+        moved = {**base, "table": {"users": []}, "control": {**base["control"], "my_read": ["message"]}}    # log_api lives in the logs database now
+        check(config_postgres_schema_master=moved, config_postgres_schema_logs={"table": {"log_api": []}})
+
     def test_role_labels_keep_atom_codes_but_labels_and_additions_are_free(self):
         self.check(config_users_role_label={1: "Owner", 2: "User"})
         with self.assertRaisesRegex(Exception, r"config_users_role_label drops 1 of Atom's codes \(1\); fix: \{\*\*base_config_users_role_label, 2: \"User\"\}"):
@@ -322,6 +332,12 @@ class WorkerConfigCheckTests(unittest.TestCase):
                 func_check_api_config(app=self.app(1, cfg))
                 with self.assertRaisesRegex(Exception, f"config_uvicorn_workers=4 .*{label}"):
                     func_check_api_config(app=self.app(4, cfg))
+
+    def test_cache_and_rate_limit_take_only_their_dict(self):
+        for cfg, message in (({"cache": ["inmemory", 10]}, "invalid cache format"), ({"cache": {"mode": "inmemory", "ttl_sec": 10, "is_user_cache": True}}, "cache: unknown key is_user_cache"),
+                             ({"rate_limit": ["inmemory", 5, 60]}, "invalid rate_limit format"), ({"rate_limit": {"mode": "inmemory", "limit": 5, "window": 60}}, "rate_limit: unknown key window"),
+                             ({"api_cache_sec": {"mode": "inmemory", "ttl_sec": 10}}, "api_cache_sec"), ({"api_ratelimiting_times_sec": {"mode": "inmemory", "limit": 5, "window_sec": 60}}, "api_ratelimiting_times_sec")):
+            with self.subTest(cfg=cfg), self.assertRaisesRegex(Exception, message): func_check_api_config(app=self.app(1, cfg))
 
     def test_redis_modes_need_their_role_in_the_redis_dict(self):
         for cfg, role in (({"cache": {"mode": "redis", "ttl_sec": 10}}, "api_response"), ({"rate_limit": {"mode": "redis", "limit": 5, "window_sec": 60}}, "ratelimiter"), ({"user_check_role": {"mode": "redis", "roles": [1]}}, "user_state")):

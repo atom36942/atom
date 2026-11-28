@@ -8,7 +8,7 @@ below reflects the code's default access policies, not a verified deployment.
 
 | Severity | Finding | Change |
 |----------|---------|--------|
-| High | Any authenticated user could mint a container-wide Azure read SAS through `/admin/blob-container-sas`. | The handler checks the caller's current database role and requires role `1`; the default route policy also requires it. |
+| High | Any authenticated user could mint a container-wide Azure read SAS through `/admin/blob-container-sas`. | The route required role `1`; since Atom 22.0.0 its policy requires its permission id, checked live (`user_check_permission` `realtime`). |
 | High | Private blob previews signed arbitrary object keys without checking the caller's ownership prefix. | The route passes the authenticated user ID; S3 and Azure signing reject keys outside that user's `user_<id>/` prefix. This intentionally prevents cross-user and public-prefix previews through this endpoint. |
 | Medium | MSSQL read/export runners accepted permission-changing batches such as a SELECT followed by GRANT. | Both paths use a shared conservative guard rejecting batches and permission, administration, and external-provider commands before acquiring a connection. |
 | Medium | Uploads read the complete file into application memory before checking size. | Reads are bounded to the configured limit plus one byte; oversized files are rejected before upload. Multipart parsing/ingress limits remain separate. |
@@ -24,7 +24,7 @@ the asynchronous client methods, fixing the existing coroutine-return bug.
 
 - PostgreSQL read runners already use read-only transactions, statement timeouts,
   and bounded results. This behavior is preserved and covered by regression tests.
-- Default admin SQL runners require authenticated role `1`. Atom's startup config
+- Default admin SQL runners require the route's permission id (role `1` at the time; ids since Atom 22.0.0). Atom's startup config
   check requires explicit configuration for registered routes. Custom config can
   still change access policies.
 - CRUD filter values use bound parameters; regression tests verify that sample

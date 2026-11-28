@@ -28,12 +28,12 @@ Set `config_totp_encryption_key` in `.env` (32 characters or more, e.g. `python3
 | `totp_last_step` | The last 30-second step used, so a code works once |
 | `totp_recovery` | The recovery codes' hashes |
 
-`totp_secret` and `totp_recovery` are `read_blocked` for every group (never returned); `totp_secret`, `totp_last_step` and `totp_recovery` are `write_blocked` for every group; `totp_enabled_at` is `write_blocked` for `my` (only an admin may change it, and only to `null`). Clearing `totp_enabled_at`, by any path, clears the other three (trigger `users_totp_clear`, setting `config_is_totp_clear`).
+`totp_secret` and `totp_recovery` are `read_blocked` for every group (never returned); `totp_secret`, `totp_last_step` and `totp_recovery` are `write_blocked` for every group; `totp_enabled_at` is `write_blocked` for `my` (only an admin may change it, and only to `null`). Clearing `totp_enabled_at`, by any path, clears the other three (trigger `users_totp_clear` on `master`'s `users`, switched by the flat setting `config_is_totp_clear` in `# totp`, default on). Two-factor, like every login, lives in `master` only.
 
 ## Flow
 | Step | Request → response |
 | :--- | :--- |
-| Setup | `POST /my/totp-setup` → `{"secret", "uri"}`; the page shows `uri` (`otpauth://totp/pulse:ravi@x.com?secret=...`) as a QR code. 2FA is not on yet |
+| Setup | `POST /my/totp-setup` → `{"secret", "uri"}`; the page shows `uri` (`otpauth://totp/myapp:ravi@x.com?secret=...`) as a QR code. 2FA is not on yet |
 | Enable | `POST /my/totp-enable {"code": "492039"}` → `{"recovery_codes": [10 codes]}`, shown only here. 2FA is on |
 | Login, step 1 | Any `/auth/login-*` with the right password → `{"mfa_required": true, "mfa_token": "eyJ..."}` instead of tokens |
 | Login, step 2 | `POST /auth/login-totp {"mfa_token": "eyJ...", "code": "310554"}` (or a recovery code) → `{"access_token", "refresh_token", ...}`, the same as any login |

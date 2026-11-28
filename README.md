@@ -63,7 +63,7 @@ Atom owns every unsuffixed path; you own the `*_extend` ones.
 
 | What | Where |
 |---|---|
-| Settings, tables, route rules | `config_extend.py` |
+| Settings, tables and who may use them (`config_postgres_schema_<name>`: `table`, `control`), route rules | `config_extend.py` |
 | API routes | `router_extend/<feature>.py` |
 | Logic (`func_*`) | `function_extend/<feature>.py` |
 | Constants, param specs, templates | `files_extend/` |
@@ -140,12 +140,12 @@ Then open a pull request against `main`. Details: [CONTRIBUTING.md](https://gith
 |  | [windows](docs/windows.md) | Running Atom and its scripts on Windows |
 |  | [faq](docs/faq.md) | Common questions and quick answers |
 |  | [AGENTS.md](AGENTS.md) | Rules every project and AI agent follows, and Update |
-| Auth | [auth](docs/auth.md) | Users, roles, every login method, tokens, password reset |
-|  | [auth-permission](docs/auth-permission.md) | Give selected users create, read, update, delete per table |
+| Auth | [auth](docs/auth.md) | Users (in master only), roles, every login method, tokens, password reset |
+|  | [auth-permission](docs/auth-permission.md) | Give selected users an admin route (one route id each), beyond their role |
 |  | [auth-api-key](docs/auth-api-key.md) | API keys for other systems, scoped and revocable |
 |  | [auth-totp](docs/auth-totp.md) | Two-factor login with an authenticator app (TOTP) |
 |  | [auth-oidc](docs/auth-oidc.md) | Sign in with Google, Microsoft or any OIDC provider |
-|  | [user-management](docs/user-management.md) | Add, edit, deactivate and invite an app's users |
+|  | [user-management](docs/user-management.md) | Add, edit, deactivate, delete, restore and invite an app's users |
 | Data | [crud](docs/crud.md) | Create, read, update, delete any table: filters, paging |
 |  | [crud-search](docs/crud-search.md) | Search words in text, ranked by relevance (Postgres) |
 |  | [crud-vector](docs/crud-vector.md) | Find rows by meaning with AI embeddings (pgvector) |

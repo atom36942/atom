@@ -181,7 +181,7 @@ def middleware(asgi_app):
             if webhook_verify := api_cfg.get("webhook_verify"): receive = await app_state.func_webhook_verify_request(request=request, receive=receive, webhook_verify=webhook_verify, config_webhook_verify_scheme=app_state.config_webhook_verify_scheme, secret=getattr(app_state, webhook_verify["secret"], None))
             # token
             request.state.user = await app_state.func_token_decode(headers=request.headers, config_token_secret_key=app_state.config_token_secret_key, cache_token=app_state.cache_token, config_token_cache_max=app_state.config_token_cache_max)
-            if not request.state.user: request.state.user = await app_state.func_api_key_decode(headers=request.headers, client_postgres=app_state.client_postgres_dict.get("master"), cache_token=app_state.cache_token, config_token_cache_max=app_state.config_token_cache_max, config_api_key_cache_sec=app_state.config_api_key_cache_sec, config_column_token_encode=app_state.cache_users_access["token"])
+            if not request.state.user: request.state.user = await app_state.func_api_key_decode(headers=request.headers, client_postgres=app_state.client_postgres_dict.get("master"), cache_token=app_state.cache_token, config_token_cache_max=app_state.config_token_cache_max, config_api_key_cache_sec=app_state.config_api_key_cache_sec, token_column=app_state.cache_users_access["token"])
             # checks
             await app_state.func_middleware_check_auth(user_dict=request.state.user, url_path=path, auth=auth)
             user_row_read = app_state.func_middleware_user_row_reader(client_postgres=app_state.client_postgres_dict.get("master"), user_dict=request.state.user)    # one users query per request, whichever checks need it

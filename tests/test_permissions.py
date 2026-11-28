@@ -85,7 +85,7 @@ class PermissionTests(unittest.IsolatedAsyncioTestCase):
 
     async def update_check(self, obj, **changes):
         args = dict(client_postgres=object(), obj=obj, is_admin=False, is_otp_required=True,
-                    config_column_single_update=["username", "password", "email", "mobile"], config_column_users_blocked=["created_by_id", "deleted_at"], config_column_users_my_blocked=["role", "deactivated_at"],
+                    update_alone_column=["username", "password", "email", "mobile"], write_blocked_all=["created_by_id", "deleted_at"], write_blocked_my=["role", "deactivated_at"],
                     config_otp_expiry_sec=300, config_otp_static=None, config_otp_max_attempt=5)
         return await func_user_update_check(**(args | changes))
 
@@ -116,7 +116,7 @@ class PermissionTests(unittest.IsolatedAsyncioTestCase):
             with self.subTest(value=value), self.assertRaisesRegex(Exception, message):
                 await self.update_check({"id": 7, "permissions": value}, is_admin=True, config_permission_label=labels)
         with self.assertRaisesRegex(Exception, "permissions can be updated only by an admin"):
-            await self.update_check({"permissions": [205]}, config_column_users_my_blocked=["permissions"], config_permission_label=labels)
+            await self.update_check({"permissions": [205]}, write_blocked_my=["permissions"], config_permission_label=labels)
 
     async def test_permission_check_needs_the_route_id_in_the_token_permissions(self):
         check = {"mode": "token"}
@@ -161,8 +161,8 @@ class PermissionTests(unittest.IsolatedAsyncioTestCase):
             async def __aexit__(self, *exc): return False
         connection = SimpleNamespace(transaction=lambda: Context())
         pool = SimpleNamespace(acquire=lambda: Context(connection))
-        args = dict(client_postgres=pool, client_password_hasher=None, cache_postgres_schema={}, config_column_regex={}, updated_by_id=1, is_otp_required=False,
-                    config_column_single_update=["password"], config_column_users_blocked=["created_by_id"], config_column_users_my_blocked=["role"], config_otp_expiry_sec=300)
+        args = dict(client_postgres=pool, client_password_hasher=None, cache_postgres_schema={}, column_regex={}, updated_by_id=1, is_otp_required=False,
+                    update_alone_column=["password"], write_blocked_all=["created_by_id"], write_blocked_my=["role"], config_otp_expiry_sec=300)
         update = AsyncMock(side_effect=lambda **kwargs: [obj["id"] for obj in kwargs["obj_list"]])
         with patch("function.user.func_postgres_update", new=update):
             self.assertEqual(await func_user_update(obj_list=[{"id": 7, "name": "a"}, {"id": "8", "role": 3}, {"id": 9, "name": "c"}], **args), [7, 8, 9])

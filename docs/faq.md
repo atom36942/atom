@@ -220,14 +220,13 @@ For an intentionally public route, still register it with `"auth": []`. Make sur
 <details>
 <summary><strong>How do I disable specific endpoints or admin APIs in production?</strong></summary>
 
-Set `"is_active": False` in the route's `config_api` policy (e.g., in `config_extend.py` or `config.py`):
+Set `"is_active": False` in the route's `config_api` policy in `config_extend.py`:
 
 ```python
-config_api["/admin/postgres-query-runner-write"] = {
-    "id": 86,
-    "is_active": False,  # <-- Disables this route in production
-    "auth": ["jwt"],
-    "user_check_permission": {"mode": "realtime"},
+# config_extend.py: the route's whole entry from config.py, with is_active added
+config_api = {
+    **base_config_api,
+    "/admin/postgres-query-runner-write": {"id": 86, "is_active": False, "auth": ["jwt"], "user_check_permission": {"mode": "realtime"}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
 }
 ```
 
@@ -238,9 +237,9 @@ When `"is_active": False` is set, the HTTP middleware checks it immediately via 
 <details>
 <summary><strong>How do I make an admin user?</strong></summary>
 
-Role **`1`** is the administrator role. On startup, Atom seeds the root administrator using `config_root_user_password`; override that value with a strong secret in `.env` before deploying.
+On startup, Atom seeds the root administrator `admin` (id 1, role 1) from `config_root_user_password` and gives it every `/admin/*` route id; set a strong value in `.env` before deploying.
 
-To promote an existing user, authenticate as an administrator and call `PUT /admin/user-update` with `{"id": 7, "role": 1}`. Confirm the target user ID first—admin routes can access and modify data across users.
+Admin routes check route ids, not the role: each `/admin/*` route is open to users whose `users.permissions` hold its `config_api` id. To let an existing user call some, an admin calls `PUT /admin/user-update` with `{"id": 7, "permissions": [67, 66]}` (`/admin/object-read`, `/admin/object-update`); the labels are in `/info` `int_mapping.master.users.permissions`. Grant only the routes the person needs: `/admin/user-update` (70) can change anyone's role and permissions. See [auth-permission.md](auth-permission.md).
 
 Public signup cannot create role `1` users, which prevents callers from granting themselves administrator access.
 
@@ -249,12 +248,12 @@ Public signup cannot create role `1` users, which prevents callers from granting
 <details>
 <summary><strong>Why do I get "signup disabled"?</strong></summary>
 
-The application is running with `config_is_signup = False`. In that mode, password signup is rejected, and OTP or OIDC login cannot automatically create a user on their first login.
+`config_signup_allowed_roles` is empty (the default `[]`). Then password signup is rejected, and OTP or OIDC login cannot create a user on their first login.
 
-Set the value in `.env` or `config_extend.py`, then restart Atom:
+List the roles a new user may sign up with, in `.env` or `config_extend.py`, then restart Atom (role `1` is always refused):
 
 ```python
-config_is_signup = True
+config_signup_allowed_roles = [2]
 ```
 
 If signup should remain closed, create the user through an administrator workflow instead; existing users can still log in. See [auth.md](auth.md).
@@ -531,7 +530,7 @@ config_postgres_url_master=postgresql://atom:pass@main-host:5432/atom
 config_postgres_url_external=postgresql://reader:pass@other-host:5432/other
 ```
 
-Atom opens a pool for each name in `app.state.client_postgres_dict` and caches its schema in `app.state.cache_postgres_schema_dict`. Routes that accept `?connection=` can then target it (`?connection=external`); custom code can use `app_state.client_postgres_dict["external"]` directly. Keep credentials in `.env`, use parameterized queries, and give the second database account only the permissions it needs.
+Atom opens a pool for each name in `app.state.client_postgres_dict` and caches its schema in `app.state.cache_postgres_schema_dict`. Custom code can use `app_state.client_postgres_dict["external"]` directly. Atom's table routes reach a table there (`?connection=external`) only when it is in that database's `config_postgres_schema_external` (in `config_extend.py`), and `/public`, `/private` and `/my` only as its `control` lists allow; login stays on master. Keep credentials in `.env`, use parameterized queries, and give the second database account only the permissions it needs. Step by step: [adding a database](database.md#adding-a-database-end-to-end).
 
 </details>
 
@@ -551,7 +550,7 @@ Check the common causes:
 For example:
 
 ```dotenv
-config_is_signup=false
+config_is_user_delete=true
 config_cors_allow_origins=["https://app.example.com"]
 ```
 
@@ -587,9 +586,9 @@ Custom routes should check the client they depend on and return a clear error wh
 
 The prefixes represent data-access scope, not just route organization:
 
-- `/public/object-*` is anonymous and limited to tables whose schema lists `public` actions (each table lists `public`, `private` and `my` actions; closed unless listed).
+- `/public/object-*` is anonymous and limited to the tables in its schema's `control.public_create` / `public_read` (closed unless listed; `/private` reads use `private_read`, `/my` the `my_*` lists).
 - `/my/object-*` requires a user and scopes rows through `ownership_column = authenticated_user.id`. Read, update, and delete each validate `ownership_column` against their own configured allowlist; create always stamps `created_by_id`.
-- `/admin/object-*` can operate on any row and table, subject to its administrator route policy.
+- `/admin/object-*` can operate on any row of any table in the schema, for users granted the route's id.
 
 Use `/my` for normal user-owned product data and `/admin` only for trusted operations. Do not expose a table publicly merely to avoid ownership configuration; add an ownership column and use the authenticated tier instead.
 
@@ -696,7 +695,7 @@ Use the read-only URL as `config_postgres_url_master`, rather than configuring o
 
 Atom supports connecting to multiple PostgreSQL connection pools or read-replicas configured via environment variables (`config_postgres_url_<name>`).
 
-Routes flagged `"is_connection_param": True` in `config_api` accept the optional **`?connection=<name>`** query parameter (reads such as `/public/object-read`, `/my/object-read`, `/my/profile`, `/admin/object-read`, the Postgres query runners, and `/admin/postgres-import`).
+Routes flagged `"is_connection_param": True` in `config_api` accept the optional **`?connection=<name>`** query parameter (reads such as `/public/object-read`, `/my/object-read`, `/my/profile`, `/admin/object-read`, the Postgres read runners, and the admin writes `/admin/object-create`, `-update`, `-delete` and `/admin/postgres-import`).
 
 **How it works:** the middleware picks the pool once per request and sets it on `request.state`; routes just use it:
 
@@ -708,8 +707,8 @@ res = await app_state.func_postgres_read(client_postgres=request.state.client_po
 - `?connection=read_india` on a flagged route uses `client_postgres_dict["read_india"]`.
 - An unknown name returns `404 connection '<name>' not found`.
 - Routes without the flag reject `?connection=` with `400 connection not allowed on this route`; they always use master.
-- User, role and OTP checks always use master.
-- Writes inside read routes (mark-as-read on `/my/object-read` and `/my/message-thread`) always use master, so `?connection=` can point at a read replica.
+- User, role and OTP checks always use master; `/my/profile` and `/private/user-read` take master or a replica of it (400 for a database with its own schema).
+- A replica needs only its `.env` line: a database without its own `config_postgres_schema_<name>` follows master's rules, and the writes a read makes (mark-as-read, `last_active_at`) go to master ([database.md](database.md#read-replicas-a-database-without-its-own-schema)).
 - `/my/api-usage` always reads the log database (the one whose schema has `log_api`).
 
 Example API calls:
@@ -726,9 +725,9 @@ curl "http://localhost:8000/public/object-read?connection=read_india&table=produ
 <details>
 <summary><strong>Will automatic schema initialization delete or alter existing database objects?</strong></summary>
 
-It can. When `config_is_postgres_schema_init = True`, startup compares `config_postgres_schema_master` with the live schema and applies configured tables, columns, constraints, indexes, extensions, and triggers. The `config_postgres_schema_master["control"]` flags determine whether missing tables or columns may be dropped and whether mismatched column types may be recreated.
+It can alter, never drop data. When `config_is_postgres_schema_init = True`, startup compares each `config_postgres_schema_<name>` with its database and applies the configured tables, columns, constraints, indexes, extensions and triggers: it adds what is missing, changes a column's type (`USING col::type`), `NOT NULL` and default to match, rebuilds a `generated` column whose expression changed, and removes the indexes, checks, unique constraints and triggers it made that the schema no longer lists. It never drops a table or a plain column, and never touches a table that is not in the schema.
 
-To make schema changes a deliberate step instead, set `config_is_postgres_schema_init = False`: startup then only compares and stops if the database differs, and `venv/bin/python -m script.postgres_schema_plan --apply` runs the changes. Review those controls carefully before pointing Atom at an existing or production database. Back up the database, test schema changes on a copy, and use a database account with appropriately limited privileges. For a safe column rename, set the column's `old` key instead of removing one name and adding another. See [config.md](config.md#control).
+To make schema changes a deliberate step instead, set `config_is_postgres_schema_init = False`: startup then only compares and stops if the database differs, and `venv/bin/python -m script.postgres_schema_plan --apply` runs the changes. Review those controls carefully before pointing Atom at an existing or production database. Back up the database, test schema changes on a copy, and use a database account with appropriately limited privileges. For a safe column rename, set the column's `old_name` key instead of removing one name and adding another. See [config.md](config.md#control).
 
 </details>
 
@@ -755,7 +754,7 @@ It is a live chat over the `message` table for a single worker: token sent as th
 
 Startup intentionally validates configuration before serving traffic. It rejects duplicate API IDs, unknown `config_api` keys or modes, invalid table definitions, duplicate/reserved column names, incompatible index types, unsafe schema-control combinations, and other inconsistent settings.
 
-Read the first startup exception rather than the later shutdown noise. Check recent edits in `config_extend.py`, `config_api`, and `config_postgres_schema_master`, then compare them with [config.md](config.md). Common mistakes include forgetting the exact first `id` column definition, referencing a nonexistent index column, using malformed JSON in `.env`, or registering a policy path that does not match a route.
+Read the first startup exception rather than the later shutdown noise. Check recent edits in `config_extend.py`, `config_api`, and `config_postgres_schema_master`, then compare them with [config.md](config.md). Common mistakes include a key removed in a recent Atom version (the message names its replacement), a `control` list naming a table that is not in the schema, referencing a nonexistent index column, using malformed JSON in `.env`, or registering a policy path that does not match a route.
 
 </details>
 

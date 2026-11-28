@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from starlette.routing import WebSocketRoute
 from starlette.datastructures import State
 from .app import func_app_route_list
+from .postgres_schema import CONTROL_ACCESS
 from .postgres_schema import func_postgres_schema_config_validate
 from .postgres_schema import func_postgres_schema_dict
 from .postgres_schema import func_postgres_users_access
@@ -81,7 +82,7 @@ def func_check_postgres_schema(*, app_state: State) -> None:
         except Exception as e: raise Exception(f"config_postgres_schema_{name}: {e}") from None
     if values.get("config_is_log_api", True):
         holders = [name for name, schema in schemas.items() if "log_api" in (schema.get("table") or {})]
-        if not holders: raise Exception("config_is_log_api is on but no config_postgres_schema_<name> has log_api: keep it in master, or move it to the database for logs (\"log_api\": base_config_postgres_schema_master[\"table\"][\"log_api\"])")
+        if not holders: raise Exception("config_is_log_api is on but no config_postgres_schema_<name> has log_api: keep it in master, or move it to the database for logs with its control entries (my_read, row_update_disabled, buffer_limit, retention_day): docs/database.md, Storing Logs in an Isolated Database")
         if len(holders) > 1: raise Exception(f"log_api is in config_postgres_schema_{holders[0]} and config_postgres_schema_{holders[1]}: keep it in one (that database gets the API logs)")
     return
 
@@ -164,7 +165,7 @@ def func_check_api_config(*, app: FastAPI) -> None:
         column = key.removeprefix("config_api_global_user_check_") + "_at"
         if value == "token" and column not in token_columns: raise Exception(f"{key} is token: add \"{column}\" to config_users_token_column")
     api_mode_allowed = ("redis", "inmemory")
-    api_keys_allowed = ("id", "is_active", "auth", "is_connection_param", "user_check_role", "user_check_permission", "user_check_deactivated", "user_check_deleted", "cache", "rate_limit", "api_cache_sec", "api_ratelimiting_times_sec", "is_log_api", "webhook_verify", "ip_allow", "token_verify")
+    api_keys_allowed = ("id", "is_active", "auth", "is_connection_param", "user_check_role", "user_check_permission", "user_check_deactivated", "user_check_deleted", "cache", "rate_limit", "is_log_api", "webhook_verify", "ip_allow", "token_verify")
     def flag_check(value, key):
         if not isinstance(value, bool): raise Exception(f"invalid {key}: expected bool")
     def int_check(value, key, min_value=0):
@@ -248,36 +249,22 @@ def func_check_api_config(*, app: FastAPI) -> None:
                 if mode not in user_mode_allowed: raise Exception(f"{path} invalid {key} mode: {mode}")
                 if mode == "redis": requires_redis_user_state = True
                 if mode == "inmemory": inmemory_list.append(f"{path} {key}")
-        c_val = cfg.get("cache") if "cache" in cfg else cfg.get("api_cache_sec")
+        c_val = cfg.get("cache")
         if c_val:
-            if isinstance(c_val, dict):
-                mode = c_val.get("mode")
-                ttl = c_val.get("ttl_sec", 0)
-                is_per_user = c_val.get("is_per_user", c_val.get("is_user_cache", False))
-            elif isinstance(c_val, (list, tuple)):
-                mode = c_val[0] if len(c_val) > 0 else None
-                ttl = c_val[1] if len(c_val) > 1 else 0
-                is_per_user = c_val[2] if len(c_val) > 2 else False
-            else:
-                raise Exception(f"{path} invalid cache format")
+            if not isinstance(c_val, dict): raise Exception(f"{path} invalid cache format: {{\"mode\": \"inmemory\" or \"redis\", \"ttl_sec\": n, \"is_per_user\": bool}}")
+            if unknown := sorted(set(c_val) - {"mode", "ttl_sec", "is_per_user"}): raise Exception(f"{path} cache: unknown key {', '.join(unknown)} (mode, ttl_sec, is_per_user)")
+            mode, ttl, is_per_user = c_val.get("mode"), c_val.get("ttl_sec", 0), c_val.get("is_per_user", False)
             if mode not in api_mode_allowed: raise Exception(f"{path} invalid cache mode: {mode}")
             ttl = int_check(ttl, f"{path} cache ttl", 1)
             if ttl > 315360000: raise Exception(f"{path} cache ttl exceeds 10 years")
             flag_check(is_per_user, f"{path} cache is_per_user flag")
             if mode == "redis": requires_redis = True
             if mode == "inmemory": inmemory_list.append(f"{path} cache")
-        r_val = cfg.get("rate_limit") if "rate_limit" in cfg else cfg.get("api_ratelimiting_times_sec")
+        r_val = cfg.get("rate_limit")
         if r_val:
-            if isinstance(r_val, dict):
-                mode = r_val.get("mode")
-                limit = r_val.get("limit", 0)
-                window = r_val.get("window_sec", 0)
-            elif isinstance(r_val, (list, tuple)):
-                mode = r_val[0] if len(r_val) > 0 else None
-                limit = r_val[1] if len(r_val) > 1 else 0
-                window = r_val[2] if len(r_val) > 2 else 0
-            else:
-                raise Exception(f"{path} invalid rate_limit format")
+            if not isinstance(r_val, dict): raise Exception(f"{path} invalid rate_limit format: {{\"mode\": \"inmemory\" or \"redis\", \"limit\": n, \"window_sec\": n}}")
+            if unknown := sorted(set(r_val) - {"mode", "limit", "window_sec"}): raise Exception(f"{path} rate_limit: unknown key {', '.join(unknown)} (mode, limit, window_sec)")
+            mode, limit, window = r_val.get("mode"), r_val.get("limit", 0), r_val.get("window_sec", 0)
             if mode not in api_mode_allowed: raise Exception(f"{path} invalid rate_limit mode: {mode}")
             int_check(limit, f"{path} rate_limit limit", 1)
             window = int_check(window, f"{path} rate_limit window", 1)
@@ -357,6 +344,9 @@ def func_check_config_extend_keeps_atom(*, config_module, config_extend_module) 
             dropped = missing(atom, extended, "")
             dropped += [item for part, value in atom.items() if isinstance(extended, dict) and part in extended for item in missing(value, extended[part], f"{part}.") if not (part == "table" and item.removeprefix("table.") in elsewhere)]
             if isinstance(extended, dict) and isinstance(extended.get("control"), dict) and "extension" in extended["control"]: dropped += missing((atom.get("control") or {}).get("extension"), extended["control"]["extension"], "control.extension.")
+            if isinstance(extended, dict) and isinstance(extended.get("control"), dict):    # access lists keep Atom's tables (a project adds its own with [*base_config_postgres_schema_master["control"]["my_read"], ...]), except a table moved to another database
+                for key in sorted(CONTROL_ACCESS):
+                    if key in extended["control"]: dropped += [item for item in missing((atom.get("control") or {}).get(key), extended["control"][key], f"control.{key}.") if item.removeprefix(f"control.{key}.") not in elsewhere]
             label = "entries"
         elif name == "config_users_role_label":
             dropped, label = missing(atom, extended, ""), "codes"

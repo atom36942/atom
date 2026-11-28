@@ -44,7 +44,7 @@ Choosing `assigned_to_id` therefore does not allow a caller to update rows assig
 | Delete IDs | `POST /my/object-delete` | Defaults to `created_by_id`; another column's `ownership` must list `delete`. `?mode=soft` sets `deleted_at` instead of deleting. |
 | Delete all | `DELETE /my/object-delete-all` | The same `delete` owners, plus `control.my_delete_all`. |
 
-All ownership-aware endpoints validate that the selected column exists on the requested table. Omitting `ownership_column` consistently means `created_by_id`.
+All ownership-aware endpoints validate that the selected column exists on the requested table. Omitting `ownership_column` consistently means `created_by_id`. Each action also needs the table in its `control` list (`my_create`, `my_read`, `my_update`, `my_delete`, `my_delete_all`), else 403 ([control](config.md#control)).
 
 ## Configuration
 
@@ -60,7 +60,7 @@ An owner column is a column key in the schema, per table: `ownership` lists the 
 
 Atom's: `message.received_by_id` and `notification.received_by_id` `["read", "delete"]`; `log_users_password.user_id` and `log_users_delete.user_id` `["read"]`.
 
-The users-delete worker uses only the `delete` owners (with `created_by_id`) to find a deleted user's rows for soft deletion and restoration. Columns approved only for reading or updating do not link rows to a user for this cleanup.
+The users-delete worker uses only the `delete` owners (with `created_by_id`) to find a deleted user's rows for soft deletion and restoration, in master's tables that have `deleted_at` (never `users` or `log_users_delete`; other databases are not touched). Columns approved only for reading or updating do not link rows to a user for this cleanup.
 
 List an action only when the column's meaning grants it. For example:
 
@@ -110,8 +110,8 @@ Batch updates and deletes can affect only the requested IDs that match the owner
 
 ## Special cases
 
-- `users`: self-update and self-delete use account-ID checks. Explicit `ownership_column` is not supported for these operations.
-- `received_by_id` reads: when the table also has `id` and `read_at`, fetched rows are scheduled to be marked as read on master, so reads can use a read replica.
+- `users`: the object routes refuse it; a user changes or deletes their own account with `/my/user-update` and `/my/user-delete` (account-ID checks, no `ownership_column`).
+- `received_by_id` reads: when the table also has `id` and `read_at`, the rows returned are marked as read in the background, on the database they were read from.
 - Queued updates preserve the validated ownership column in the queued payload.
 - `/private/*` and `/admin/*` have different trust models and do not inherit `/my/*` ownership behavior.
 

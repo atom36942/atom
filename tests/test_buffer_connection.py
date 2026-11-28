@@ -20,7 +20,7 @@ class BufferConnectionTests(unittest.IsolatedAsyncioTestCase):
         self.other_pool, self.other_conn = database()
 
     async def create(self, **changes):
-        args = dict(client_postgres=self.master_pool, client_postgres_conn=None, client_password_hasher=None, cache_postgres_schema=SCHEMA, buffer_postgres={}, config_column_regex={}, buffer_limit=10, mode="now", table="product", obj_list=[{"name": "item", "created_by_id": 7}])
+        args = dict(client_postgres=self.master_pool, client_postgres_conn=None, client_password_hasher=None, cache_postgres_schema=SCHEMA, buffer_postgres={}, column_regex={}, buffer_limit=10, mode="now", table="product", obj_list=[{"name": "item", "created_by_id": 7}])
         return await func_postgres_create(**(args | changes))
 
     def test_buffer_key_round_trip(self):
@@ -85,7 +85,7 @@ class BufferFlushAllTests(unittest.IsolatedAsyncioTestCase):
         return state
 
     async def buffer(self, state, connection, table="product", obj_list=None):
-        await func_postgres_create(client_postgres=state.client_postgres_dict.get(connection) or object(), client_postgres_conn=None, client_password_hasher=None, cache_postgres_schema=SCHEMA, buffer_postgres=state.buffer_postgres_create, config_column_regex={}, buffer_limit=10, mode="buffer", table=table, obj_list=obj_list or [{"name": "item", "created_by_id": 7}], connection=connection)
+        await func_postgres_create(client_postgres=state.client_postgres_dict.get(connection) or object(), client_postgres_conn=None, client_password_hasher=None, cache_postgres_schema=SCHEMA, buffer_postgres=state.buffer_postgres_create, column_regex={}, buffer_limit=10, mode="buffer", table=table, obj_list=obj_list or [{"name": "item", "created_by_id": 7}], connection=connection)
 
     async def test_each_database_is_flushed_through_its_own_pool(self):
         (master_pool, master_conn), (other_pool, other_conn) = database(), database()
@@ -119,7 +119,7 @@ class BufferFlushAllTests(unittest.IsolatedAsyncioTestCase):
     async def test_log_buffer_is_flushed_to_its_own_database(self):
         (master_pool, master_conn), (log_pool, log_conn) = database(), database()
         state = self.app_state({"master": master_pool, "logs": log_pool})
-        await func_postgres_create(client_postgres=log_pool, client_postgres_conn=None, client_password_hasher=None, cache_postgres_schema=SCHEMA, buffer_postgres=state.buffer_postgres_log_api, config_column_regex={}, buffer_limit=10, mode="buffer", table="product", obj_list=[{"name": "log"}], is_trusted=True, connection="logs")
+        await func_postgres_create(client_postgres=log_pool, client_postgres_conn=None, client_password_hasher=None, cache_postgres_schema=SCHEMA, buffer_postgres=state.buffer_postgres_log_api, column_regex={}, buffer_limit=10, mode="buffer", table="product", obj_list=[{"name": "log"}], is_trusted=True, connection="logs")
         await func_postgres_buffer_flush_all(app_state=state)
         log_conn.fetch.assert_awaited_once()
         master_conn.fetch.assert_not_awaited()

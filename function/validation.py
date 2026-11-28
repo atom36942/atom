@@ -4,11 +4,11 @@ from starlette.datastructures import State
 from .middleware import func_api_error
 
 # function
-async def func_regex_check(*, config_column_regex: dict, obj_list: list) -> None:
+async def func_regex_check(*, column_regex: dict, obj_list: list) -> None:
     """Validate fields in a list of objects against regex patterns defined in config."""
-    if not config_column_regex: return
+    if not column_regex: return
     for obj in obj_list:
-        for key, regex_info in config_column_regex.items():
+        for key, regex_info in column_regex.items():
             val = obj.get(key)
             if val is not None:
                 pattern = regex_info[0]
@@ -17,9 +17,19 @@ async def func_regex_check(*, config_column_regex: dict, obj_list: list) -> None
                     raise Exception(error_msg)
     return
 
+def func_postgres_rule_database(*, app_state: State, connection: str = None) -> str:
+    """The database whose config_postgres_schema_<name> rules apply to a connection: the connection itself when it has a schema, else master (a database added only by its config_postgres_url_<name>, such as a read replica of master, follows master's rules and is never changed by startup)."""
+    name = connection or "master"
+    return name if name in (getattr(app_state, "cache_postgres_table_rule", None) or {}) else "master"
+
+def func_check_connection_master(*, app_state: State, connection: str = None) -> None:
+    """Refuse a ?connection= that does not follow master's rules on a users route: users and auth live in master (or a read replica of it, a database without its own schema)."""
+    if (name := func_postgres_rule_database(app_state=app_state, connection=connection)) != "master": raise func_api_error(message=f"users live in master: connection {connection} has its own config_postgres_schema_{name} (use master or a read replica of it)", status_code=400)
+
 def func_column_regex(*, app_state: State, table: str, connection: str = None) -> dict:
     """The format rules of one table's columns, {column: [pattern, message]}: each column's regex and regex_message in config_postgres_schema_<connection> (users.password included, checked before it is hashed)."""
-    return ((getattr(app_state, "cache_column_regex", None) or {}).get(connection or "master") or {}).get(table) or {}
+    rules = getattr(app_state, "cache_column_regex", None) or {}
+    return (rules.get(connection or "master") or rules.get(func_postgres_rule_database(app_state=app_state, connection=connection)) or {}).get(table) or {}
 
 def func_role_allowed_values(*, roles: list) -> list | None:
     """The allowed values of a role parameter: None (any role) when roles is ["*"], else the list itself."""
@@ -27,7 +37,7 @@ def func_role_allowed_values(*, roles: list) -> list | None:
 
 def func_check_table_access(*, app_state: State, connection: str = None, table: str, group: str, action: str, relation: list = None) -> None:
     """Refuse a table (and every table a read joins through relation) not listed in control.<group>_<action> (public_create, private_read, my_update, ...) of config_postgres_schema_<connection>: a table is closed unless listed. group admin: any table of that schema (the /admin route's permission id decides who). 403."""
-    database = connection or "master"
+    database = func_postgres_rule_database(app_state=app_state, connection=connection)
     rules = (getattr(app_state, "cache_postgres_table_rule", None) or {}).get(database) or {}
     tables = [(table, action)] + [(parts[1], "read") for rel in relation or [] if len(parts := [p.strip() for p in rel.split(",", 4)]) >= 2]
     for name, needed in tables:
@@ -48,7 +58,7 @@ def func_check_table_column_exists(*, app_state: State = None, cache_postgres_sc
 
 def func_buffer_limit(*, app_state: State, table: str, connection: str = None) -> int:
     """Rows a table's create buffer holds before it is written: the table's buffer_limit in config_postgres_schema_<connection>, else 100."""
-    rule = ((getattr(app_state, "cache_postgres_table_rule", None) or {}).get(connection or "master") or {}).get(table) or {}
+    rule = ((getattr(app_state, "cache_postgres_table_rule", None) or {}).get(func_postgres_rule_database(app_state=app_state, connection=connection)) or {}).get(table) or {}
     return rule.get("buffer_limit") or 100
 
 def func_check_table_not_users(*, table: str) -> None:

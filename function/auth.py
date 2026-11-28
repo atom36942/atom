@@ -93,12 +93,12 @@ def func_token_check_secret_key(*, config_token_secret_key: str) -> None:
     """Reject missing JWT configuration before authentication side effects."""
     if config_token_secret_key in (None, ""): raise func_api_error(message="token secret key missing", status_code=500)
 
-async def func_token_encode(*, user: dict, config_token_secret_key: str, config_access_token_expires_sec: int, config_refresh_token_expires_sec: int, config_column_token_encode: list) -> dict:
+async def func_token_encode(*, user: dict, config_token_secret_key: str, config_access_token_expires_sec: int, config_refresh_token_expires_sec: int, token_column: list) -> dict:
     """Generate access and refresh JWT tokens for a user object."""
     if user is None: return None
     func_token_check_secret_key(config_token_secret_key=config_token_secret_key)
     token_secret_key = str(config_token_secret_key)
-    payload_dict = {k: user.get(k) for k in config_column_token_encode} if config_column_token_encode else dict(user) if isinstance(user, dict) else user
+    payload_dict = {k: user.get(k) for k in token_column} if token_column else dict(user) if isinstance(user, dict) else user
     serialized_payload = orjson.dumps(payload_dict, default=str).decode("utf-8")
     now_ts = int(time.time())
     access_token_expires_at = now_ts + config_access_token_expires_sec
@@ -141,8 +141,8 @@ async def func_api_key_create(*, client_postgres: asyncpg.Pool | None, user_id: 
         row = await conn.fetchrow("INSERT INTO api_key (created_by_id, name, key_hash, key_prefix, scopes, expires_at) VALUES ($1, $2, $3, $4, $5, CASE WHEN $6::int IS NULL THEN NULL ELSE NOW() + make_interval(days => $6::int) END) RETURNING id, created_at, name, key_prefix, scopes, expires_at", user_id, name, func_api_key_hash(key=key), key[:12], scopes or None, expire_days)
     return {**dict(row), "key": key}
 
-async def func_api_key_decode(*, headers: dict, client_postgres: asyncpg.Pool | None, cache_token: OrderedDict | None, config_token_cache_max: int, config_api_key_cache_sec: int, config_column_token_encode: list) -> dict:
-    """Resolve an `Authorization: Bearer atk_...` header to its owner's user dict, the same columns a JWT carries (config_column_token_encode) plus _token_type "api_key", _api_key_id and _api_key_scopes; {} without that header. A key is looked up by its sha256 and cached per worker for config_api_key_cache_sec (never past its expiry); an unknown or expired key, or a deleted or deactivated owner, is 401."""
+async def func_api_key_decode(*, headers: dict, client_postgres: asyncpg.Pool | None, cache_token: OrderedDict | None, config_token_cache_max: int, config_api_key_cache_sec: int, token_column: list) -> dict:
+    """Resolve an `Authorization: Bearer atk_...` header to its owner's user dict, the same columns a JWT carries (token_column) plus _token_type "api_key", _api_key_id and _api_key_scopes; {} without that header. A key is looked up by its sha256 and cached per worker for config_api_key_cache_sec (never past its expiry); an unknown or expired key, or a deleted or deactivated owner, is 401."""
     auth_header = headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer atk_"): return {}
     key_hash = func_api_key_hash(key=auth_header[7:].strip())
@@ -153,7 +153,7 @@ async def func_api_key_decode(*, headers: dict, client_postgres: asyncpg.Pool | 
         if entry and entry[1] > now: return {k: v.copy() if isinstance(v, (list, dict)) else v for k, v in entry[0].items()}
         cache_token.pop(cache_key, None)
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
-    columns = ", ".join('u."' + str(c).replace('"', '""') + '"' for c in (config_column_token_encode or ["id", "role"]))
+    columns = ", ".join('u."' + str(c).replace('"', '""') + '"' for c in (token_column or ["id", "role"]))
     row = await client_postgres.fetchrow(f"SELECT {columns}, u.deleted_at AS _deleted_at, u.deactivated_at AS _deactivated_at, k.id AS _api_key_id, k.scopes AS _api_key_scopes, k.expires_at AS _expires_at FROM api_key k JOIN users u ON u.id=k.created_by_id WHERE k.key_hash=$1", key_hash)  # noqa: S608 - column names from config, quoted
     if not row or (row["_expires_at"] and row["_expires_at"] <= datetime.now(UTC)): raise func_api_error(message="api key invalid or expired", status_code=401)
     if row["_deleted_at"] or row["_deactivated_at"]: raise func_api_error(message="api key owner is deleted or deactivated", status_code=401)

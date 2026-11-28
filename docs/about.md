@@ -65,7 +65,7 @@ SHUTDOWN → stop background tasks → final buffer flush → close every client
 ```
 
 ### Startup Sequence:
-1. **Validation (`func_check`)**: Validates that `config_api` is well-formed: every entry uses allowed keys (`id`, `auth`, `is_connection_param`, `user_check_*`, `cache`, `rate_limit`, `webhook_verify`, `ip_allow`, `token_verify`), flags are booleans, check modes are valid (`redis` / `realtime` / `inmemory` / `token`). Misconfiguration causes fast-fail.
+1. **Validation (`func_check`)**: Validates every setting, each `config_postgres_schema_<name>` (unknown or removed keys name their replacement) and `config_api`: every entry uses allowed keys (`id`, `is_active`, `auth`, `is_connection_param`, `user_check_*`, `cache`, `rate_limit`, `is_log_api`, `webhook_verify`, `ip_allow`, `token_verify`), flags are booleans, check modes are valid (`redis` / `realtime` / `inmemory` / `token`). Misconfiguration causes fast-fail.
 2. **Filesystem Prep**: Ensures `tmp/` and `secret/` exist in the project folder (where `main.py` is; `venv/bin/python main.py` switches there first, so starting it from another folder changes nothing); wipes `tmp/` first only when `config_is_tmp_reset` is true (default false).
 3. **Client Initialization**: Initializes clients conditionally based on `.env` settings:
    - `client_password_hasher`: Argon2 password hasher.
@@ -73,14 +73,15 @@ SHUTDOWN → stop background tasks → final buffer flush → close every client
    - `client_postgres_dict`: One pool per named database from `config_postgres_url_<name>`; `client_postgres_dict["master"]` is the default (e.g. `client_postgres_dict["logs"]` for a dedicated log database).
    - `client_redis_dict`: one isolated Redis client per `config_redis_url_<name>`, read by role (`api_response`, `user_state`, `ratelimiter`, `queue`) or by a project's own name.
    - Optional: MongoDB (Motor), MSSQL, S3, Azure Blob, Kafka, RabbitMQ, Celery, PostHog, OpenAI, Gemini, Claude.
-4. **Database Schema Init**: When `config_is_postgres_schema_init = True`, applies each database's `config_postgres_schema_<name>` (tables, indexes, constraints, `sql`), master first, and seeds the root admin user (`admin` / `role: 1`). When `False`, only compares, and stops startup if the database differs (`script.postgres_schema_plan --apply` runs the changes).
+4. **Database Schema Init**: When `config_is_postgres_schema_init = True`, applies each database's `config_postgres_schema_<name>` (`control.extension`, tables, indexes, constraints, the `control` triggers, `sql`), master first; on `master` only, the users setup (root admin `admin` / `role: 1` with `config_is_root_user`, the password and delete logs, the two-factor clear). When `False`, only compares, and stops startup if the database differs (`script.postgres_schema_plan --apply` runs the changes).
 5. **In-Memory Cache Building**: Preloads read-mostly metadata to avoid database hits during request routing:
-   - `cache_postgres_schema`: Table and column definitions.
+   - `cache_postgres_schema_dict`: each database's tables and columns as they are in the database.
+   - `cache_postgres_table_rule`: each table's access lists, `read_blocked`, `write_blocked` and `ownership` from its schema (read by `func_object_access`); `cache_column_regex`: each column's `regex`; `cache_users_access`: the `config_users_*_column` lists.
    - `cache_config`: Key-value settings from the `config` database table.
    - `cache_users_role`, `cache_users_deactivated`, `cache_users_deleted`: Backs in-memory auth checks.
    - Write buffers: `buffer_postgres_create` and `buffer_postgres_log_api`.
 6. **Register on `app.state`**: All local `client_*`, `cache_*`, `buffer_*`, `config_*`, and `func_*` are bulk-mounted onto `app.state`, accessible in routes as `request.app.state.<name>`.
-7. **Periodic Tasks (`func_app_tasks_start`)**: Launches the buffer flush loop (`func_postgres_buffer_flush_periodic_task`, each database every `config_postgres_buffer_flush_auto_sec`, or its own `config_postgres_buffer_flush_auto_sec_<name>`), the scheduled-script loop when a `config_schedule_*` is on ([schedule.md](schedule.md); OTP and `log_api` retention run as `script/postgres_cleanup.py`), the webhook delivery loop when `config_webhook_is_active` is on ([webhook.md](webhook.md)), and in-memory cache cleanup; `func_app_tasks_stop` cancels them at shutdown.
+7. **Periodic Tasks (`func_app_tasks_start`)**: Launches the buffer flush loop (`func_postgres_buffer_flush_periodic_task`, each database every `config_postgres_buffer_flush_auto_sec`, or its own `config_postgres_buffer_flush_auto_sec_<name>`), the scheduled-script loop when a `config_schedule_*` is on ([schedule.md](schedule.md); each table's `control.retention_day` runs as `script/postgres_cleanup.py`), the webhook delivery loop when `config_webhook_is_active` is on ([webhook.md](webhook.md)), and in-memory cache cleanup; `func_app_tasks_stop` cancels them at shutdown.
 
 ### Shutdown Sequence:
 1. **Stop Tasks (`func_app_tasks_stop`)**: Cancels runtime background tasks and periodic flush loops with a 5-second graceful window.
@@ -132,9 +133,9 @@ Request
 
 ## 5. Router Design & Writing APIs
 
-Routers live in [`router/`](../router). Each file is auto-discovered and mounted at startup by `func_app_router_add`. Files load in the order set by `router_order` in `main.py` (`index → auth → my → public → private → permission → admin`).
+Routers live in [`router/`](../router). Each file is auto-discovered and mounted at startup by `func_app_router_add`. Files load in the order set by `router_order` in `main.py` (`index → auth → my → public → private → admin`).
 
-### The seven route groups
+### The six route groups
 
 Every Atom route belongs to one group, by its first path segment. The groups appear in this order everywhere: the files in `router/`, `router_order` in `main.py`, the sections of `config_api` in `config.py`, and these docs.
 
@@ -142,10 +143,10 @@ Every Atom route belongs to one group, by its first path segment. The groups app
 |---|---|---|---|---|
 | 1 | `index` (`/`, `/health`, `/info`, `/page/{name}`, `/static`, `/pgweb`) | Helpers: health, server info, pages, static files, API spec | No | `/pgweb` checks itself and is off unless `config_is_pgweb_enabled` |
 | 2 | `/auth/*` | The way in: signup and every login method | No | Rate limit |
-| 3 | `/my/*` | The user's own things: profile, own rows, messages, files, own account | Yes | Rows are limited to the user's own (ownership) |
-| 4 | `/public/*` | Anyone, no login: public tables, OTP, small tools | No | Tables whose schema lists `public` actions; rate limit on OTP and password-hash |
-| 5 | `/private/*` | Any logged-in user, any role: shared lists, counts, users, email, uploads | Yes | None beyond the token (tables whose schema lists `private` `read`) |
-| 6 | `/admin/*` | The backend admin: every table, users, SQL, imports, storage, monitor | Yes | The route's id in `users.permissions` on every Atom route (a project may use a role instead; startup refuses a route with neither); root holds every one, others are granted per route (Atom's sample: 6, SQL writes) |
+| 3 | `/my/*` | The user's own things: profile, own rows, messages, files, own account | Yes | Tables in `control.my_*`; rows limited to the user's own (`created_by_id`, or a column whose `ownership` lists the action) |
+| 4 | `/public/*` | Anyone, no login: public tables, OTP, small tools | No | Tables in `control.public_create` / `public_read`; rate limit on OTP and password-hash |
+| 5 | `/private/*` | Any logged-in user, any role: shared lists, counts, users, email, uploads | Yes | None beyond the token (tables in `control.private_read`) |
+| 6 | `/admin/*` | The backend admin: every table, users, SQL, imports, storage, monitor | Yes | The route's id in `users.permissions` on every Atom route (a project may use a role instead; startup refuses a route with neither); root holds every one, others are granted per route (e.g. 86 for SQL writes); reaches any table of the schema |
 
 A route with a role, permission, deactivated or deleted check needs a non-empty `auth` (startup refuses it otherwise). On every route with a credential Atom also refuses deactivated and deleted users (the global checks). A project adds its own group (`/<app>/*`, e.g. `/order/*`) in `config_extend.py` with its role, and permission where only some users may act. Before writing one, check whether one of Atom's routes already does it ([crud.md](crud.md#which-route-for-which-screen)).
 
@@ -205,15 +206,15 @@ oq = await app_state.func_request_param_read(
 - A plain `Exception` returns HTTP 400. When the status matters, raise `app_state.func_api_error(message="...", status_code=403)`; the body stays `{"status": 0, "message": ...}`. The middleware already returns 401 for missing, invalid, or expired tokens, 403 for role and account-status denials, 404 for disabled endpoints, 429 for rate limits, 500 for server misconfiguration, 409 for database deadlocks, 502 for failed external APIs, and 503 when Postgres or Redis is unreachable.
 
 ### Registering Route Policies (`config_api`):
-By default, any unlisted route is public. To require authentication, rate limiting, or caching, add an entry to `config_api` (or `config_extend.py`):
+Every route needs an entry in `config_api` (startup stops on a route without one); `"auth": []` makes it public. A project adds its entries in `config_extend.py` (`config_api = {**base_config_api, ...}`), with an `id` of 200 or more:
 ```python
-config_api["/my/report"] = {
+config_api = {**base_config_api, "/my/report": {
     "id": 210,
     "auth": ["jwt"],
     "is_connection_param": True,
     "rate_limit": {"mode": "inmemory", "limit": 100, "window_sec": 60},
     "cache": {"mode": "inmemory", "ttl_sec": 30, "is_per_user": True}
-}
+}}
 ```
 
 ## Developer extensions

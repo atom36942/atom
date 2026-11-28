@@ -25,7 +25,7 @@ class CrudTests(unittest.IsolatedAsyncioTestCase):
         self.schema = {"product": {name: {"datatype": dtype, "is_nullable": "NO" if name == "id" else "YES"} for name, dtype in
                        [("id", "bigint"), ("name", "text"), ("created_by_id", "bigint"), ("password", "text")]}}
         self.common = dict(client_postgres=self.pool, client_password_hasher=None, cache_postgres_schema=self.schema, table="product")
-        self.write_args = self.common | dict(client_postgres_conn=None, config_column_regex={})
+        self.write_args = self.common | dict(client_postgres_conn=None, column_regex={})
 
     async def create(self, **changes):
         return await func_postgres_create(**(self.write_args | dict(buffer_postgres={}, buffer_limit=10,
@@ -56,7 +56,7 @@ class CrudTests(unittest.IsolatedAsyncioTestCase):
     async def test_create_invalid_fields_and_regex_never_write(self):
         for changes, message in [({"obj_list": []}, "object list required"),
                                  ({"obj_list": [{"missing": 1}]}, "not found"),
-                                 ({"config_column_regex": {"name": ["^[0-9]+$", "invalid name"]}}, "invalid name")]:
+                                 ({"column_regex": {"name": ["^[0-9]+$", "invalid name"]}}, "invalid name")]:
             with self.subTest(changes=changes), self.assertRaisesRegex(Exception, message):
                 await self.create(**changes)
         self.conn.fetch.assert_not_awaited()
@@ -143,7 +143,7 @@ class CrudTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_trusted_create_skips_value_checks_but_not_identifier_checks(self):
         regex = {"name": ["^[0-9]+$", "invalid name"]}
-        self.assertEqual(await self.create(mode="buffer", is_trusted=True, config_column_regex=regex, obj_list=[{"name": "abc", "extra": 1}]), "buffered")
+        self.assertEqual(await self.create(mode="buffer", is_trusted=True, column_regex=regex, obj_list=[{"name": "abc", "extra": 1}]), "buffered")
         for changes, message in [({"obj_list": [{'bad"col': 1}]}, "invalid identifier"), ({"table": "bad;table"}, "invalid identifier"), ({"table": "spatial_ref_sys"}, "system table protected")]:
             with self.subTest(changes=changes), self.assertRaisesRegex(Exception, message):
                 await self.create(mode="now", is_trusted=True, **changes)
@@ -252,7 +252,7 @@ class CrudTests(unittest.IsolatedAsyncioTestCase):
         blocked = func_object_access(app_state=state, table="product", group="private", action="read")
         self.assertEqual(blocked, ["password", "name"])
         self.assertEqual(func_object_access(app_state=state, table="product", group="admin", action="read"), ["password"])
-        with self.assertRaisesRegex(Exception, "filtering on column 'name' is blocked"): await func_postgres_where_build(**self.common, filter=[{"name": "eq,x"}], config_column_read_blocked=blocked)
+        with self.assertRaisesRegex(Exception, "filtering on column 'name' is blocked"): await func_postgres_where_build(**self.common, filter=[{"name": "eq,x"}], read_blocked=blocked)
 
     async def test_update_includes_owner_in_query_and_returns_updated_ids(self):
         self.conn.fetch.return_value = [{"id": 3}]

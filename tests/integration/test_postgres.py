@@ -67,12 +67,12 @@ class PostgresIntegrationTests(unittest.IsolatedAsyncioTestCase):
     async def create(self, table, rows, mode="now", buffer=None):
         return await func_postgres_create(client_postgres=self.pool, client_postgres_conn=None, client_password_hasher=HASHER,
                                           cache_postgres_schema=self.schema, buffer_postgres={} if buffer is None else buffer,
-                                          config_column_regex={}, buffer_limit=10, mode=mode, table=table, obj_list=rows)
+                                          column_regex={}, buffer_limit=10, mode=mode, table=table, obj_list=rows)
 
     async def page(self, **changes):
         args = dict(client_postgres=self.pool, client_password_hasher=HASHER, cache_postgres_schema=self.schema,
                     config_sql_read_limit_max=1000, config_sql_read_relation_fetch_limit_max=100, table="test", filter=[],
-                    limit=100, order="id asc", column="*", relation=[], config_column_read_blocked=["password"])
+                    limit=100, order="id asc", column="*", relation=[], read_blocked=["password"])
         return await func_postgres_read(**(args | changes))
 
     async def read(self, **changes):
@@ -174,16 +174,16 @@ class PostgresIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_table_export_keeps_read_rules_in_any_order(self):
         await self.seed_tests()
-        lines = await self.csv_lines(await func_postgres_read_export(client_postgres=self.pool, client_password_hasher=HASHER, cache_postgres_schema=self.schema, config_export_limit=10, table="test", filter=["status != null"], order="title desc", column="id,title", config_column_read_blocked=["password"]))
+        lines = await self.csv_lines(await func_postgres_read_export(client_postgres=self.pool, client_password_hasher=HASHER, cache_postgres_schema=self.schema, config_export_limit=10, table="test", filter=["status != null"], order="title desc", column="id,title", read_blocked=["password"]))
         self.assertEqual([line[1] for line in lines], ["title", "beta", "alpha"])
-        lines = await self.csv_lines(await func_postgres_read_export(client_postgres=self.pool, client_password_hasher=HASHER, cache_postgres_schema=self.schema, config_export_limit=10, table="users", filter=[], order="id asc", column="*", config_column_read_blocked=["password"]))
+        lines = await self.csv_lines(await func_postgres_read_export(client_postgres=self.pool, client_password_hasher=HASHER, cache_postgres_schema=self.schema, config_export_limit=10, table="users", filter=[], order="id asc", column="*", read_blocked=["password"]))
         self.assertNotIn("password", lines[0])
         self.assertEqual(lines[1][lines[0].index("username")], "admin")
 
     async def test_update_and_delete_respect_ownership(self):
         alpha_id, beta_id, gamma_id = await self.seed_tests()
         update = lambda owner: func_postgres_update(client_postgres=self.pool, client_postgres_conn=None, client_password_hasher=HASHER,
-                                                    cache_postgres_schema=self.schema, config_column_regex={}, table="test",
+                                                    cache_postgres_schema=self.schema, column_regex={}, table="test",
                                                     obj_list=[{"id": gamma_id, "title": "renamed"}], created_by_id=owner)
         self.assertEqual(await update(1), [])
         self.assertEqual(await update(2), [gamma_id])
@@ -207,7 +207,7 @@ class PostgresIntegrationTests(unittest.IsolatedAsyncioTestCase):
         rows = [{"id": i, "title": f"new{n}"} for n, i in enumerate(ids)]
         rows[-1]["title"] = None    # violates title NOT NULL: the one UPDATE fails as a whole
         with self.assertRaises(asyncpg.NotNullViolationError):
-            await func_postgres_update(client_postgres=self.pool, client_postgres_conn=None, client_password_hasher=HASHER, cache_postgres_schema=self.schema, config_column_regex={}, table="test", obj_list=rows, created_by_id=1)
+            await func_postgres_update(client_postgres=self.pool, client_postgres_conn=None, client_password_hasher=HASHER, cache_postgres_schema=self.schema, column_regex={}, table="test", obj_list=rows, created_by_id=1)
         self.assertEqual(sorted(await self.titles(f"id in {','.join(map(str, ids))}")), sorted(f"t{i}" for i in range(10)))
         with self.assertRaisesRegex(asyncpg.RaiseError, "operation not allowed on users"):
             await func_postgres_delete(client_postgres=self.pool, client_postgres_conn=None, cache_postgres_schema=self.schema, table="users", ids=[1], created_by_id=None)
@@ -216,7 +216,7 @@ class PostgresIntegrationTests(unittest.IsolatedAsyncioTestCase):
     async def test_update_many_rows_keeps_each_value_and_type(self):
         ids = await self.create("test", [{"title": f"t{i}", "created_by_id": 1} for i in range(1500)])
         update = lambda rows: func_postgres_update(client_postgres=self.pool, client_postgres_conn=None, client_password_hasher=HASHER,
-                                                   cache_postgres_schema=self.schema, config_column_regex={}, table="test", obj_list=rows, created_by_id=1)
+                                                   cache_postgres_schema=self.schema, column_regex={}, table="test", obj_list=rows, created_by_id=1)
         rows = [{"id": str(i), "type": str(n % 3), "rating": "7.5" if n % 2 else None, "description": f"d{n}"} for n, i in enumerate(ids)]
         self.assertEqual(sorted(await update(rows)), sorted(ids))
         stored = {r["id"]: r for r in await self.pool.fetch('SELECT id, type, rating, description FROM test WHERE id = ANY($1::bigint[])', ids)}

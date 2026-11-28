@@ -45,11 +45,11 @@ Notifications live in the `notification` table, targeting `received_by_id` with 
 ### Managing Notifications:
 - **Create**: `POST /admin/object-create?table=notification`
 - **Fetch Unread**: `GET /my/object-read?table=notification&ownership_column=received_by_id&filter=["read_at is null"]`.
-- **Mark as Read**: The read request above automatically schedules `read_at` updates for fetched records on master, so reads can use a read replica (`?connection=replica`).
+- **Mark as Read**: The read request above schedules `read_at` updates for the fetched rows, after the response, on the same database the read used.
 - **Delete Selected**: `POST /my/object-delete?ownership_column=received_by_id` with JSON body `{"table": "notification", "ids": [1, 2]}`.
 - **Bulk Clear**: `DELETE /my/object-delete-all?table=notification&ownership_column=received_by_id`.
 
-They work because `received_by_id` has `"ownership": ["read", "delete"]` on `message` and `notification` in the schema; it is intentionally not update-approved.
+They work because `message` and `notification` are in `control.my_create`, `my_read`, `my_update`, `my_delete` and `my_delete_all` of `config_postgres_schema_master`, and `received_by_id` has `"ownership": ["read", "delete"]` on both; it is intentionally not listed for `update`, so `/my/object-update?ownership_column=received_by_id` is refused (403).
 
 ---
 

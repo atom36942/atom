@@ -72,7 +72,7 @@ Read-only insights for the backend's developers (role 1, the same login as every
 
 ## 2. Administrative APIs (`/admin/*`)
 
-Access to `/admin/*` requires an authenticated user with **`role: 1`** (root superadmin).
+Each `/admin/*` route is open only to users whose `users.permissions` (in master) hold that route's `config_api` id (`user_check_permission`); the root user (id 1) gets every admin id at each start, any other user only the ids granted with `/admin/user-update` ([auth-permission.md](auth-permission.md)). The admin object and table routes reach every table of the schema of the database they run on (`?connection=<name>`, default master), whatever its `control` access lists.
 
 ### 1. Raw SQL Query Runner (`POST /admin/postgres-query-runner-read`)
 Executes read SQL on master, or on another database with `?connection=<name>`:
@@ -83,7 +83,7 @@ POST /admin/postgres-query-runner-read?connection=replica1
 
 ### 2. Table Data Imports (`POST /admin/*-import`)
 Bulk import data from external systems into PostgreSQL:
-- **Postgres Import** (`/admin/postgres-import`): Import a CSV into any table, `users` included (form fields `mode` = `create`/`update`/`delete`, `table`, `file`; target database with `?connection=<name>`, default master). A `password` column in `users` is hashed (Argon2) on create and update.
+- **Postgres Import** (`/admin/postgres-import`): Import a CSV into any table of the schema, `users` included (form fields `mode` = `create`/`update`/`delete`, `table`, `file`; target database with `?connection=<name>`, default master), all in one transaction. `update` and `delete` need an `id` column. A CSV column that is an audit column or `write_blocked` for `admin` is refused (400); created rows get `created_by_id` and updated rows `updated_by_id` = the importing user, when the table has the column. A `password` column in `users` is hashed (Argon2) on create and update.
 - **MongoDB Import** (`/admin/mongodb-import`): Ingest BSON collections into structured relational tables.
 
 ### 3. Schema and Cache Refresh

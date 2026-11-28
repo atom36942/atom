@@ -55,7 +55,7 @@ class ConnectionWriteIntegrationTests(unittest.TestCase):
         state = self.app.state
         rows = [{"time": "2026-01-01T00:00:00+00:00", "device": "a1", "value": 1.5}]
         async def write(mode):
-            return await state.func_postgres_create(client_postgres=state.client_postgres_dict["telemetry"], client_postgres_conn=None, client_password_hasher=None, cache_postgres_schema=state.cache_postgres_schema_dict["telemetry"], buffer_postgres=state.buffer_postgres_create, config_column_regex={}, buffer_limit=100, mode=mode, table="reading", obj_list=rows, connection="telemetry", on_conflict="nothing")
+            return await state.func_postgres_create(client_postgres=state.client_postgres_dict["telemetry"], client_postgres_conn=None, client_password_hasher=None, cache_postgres_schema=state.cache_postgres_schema_dict["telemetry"], buffer_postgres=state.buffer_postgres_create, column_regex={}, buffer_limit=100, mode=mode, table="reading", obj_list=rows, connection="telemetry", on_conflict="nothing")
         async def run():
             self.assertEqual(await write("now"), "created")
             self.assertEqual(await write("now"), "created", "the same point again is skipped, not an error")

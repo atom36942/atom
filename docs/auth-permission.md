@@ -1,6 +1,6 @@
 # Permissions
 
-Which users may call a route, beyond their role. Part of [auth](auth.md).
+Which users may call a route, beyond their role. Part of [auth](auth.md). Permissions, like every user, live in the `master` database: one grant covers the route whichever database it reaches with `?connection=`.
 
 `users.permissions` (`smallint[]`, nullable) holds the route ids a user may call: each is a `config_api` route's `id`. `NULL` and `[]` grant none. One id is one route, nothing else: no table map, no actions.
 
@@ -13,7 +13,7 @@ A request passes these gates, in order, before the route runs. Role and permissi
 | 1 | Credential | `auth`: `["jwt"]` (access token), `["api_key"]` (API key) or both; `[]` is public | 401 |
 | 2 | Role: the user's role is in the list | `"user_check_role": {"mode": "token", "roles": [2]}` | 403 `access denied` |
 | 3 | Permission: the route's own `id` is in the user's `permissions` | `"user_check_permission": {"mode": "token"}` or `{"mode": "realtime"}` | 403 `permission denied` |
-| 4 | Table (admin object and table routes only): the table is in the schema of the request's database | `config_postgres_schema_<name>` ([control](config.md#control)) | 403 `admin read not allowed for table: x (not in config_postgres_schema_master)` |
+| 4 | Table (Atom's object and table-column routes, CSV import): `/public`, `/private`, `/my`: the table (and every joined table) is in the group's `control` list (`public_read`, `private_read`, `my_update`, ...); `/admin`: the table is in the schema of the request's database | `control` of `config_postgres_schema_<name>` ([control](config.md#control)) | 403 `my update not allowed for table: x (add "x" to control.my_update in config_postgres_schema_master)`; admin: `admin read not allowed for table: x (not in config_postgres_schema_master)` |
 
 ## Admin routes: one id each
 
@@ -24,7 +24,9 @@ Which to choose:
 | Route | Use |
 |---|---|
 | Read-only (`/admin/object-read`, `-read-export`, `/admin/monitor`, `/admin/table-column-*`, `/admin/postgres-info`, `-schema`) | A role is fine when a whole team should see the data |
-| Write (`/admin/user-*`, `/admin/object-create`, `-update`, `-delete`, the query runners, imports, storage) | Per-user ids only: a role opens the whole route to everyone in it, including people added later, and one person can't lose it without a role change. If a whole role needs a write, write a narrow project route (one table, the columns it needs, its own id) | A user may call an admin route when its id is in their `permissions`, whatever their role; a role 1 user without the ids is refused like anyone else.
+| Write (`/admin/user-*`, `/admin/object-create`, `-update`, `-delete`, the query runners, imports, storage) | Per-user ids only: a role opens the whole route to everyone in it, including people added later, and one person can't lose it without a role change. If a whole role needs a write, write a narrow project route (one table, the columns it needs, its own id) |
+
+A user may call an admin route when its id is in their `permissions`, whatever their role; a role 1 user without the ids is refused like anyone else.
 
 - **Root** (user id 1) holds every `/admin/*` route id, set at every start by `func_root_user_permissions_sync` (one `UPDATE`, only when they differ, also with schema init off): a new admin route reaches root without a grant, and an id that left goes at the next start. Root's next login carries the new ids. A project's other permission routes are never root's (a restart removes one granted by hand).
 - **Others** get an id by `PUT /admin/user-update {"id": <user>, "permissions": [66, 72]}`. Each permission id is labelled with its route's path, built from `config_api` (`/info` `int_mapping.master.users.permissions`: `66: "/admin/object-update"`), so an admin page lists them.
@@ -42,7 +44,7 @@ curl -X PUT "$BASE_URL/admin/object-update?table=task" -H "Authorization: Bearer
 curl -X POST "$BASE_URL/admin/object-delete" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"table": "task", "ids": [7]}'
 ```
 
-Which tier for which need: own rows only `/my/object-*` (no grant); every logged-in user reads `/private/object-read` (the table's `private`); selected users act on anyone's rows: the admin route's id (every table); a business rule (only some columns, a check across tables, a side effect): a project route with its own id.
+Which tier for which need: own rows only `/my/object-*` (no grant); every logged-in user reads `/private/object-read` (the table in `control.private_read`); selected users act on anyone's rows: the admin route's id (every table); a business rule (only some columns, a check across tables, a side effect): a project route with its own id.
 
 ## A project route
 

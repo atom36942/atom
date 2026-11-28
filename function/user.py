@@ -10,7 +10,7 @@ from .postgres_query import func_postgres_serialize
 from .validation import func_regex_check
 
 # function
-async def func_user_create(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, config_column_regex: dict, role: int, username: str, password: str, created_by_id: int = None, columns: dict | None = None, columns_blocked: list | None = None) -> int:
+async def func_user_create(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, column_regex: dict, role: int, username: str, password: str, created_by_id: int = None, columns: dict | None = None, columns_blocked: list | None = None) -> int:
     """Create a username + password user in one insert and return its id; columns adds other users columns (a project's own, profile fields).
     A column in columns_blocked (sign-up, login, verification, permission and system columns), id or deactivated_at is refused by name; an unknown column fails in serialization; values get the users column rules (regex, types) and the password is hashed.
     A taken username in that role fails as "username, role already exists"."""
@@ -20,7 +20,7 @@ async def func_user_create(*, client_postgres: asyncpg.Pool | None, client_passw
     columns = dict(columns or {})
     if refused := [c for c in columns if c in ("id", "role", "username", "password", "deactivated_at") or c in (columns_blocked or [])]: raise func_api_error(message=f"{', '.join(refused)} cannot be set when creating a user", status_code=400)
     obj = {**columns, "role": role, "username": username.strip(), "password": password, "created_by_id": created_by_id}
-    await func_regex_check(config_column_regex=config_column_regex, obj_list=[obj])
+    await func_regex_check(column_regex=column_regex, obj_list=[obj])
     row = (await func_postgres_serialize(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table="users", obj_list=[obj], is_base=True))[0]
     names = list(row)
     sql = f'INSERT INTO users ({", ".join(f'"{n}"' for n in names)}) VALUES ({", ".join(f"${i + 1}" for i in range(len(names)))}) RETURNING id;'  # noqa: S608 - names are users columns checked by serialization, values bound as $n
@@ -36,16 +36,16 @@ async def func_root_user_permissions_sync(*, client_postgres: asyncpg.Pool, conf
     result = await client_postgres.execute("UPDATE users SET permissions = $1::smallint[] WHERE id = 1 AND permissions IS DISTINCT FROM $1::smallint[]", permissions)
     return result != "UPDATE 0"
 
-async def func_user_update_check(*, client_postgres: asyncpg.Pool | None, obj: dict, is_admin: bool, actor_id: int | None = None, is_otp_required: bool, config_column_single_update: list, config_column_users_blocked: list, config_column_users_my_blocked: list, config_otp_expiry_sec: int, config_otp_static: int = None, config_otp_max_attempt: int = 5, config_permission_label: dict | None = None) -> dict:
-    """The columns of one user update after its rules: permissions a list of ids of routes with user_check_permission (config_permission_label: {id: path}), or null; config_column_users_blocked refused for everyone (deletion has its own API), config_column_users_my_blocked refused for the user's own update,
+async def func_user_update_check(*, client_postgres: asyncpg.Pool | None, obj: dict, is_admin: bool, actor_id: int | None = None, is_otp_required: bool, update_alone_column: list, write_blocked_all: list, write_blocked_my: list, config_otp_expiry_sec: int, config_otp_static: int = None, config_otp_max_attempt: int = 5, config_permission_label: dict | None = None) -> dict:
+    """The columns of one user update after its rules: permissions a list of ids of routes with user_check_permission (config_permission_label: {id: path}), or null; write_blocked_all refused for everyone (deletion has its own API), write_blocked_my refused for the user's own update,
     the caller's own role, permissions or deactivation refused (actor_id: another admin must change them), a single-update column (password, email, ...) sent alone, email or mobile verified with the otp sent to the new value when is_otp_required, email lowercased."""
     obj = dict(obj)
     otp, user_id = obj.pop("otp", None), obj.pop("id", None)
     if not obj: raise Exception("update field required")
-    if column := next((c for c in obj if c in (config_column_users_blocked or [])), None): raise Exception(f"{column} cannot be updated")
-    if not is_admin and (column := next((c for c in obj if c in (config_column_users_my_blocked or [])), None)): raise Exception(f"{column} can be updated only by an admin")
+    if column := next((c for c in obj if c in (write_blocked_all or [])), None): raise Exception(f"{column} cannot be updated")
+    if not is_admin and (column := next((c for c in obj if c in (write_blocked_my or [])), None)): raise Exception(f"{column} can be updated only by an admin")
     if obj.get("totp_enabled_at") is not None: raise Exception("totp_enabled_at can only be cleared (null), which turns the user's 2FA off; the user turns it on with /my/totp-setup")
-    if (column := next((c for c in obj if c in (config_column_single_update or [])), None)) and len(obj) > 1: raise Exception(f"{column} must be updated alone")
+    if (column := next((c for c in obj if c in (update_alone_column or [])), None)) and len(obj) > 1: raise Exception(f"{column} must be updated alone")
     if obj.get("permissions") is not None:
         permissions = obj["permissions"]
         if not isinstance(permissions, list) or any(isinstance(p, bool) or not isinstance(p, int) for p in permissions): raise Exception("permissions must be a list of route ids")
@@ -59,7 +59,7 @@ async def func_user_update_check(*, client_postgres: asyncpg.Pool | None, obj: d
         await func_otp_verify(client_postgres=client_postgres, otp=otp, email=obj.get("email"), mobile=obj.get("mobile"), config_otp_expiry_sec=config_otp_expiry_sec, config_otp_static=config_otp_static, config_otp_max_attempt=config_otp_max_attempt)
     return obj
 
-async def func_user_update(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, config_column_regex: dict, obj_list: list, updated_by_id: int, is_otp_required: bool, config_column_single_update: list, config_column_users_blocked: list, config_column_users_my_blocked: list, config_otp_expiry_sec: int, config_otp_static: int = None, config_otp_max_attempt: int = 5, config_permission_label: dict | None = None) -> list:
+async def func_user_update(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, column_regex: dict, obj_list: list, updated_by_id: int, is_otp_required: bool, update_alone_column: list, write_blocked_all: list, write_blocked_my: list, config_otp_expiry_sec: int, config_otp_static: int = None, config_otp_max_attempt: int = 5, config_permission_label: dict | None = None) -> list:
     """Admin update of one or more users ({id, ...columns} each, ids unique), each checked by func_user_update_check; returns the updated ids.
     Users changing the same columns share one UPDATE, all in one transaction: a missing id (404) or any failed rule writes nothing."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
@@ -72,12 +72,12 @@ async def func_user_update(*, client_postgres: asyncpg.Pool | None, client_passw
     if repeated := sorted({i for i in ids if ids.count(i) > 1}): raise Exception(f"id repeated: {repeated}")
     groups = {}
     for obj in obj_list:
-        values = await func_user_update_check(client_postgres=client_postgres, obj=obj, is_admin=True, actor_id=updated_by_id, is_otp_required=is_otp_required, config_column_single_update=config_column_single_update, config_column_users_blocked=config_column_users_blocked, config_column_users_my_blocked=config_column_users_my_blocked, config_otp_expiry_sec=config_otp_expiry_sec, config_otp_static=config_otp_static, config_otp_max_attempt=config_otp_max_attempt, config_permission_label=config_permission_label)
+        values = await func_user_update_check(client_postgres=client_postgres, obj=obj, is_admin=True, actor_id=updated_by_id, is_otp_required=is_otp_required, update_alone_column=update_alone_column, write_blocked_all=write_blocked_all, write_blocked_my=write_blocked_my, config_otp_expiry_sec=config_otp_expiry_sec, config_otp_static=config_otp_static, config_otp_max_attempt=config_otp_max_attempt, config_permission_label=config_permission_label)
         groups.setdefault(tuple(sorted(values)), []).append({**values, "id": obj["id"], "updated_by_id": updated_by_id})
     updated = []
     async with client_postgres.acquire() as connection, connection.transaction():
         for group in groups.values():
-            result = await func_postgres_update(client_postgres=None, client_postgres_conn=connection, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, config_column_regex=config_column_regex, table="users", obj_list=group, created_by_id=None)
+            result = await func_postgres_update(client_postgres=None, client_postgres_conn=connection, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, column_regex=column_regex, table="users", obj_list=group, created_by_id=None)
             updated.extend(result if isinstance(result, list) else [])
         if missing := sorted(set(ids) - set(updated)): raise func_api_error(message="user not found" if len(ids) == 1 else f"user not found: {missing}", status_code=404)
     return ids
@@ -106,17 +106,17 @@ async def func_user_soft_delete(*, client_postgres: asyncpg.Pool | None, user_id
     if result == "UPDATE 0": raise func_api_error(message="user not found" + (" or already deleted" if mode == "soft" else " or not deleted"), status_code=404)
     return "user soft deleted" if mode == "soft" else "user restored"
 
-async def func_user_password_set(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, config_column_regex: dict, role: int, email: str | None, mobile: str | None, otp: int, password: str, config_otp_expiry_sec: int, config_otp_static: int = None, config_otp_max_attempt: int = 5) -> str:
+async def func_user_password_set(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, column_regex: dict, role: int, email: str | None, mobile: str | None, otp: int, password: str, config_otp_expiry_sec: int, config_otp_static: int = None, config_otp_max_attempt: int = 5) -> str:
     """Forgot password, and an invited user's first password: the code sent to the email or mobile (/public/otp-send-email or -mobile) proves the person owns it, then the user of that email or mobile and role gets the new password (password rules, hashed, logged in log_users_password).
     The code is checked before the account, so without it nothing tells whether an account exists. Role 1 is refused: the root user's password is config_root_user_password. A deleted or deactivated user is refused as at login."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     if role == 1: raise func_api_error(message="password set not allowed for role 1", status_code=403)
     if bool(email) == bool(mobile): raise Exception("provide one of email or mobile")
-    await func_regex_check(config_column_regex=config_column_regex, obj_list=[{"password": password}])
+    await func_regex_check(column_regex=column_regex, obj_list=[{"password": password}])
     await func_otp_verify(client_postgres=client_postgres, otp=otp, email=email, mobile=mobile, config_otp_expiry_sec=config_otp_expiry_sec, config_otp_static=config_otp_static, config_otp_max_attempt=config_otp_max_attempt)
     async with client_postgres.acquire() as conn:
         user = await func_auth_user_login_fetch(conn=conn, field="email" if email else "mobile", value=(email or mobile).strip(), role=role, is_missing_ok=True)
     if not user: raise func_api_error(message=f"no account with this {'email' if email else 'mobile'} for role {role}", status_code=404)
     func_auth_check_user_active(user=user)
-    await func_postgres_update(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, config_column_regex=config_column_regex, table="users", obj_list=[{"id": user["id"], "password": password, "updated_by_id": user["id"]}], created_by_id=None, client_postgres_conn=None)
+    await func_postgres_update(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, column_regex=column_regex, table="users", obj_list=[{"id": user["id"], "password": password, "updated_by_id": user["id"]}], created_by_id=None, client_postgres_conn=None)
     return "password set"

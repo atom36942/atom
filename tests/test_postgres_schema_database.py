@@ -6,6 +6,8 @@ import config
 from function import func_check_postgres_schema
 from function import func_check_table_access
 from function import func_buffer_limit
+from function import func_check_connection_master
+from function import func_postgres_rule_database
 from function import func_postgres_schema_users_init
 from function import func_object_access
 from function import func_postgres_ownership_column_dict
@@ -203,6 +205,15 @@ class TableRuleTests(unittest.TestCase):
         self.assertEqual({table: rule["read_blocked"]["admin"] for table, rule in rules.items() if rule["read_blocked"]["admin"]}, {"users": ["password", "totp_secret", "totp_recovery"], "api_key": ["key_hash"], "webhook": ["secret"]})
         self.assertEqual((rules["message"]["ownership"]["delete"], rules["log_users_delete"]["ownership"]["read"]), (["created_by_id", "received_by_id"], ["created_by_id", "user_id"]))
 
+    def test_a_database_without_its_own_schema_follows_master(self):
+        state = SimpleNamespace(cache_postgres_table_rule=func_postgres_table_rule_dict(schemas={"master": {"table": {"task": {"column": self.COLUMNS}}, "control": {"my_read": ["task"], "buffer_limit": {"task": 500}}}, "logs": {"table": {"event": {"column": self.COLUMNS}}}}))
+        func_check_table_access(app_state=state, connection="replica1", table="task", group="my", action="read")    # replica1: only a config_postgres_url_replica1, so master's rules
+        self.assertEqual((func_postgres_rule_database(app_state=state, connection="replica1"), func_postgres_rule_database(app_state=state, connection="logs"), func_postgres_rule_database(app_state=state)), ("master", "logs", "master"))
+        self.assertEqual(func_buffer_limit(app_state=state, table="task", connection="replica1"), 500)
+        func_check_connection_master(app_state=state, connection="replica1")
+        with self.assertRaisesRegex(Exception, "users live in master") as raised: func_check_connection_master(app_state=state, connection="logs")
+        self.assertEqual(raised.exception.status_code, 400)
+
 
 class RoutesNeedingIdTests(unittest.IsolatedAsyncioTestCase):
     SCHEMA = {"reading": {"time": {"datatype": "timestamp with time zone"}, "device": {"datatype": "text"}, "value": {"datatype": "double precision"}}}
@@ -215,7 +226,7 @@ class RoutesNeedingIdTests(unittest.IsolatedAsyncioTestCase):
     async def test_update_and_delete_need_id(self):
         pool, conn = database()
         with self.assertRaisesRegex(Exception, "table 'reading' has no id: update needs one") as raised:
-            await func_postgres_update(client_postgres=pool, client_postgres_conn=None, client_password_hasher=None, cache_postgres_schema=self.SCHEMA, config_column_regex={}, table="reading", obj_list=[{"value": 1.0}], created_by_id=None)
+            await func_postgres_update(client_postgres=pool, client_postgres_conn=None, client_password_hasher=None, cache_postgres_schema=self.SCHEMA, column_regex={}, table="reading", obj_list=[{"value": 1.0}], created_by_id=None)
         self.assertEqual(raised.exception.status_code, 400)
         with self.assertRaisesRegex(Exception, "table 'reading' has no id: delete needs one"):
             await func_postgres_delete(client_postgres=pool, client_postgres_conn=None, cache_postgres_schema=self.SCHEMA, table="reading", ids=[1], created_by_id=None)
