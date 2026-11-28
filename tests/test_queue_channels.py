@@ -44,6 +44,13 @@ class QueueChannelDispatchTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(update.await_args.kwargs["column_regex"], {"title": ["^.{1,9}$", "short title"]}, "the job's table's format rules")
 
 
+class QueueValueTests(unittest.TestCase):
+    def test_postgres_is_not_a_queue_value_on_the_object_routes(self):
+        """A single create or update queued on Postgres only adds writes: ?queue= takes the brokers, the Postgres queue is for a project's own jobs."""
+        import config
+        self.assertNotIn("postgres", config.config_queue_services)
+
+
 if __name__ == "__main__":
     unittest.main()
 

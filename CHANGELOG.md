@@ -4,6 +4,12 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [29.0.0] - 2026-11-28
+
+**Upgrade (projects must change):** `?queue=postgres` is gone from `/my/object-create` and `/my/object-update`, and so is `script.consumer_postgres`. A single create or update queued on Postgres wrote a job row, then the row, then deleted the job: write it in the request instead (drop `queue=postgres`). The other `?queue=` values (`redis`, `rabbitmq`, `kafka`, `celery`) are unchanged. A project that doesn't send `queue=postgres` changes nothing.
+
+- The Postgres queue stays for work that is slow or must not be lost: a project's own route sends the job (`func_producer(queue="postgres", ...)`) and its own consumer in `script_extend/` runs it (`func_run_broker`); webhooks keep using it.
+
 ## [28.0.0] - 2026-11-28
 
 **Upgrade (projects must change):** the AWS and Azure messaging clients are async, and `boto3` is gone.

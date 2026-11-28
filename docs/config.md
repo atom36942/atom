@@ -280,7 +280,7 @@ Which routes may use a table is in its schema's `control` access lists ([control
 
 | Key | Usage |
 |---|---|
-| `config_queue_services` | Registered background queue providers (`postgres`, the default, `redis`, `rabbitmq`, `kafka`, `celery`) |
+| `config_queue_services` | Brokers `?queue=` accepts on `/my/object-create` and `-update` (`redis`, `rabbitmq`, `kafka`, `celery`); the Postgres queue is used from a project's own route, never by `?queue=` |
 | `config_queue_concurrency` | Jobs a consumer runs at once (default 10) |
 | `config_queue_retry_max` | Retries of a failed job before it is kept (Postgres: `status` 2 in `queue_job`; brokers: `<channel>_failed`) (default 3) |
 | `config_queue_retry_wait_sec` | Wait before the first retry, doubled each time: 2, 4, 8 s (default 2) |

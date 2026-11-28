@@ -68,7 +68,7 @@ Defaults:
 - Paths `/<feature>/<thing>-<verb>`; use Atom's generic routes (`/private/object-read`, `/my/object-*`, and the admin object routes granted by id for selected users' create, read, update, delete on the tables in `admin_*`) before writing one ([auth-permission.md](docs/auth-permission.md#admin-routes-one-id-each)).
 - Roles: 1 is Atom's admin; a project's users start at 2, each new kind takes the next number.
 - Scripts: `# type`, `# command`, `# info`, then `# import`, `# config`, `# setting`, `# logic`, `# main` ([backend.md](docs/backend.md#scripts)).
-- Postgres is the base: background work that must not be lost goes on Atom's Postgres queue (`?queue=postgres`, `script.consumer_postgres`); Redis, RabbitMQ, Kafka or Celery only when Postgres can't keep up ([queue.md](docs/queue.md)).
+- Postgres is the base: background work that must not be lost goes on Atom's Postgres queue (`func_producer(queue="postgres")` from the project's own route, run by its own `script_extend/consumer_<feature>` through `func_run_broker`); Redis, RabbitMQ, Kafka or Celery only when Postgres can't keep up ([queue.md](docs/queue.md)).
 
 ## Front end ([frontend.md](docs/frontend.md))
 Atom is a backend: a page's look, layout, words and build are the project's own (a family of apps keeps its shared look in its `docs_extend/`). Atom sets only how a page works with it.

@@ -10,7 +10,7 @@ Postgres is the default; the other brokers are optional and configured via `.env
 
 | Broker | Configuration Key | Runtime Client | Use Case |
 | :--- | :--- | :--- | :--- |
-| **Postgres** (default) | `config_postgres_url_master` | `client_postgres_dict["master"]` | Every project: jobs in table `queue_job`, no other service; up to a few hundred jobs a second. |
+| **Postgres** (default) | `config_postgres_url_master` | `client_postgres_dict["master"]` | Every project: jobs in table `queue_job`, no other service; up to a few hundred jobs a second. Sent from the project's own route (`func_producer(queue="postgres", ...)`) and run by its own consumer (`func_run_broker`); webhooks use it too. Not a `?queue=` value. |
 | **Redis Streams** | `config_redis_url_queue` | `client_redis_dict["queue"]` | High throughput, lightweight streaming. |
 | **RabbitMQ** | `config_rabbitmq_url` | `client_rabbitmq_channel` | Traditional AMQP message queuing with ACKs. |
 | **Apache Kafka** | `config_kafka_url` | `client_kafka_producer` | Partitioned distributed log streaming. |
@@ -23,7 +23,7 @@ Postgres is the default; the other brokers are optional and configured via `.env
 Any API request can offload heavy processing to a background queue using the `queue` query parameter on generic create/update endpoints:
 
 ```bash
-POST /my/object-create?table=reports&queue=postgres
+POST /my/object-create?table=reports&queue=redis
 {
   "title": "Quarterly Analytics",
   "parameters": {"year": 2026, "quarter": 1}
@@ -31,9 +31,9 @@ POST /my/object-create?table=reports&queue=postgres
 ```
 
 When `queue` is provided:
-1. Atom validates the backend against `config_queue_services` (`["postgres", "redis", "rabbitmq", "kafka", "celery"]`).
+1. Atom validates the backend against `config_queue_services` (`["redis", "rabbitmq", "kafka", "celery"]`). `postgres` is not one: a single create or update is written in the request, since queuing it on Postgres only adds writes.
 2. `func_producer` serializes the payload and pushes it to the designated broker channel.
-3. The API responds at once; with `queue=postgres` the message is the new `queue_job` id.
+3. The API responds at once.
 
 ### App-Process Background Tasks (`?is_background=true`):
 For lighter asynchronous tasks that don't need external queue broker infrastructure, append `?is_background=true` to any request. The middleware returns `202 added in background` at once and runs the route in an in-process task (tracked, and cancelled at shutdown). Errors are printed as `❌ background api error: ...`; nothing is retried, so use a queue for work that must not be lost.
@@ -45,7 +45,7 @@ For lighter asynchronous tasks that don't need external queue broker infrastruct
 Standalone consumer scripts reside in [`script/`](../script). They run as independent OS processes outside of the web server.
 
 ### Built-in Consumers:
-Atom's `script/` has one consumer per broker: `consumer_postgres`, `consumer_redis`, `consumer_rabbitmq`, `consumer_kafka`, `consumer_celery`. Each reads only its own broker's `.env` keys plus the `config_postgres_url_<name>` databases, and takes the channel to listen on from the command. A job sent by a request on another database (`?connection=` on a flagged route) carries that database's name in its payload (`connection`); the consumer opens that database's pool on its first such job and writes there.
+Atom's `script/` has one consumer per broker: `consumer_redis`, `consumer_rabbitmq`, `consumer_kafka`, `consumer_celery`. Each reads only its own broker's `.env` keys plus the `config_postgres_url_<name>` databases, and takes the channel to listen on from the command. A job sent by a request on another database (`?connection=` on a flagged route) carries that database's name in its payload (`connection`); the consumer opens that database's pool on its first such job and writes there.
 
 ### Channels:
 `func_consumer_channels` (`function/queues.py`) is the only place a channel name maps to the function that handles it. Channel names start with `channel_` and say what the message does:
@@ -92,7 +92,7 @@ A job counts as done only after its function returns. A job that raises is retri
 - Postgres: any number of consumers may run one channel at once (`SKIP LOCKED` gives each job to one of them). A new job wakes them at once (`pg_notify('atom_queue_job', <channel>)`, sent when the insert commits); without it they look every second. A consumer killed mid-job loses its connection, its transaction rolls back and the job is waiting again, so nothing is stuck. The lock is held for the whole job, so a server `idle_in_transaction_session_timeout` shorter than the longest job makes it run again. Send a failed job again with `UPDATE queue_job SET status = 1, attempt = 0, run_at = now() WHERE id = <id>`; delete it to drop it.
 
 ### Running a Consumer:
-One process per broker and channel, for example `venv/bin/python -m script.consumer_postgres channel_object_create`. The `# command` lines at the top of each consumer list its channels; the API call's `queue` must match the script's broker.
+One process per broker and channel, for example `venv/bin/python -m script.consumer_redis channel_object_create`. The `# command` lines at the top of each consumer list its channels; the API call's `queue` must match the script's broker.
 
 ---
 

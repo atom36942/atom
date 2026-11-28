@@ -117,7 +117,7 @@ config_is_profile_update_last_active_at = True
 config_profile_metadata_sql = {}
 
 # queue
-config_queue_services = ["postgres", "redis", "rabbitmq", "kafka", "celery"]
+config_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
 config_queue_concurrency = 10
 config_queue_retry_max = 3
 config_queue_retry_wait_sec = 2
