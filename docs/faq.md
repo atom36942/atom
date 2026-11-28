@@ -391,7 +391,9 @@ Use it after an out-of-band database or configuration-table change when Atom's c
 <details>
 <summary><strong>How do I keep my own clients or data on app.state?</strong></summary>
 
-Define `func_extend` in `function_extend/`. Atom calls it once at startup, after its own clients are ready, and stores whatever it returns in `app.state.extend`. Routes read it as `request.app.state.extend`. See [startup and shutdown hooks](extend.md#startup-and-shutdown-func_extend). Restart the app to rebuild it.
+A client Atom doesn't have (any SDK or connection): return it from `func_extend_client` in `function_extend/` as `{"client_<name>": (open, close)}`; Atom opens and closes it with its own, and it is `app_state.client_<name>`. See [project clients](extend.md#project-clients-func_extend_client).
+
+Other data loaded once: define `func_extend` in `function_extend/`. Atom calls it once at startup, after its own clients are ready, and stores whatever it returns in `app.state.extend`. Routes read it as `request.app.state.extend`. See [startup and shutdown hooks](extend.md#startup-and-shutdown-func_extend). Restart the app to rebuild it.
 
 </details>
 

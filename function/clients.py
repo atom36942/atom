@@ -1,7 +1,7 @@
 # import
 import asyncio
 from contextlib import asynccontextmanager
-from contextlib import suppress
+import inspect
 import asyncpg
 from asyncpg.pool import Pool
 from asyncpg.pool import PoolConnectionProxy
@@ -24,11 +24,29 @@ def func_client_pool_size(*, app_state: State, db: str, name: str) -> dict:
     """{"min_size", "max_size"} of one database's pool: config_<db>_pool_min_size_<name> / config_<db>_pool_max_size_<name> when set, else the shared config_<db>_pool_min_size / config_<db>_pool_max_size. db: postgres or mssql."""
     return {f"{size}_size": int(getattr(app_state, f"config_{db}_pool_{size}_size_{name}", None) or getattr(app_state, f"config_{db}_pool_{size}_size")) for size in ("min", "max")}
 
-async def func_client_dict_open(*, client_dict: dict, url_dict: dict, client_open) -> dict:
-    """Open one client per named URL into client_dict, one at a time (client_open(name=, url=)): when one fails, client_dict already holds the ones opened before it, so the caller can close them."""
-    for name, url in (url_dict or {}).items():
-        if url: client_dict[name] = await client_open(name=name, url=url)
-    return client_dict
+async def func_client_dict_open(*, url_dict: dict, client_open, client_close) -> dict:
+    """Open one client per named URL at once (client_open(name=, url=)), skipping empty URLs; returns name -> client. When one fails, or startup is cancelled, the ones that opened are closed (client_close(client)) and the error is raised, so nothing is left open."""
+    names = [name for name, url in (url_dict or {}).items() if url]
+    tasks = [asyncio.ensure_future(client_open(name=name, url=url_dict[name])) for name in names]
+    def opened(): return {name: task.result() for name, task in zip(names, tasks, strict=True) if task.done() and not task.cancelled() and task.exception() is None}
+    try: await asyncio.gather(*tasks, return_exceptions=True)
+    except BaseException:
+        for task in tasks: task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        await func_client_dict_close(clients=opened(), client_close=client_close)
+        raise
+    if errors := [task.exception() for task in tasks if task.exception() is not None]:
+        await func_client_dict_close(clients=opened(), client_close=client_close)
+        raise errors[0]
+    return opened()
+
+async def func_client_dict_close(*, clients: dict, client_close) -> None:
+    """Close every client of a named dict (client_close(client), sync or async); one failing is printed and the others still close."""
+    for name, client in (clients or {}).items():
+        try:
+            result = client_close(client)
+            if inspect.isawaitable(result): await result
+        except Exception as e: print(f"❌ close {name}: {e}")
 
 class _FairPool(Pool):
     """asyncpg pool that hands connections to waiting requests in the order they asked: a request first takes a place at a first-come-first-served gate (asyncio.Semaphore, one place per connection), so a request that just arrived never takes a freed connection ahead of one already waiting. Without it, a connection released without a reset query goes back so fast that new requests overtake waiting ones: about the same throughput, but a slow tail (p95 at 50 users on 10 connections: 46 vs 18 ms; at 200 users: 242 vs 91 ms)."""
@@ -166,12 +184,6 @@ def func_client_anthropic(*, api_key: str):
     import anthropic
     return anthropic.AsyncAnthropic(api_key=api_key)
 
-def func_client_posthog(*, project_key: str, host: str):
-    """Initialize PostHog client."""
-    if not project_key: return None
-    from posthog import Posthog
-    return Posthog(project_key, host=host)
-
 def func_client_celery(*, url: str):
     """Initialize Celery producer client."""
     if not url: return None
@@ -191,7 +203,10 @@ async def func_client_rabbitmq(*, url: str):
     if not url: return None, None
     import aio_pika
     connection = await aio_pika.connect_robust(url)
-    channel = await connection.channel()
+    try: channel = await connection.channel()
+    except BaseException:
+        await connection.close()
+        raise
     return connection, channel
 
 async def func_client_sftp(*, host: str, port: int, username: str, password: str, known_hosts_path: str | None = None, is_host_verify: bool = True):
@@ -219,92 +234,103 @@ def func_client_azure_blob(*, account_name: str, account_key: str):
     from azure.storage.blob.aio import BlobServiceClient
     return BlobServiceClient.from_connection_string(f"DefaultEndpointsProtocol=https;AccountName={account_name};AccountKey={account_key};EndpointSuffix=core.windows.net")
 
-def func_client_msgraph(*, tenant_id: str, client_id: str, client_secret: str, scopes: list = None):
-    """Initialize Microsoft Graph ServiceClient (Flow 1: Client Credentials)."""
-    if not (tenant_id and client_id and client_secret): return None
-    from azure.identity import ClientSecretCredential
-    from msgraph import GraphServiceClient
-    credential = ClientSecretCredential(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret)
-    scopes = scopes or ["https://graph.microsoft.com/.default"]
-    return GraphServiceClient(credentials=credential, scopes=scopes)
+async def func_rabbitmq_close(*, connection, channel) -> None:
+    """Close the RabbitMQ producer channel, then its connection."""
+    if channel is not None and not getattr(channel, "is_closed", True): await channel.close()
+    if connection is not None and not getattr(connection, "is_closed", True): await connection.close()
 
-async def func_client_close(*, app_state: State = None, clients: dict = None) -> None:
-    """Safely disconnect and close all active database, storage, messaging, and AI clients."""
-    c = {}
-    if app_state: c = {k: v for k, v in (getattr(app_state, "_state", None) or vars(app_state)).items() if k.startswith("client_")}    # Starlette's State keeps its values in _state, which dir() doesn't list
-    elif isinstance(clients, dict): c = clients.copy()
-    client_http = c.get("client_http")
-    if client_http:
-        with suppress(Exception): await client_http.aclose()
-    client_postgres_dict = c.get("client_postgres_dict") or {}
-    for client_postgres_item in client_postgres_dict.values():
-        if client_postgres_item:
-            with suppress(Exception): await client_postgres_item.close()
-    client_postgres_pgweb = c.get("client_postgres_pgweb") or {}
-    for client_postgres_session in client_postgres_pgweb.values():
-        if client_postgres_session:
-            with suppress(Exception): await client_postgres_session.close()
-    for r_client in (c.get("client_redis_dict") or {}).values():
-        if r_client:
-            with suppress(Exception): await r_client.aclose()
-    client_mongodb = c.get("client_mongodb")
-    if client_mongodb:
-        with suppress(Exception): client_mongodb.close()
-    for client_mssql in (c.get("client_mssql_dict") or {}).values():
-        if client_mssql:
-            with suppress(Exception):
-                client_mssql.close()
-                await client_mssql.wait_closed()
-    for client_clickhouse in (c.get("client_clickhouse_dict") or {}).values():
-        if client_clickhouse:
-            with suppress(Exception): await client_clickhouse.close()
-    client_s3 = c.get("client_s3")
-    if client_s3:
-        s3_ctx = getattr(client_s3, "_context", None)
-        if s3_ctx:
-            with suppress(Exception): await s3_ctx.__aexit__(None, None, None)
-    client_s3_resource = c.get("client_s3_resource")
-    if client_s3_resource and hasattr(client_s3_resource.meta.client, "close"):
-        with suppress(Exception): client_s3_resource.meta.client.close()
-    for boto_key in ("client_sns", "client_ses"):
-        b_client = c.get(boto_key)
-        if b_client and hasattr(b_client, "close"):
-            with suppress(Exception): b_client.close()
-    for ai_key in ("client_openai", "client_gemini"):
-        ai_client = c.get(ai_key)
-        if ai_client and hasattr(ai_client, "close"):
-            with suppress(Exception): ai_client.close()
-    client_anthropic = c.get("client_anthropic")
-    if client_anthropic:
-        with suppress(Exception): await client_anthropic.close()
-    client_posthog = c.get("client_posthog")
-    if client_posthog:
-        with suppress(Exception):
-            client_posthog.shutdown()
-            client_posthog.flush()
-    client_celery = c.get("client_celery_producer")
-    if client_celery and hasattr(client_celery, "close"):
-        with suppress(Exception): client_celery.close()
-    client_kafka = c.get("client_kafka_producer")
-    if client_kafka:
-        with suppress(Exception): await client_kafka.stop()
-    client_rabbitmq_producer = c.get("client_rabbitmq_producer")
-    if client_rabbitmq_producer and not getattr(client_rabbitmq_producer, "is_closed", True):
-        with suppress(Exception): await client_rabbitmq_producer.close()
-    client_rabbitmq = c.get("client_rabbitmq")
-    if client_rabbitmq and not getattr(client_rabbitmq, "is_closed", True):
-        with suppress(Exception): await client_rabbitmq.close()
-    client_sftp = c.get("client_sftp")
-    if client_sftp:
-        with suppress(Exception):
-            client_sftp.close()
-            await client_sftp.wait_closed()
-    client_azure_email = c.get("client_azure_email")
-    if client_azure_email and hasattr(client_azure_email, "close"):
-        with suppress(Exception): client_azure_email.close()
-    client_azure_sms = c.get("client_azure_sms")
-    if client_azure_sms and hasattr(client_azure_sms, "close"):
-        with suppress(Exception): client_azure_sms.close()
-    client_azure_blob = c.get("client_azure_blob")
-    if client_azure_blob:
-        with suppress(Exception): await client_azure_blob.close()
+async def func_mssql_close(*, client) -> None:
+    """Close an aioodbc pool and wait for its connections to close."""
+    client.close()
+    await client.wait_closed()
+
+async def func_sftp_close(*, client) -> None:
+    """Close an asyncssh connection and wait for it to close."""
+    client.close()
+    await client.wait_closed()
+
+def func_client_sync_close(*, client) -> None:
+    """Close a client whose close() is optional and sync (boto3, OpenAI, Gemini, Celery, Azure email and SMS)."""
+    if hasattr(client, "close"): client.close()
+
+def func_client_registry(*, app_state: State) -> dict:
+    """Atom's clients: name -> (open, close). open() returns the client, or None when its settings are empty (its SDK is then never imported); close(client) may be sync or async, None when there is nothing to close. Each client is defined here once: startup opens them all at once, shutdown and a failed startup close them."""
+    s = app_state
+    aws = {"aws_access_key_id": s.config_aws_access_key_id, "aws_secret_access_key": s.config_aws_secret_access_key}
+    redis_key_prefix = func_redis_key_prefix(postgres_url=getattr(s, "config_postgres_url_master", None) or (s.config_postgres_url_dict or {}).get("master"))    # the master database name: apps sharing one Redis keep apart
+    rabbitmq = {}    # the connection behind the producer channel, closed with it
+    async def rabbitmq_open():
+        connection, channel = await func_client_rabbitmq(url=s.config_rabbitmq_url)
+        rabbitmq["connection"] = connection
+        return channel
+    return {
+        "client_password_hasher": (lambda: func_client_password_hasher(), None),
+        "client_http": (lambda: func_client_http(), lambda c: c.aclose()),
+        # pool sizes per database: config_<db>_pool_min_size_<name> / config_<db>_pool_max_size_<name> when set, else the shared config_<db>_pool_min_size / config_<db>_pool_max_size
+        "client_postgres_dict": (lambda: func_client_dict_open(url_dict=s.config_postgres_url_dict, client_open=lambda name, url: func_client_postgres(dsn=url, **func_client_pool_size(app_state=s, db="postgres", name=name), is_read_only=s.config_is_read_only, query_timeout_sec=s.config_postgres_query_timeout_sec), client_close=lambda c: c.close()), lambda d: func_client_dict_close(clients=d, client_close=lambda c: c.close())),
+        "client_postgres_pgweb": (lambda: {}, lambda d: func_client_dict_close(clients=d, client_close=lambda c: c.close())),    # pgweb sessions, opened on demand
+        "client_redis_dict": (lambda: {name: func_client_redis(url=url, key_prefix=redis_key_prefix) for name, url in (s.config_redis_url_dict or {}).items() if url}, lambda d: func_client_dict_close(clients=d, client_close=lambda c: c.aclose())),
+        "client_mssql_dict": (lambda: func_client_dict_open(url_dict=s.config_mssql_url_dict, client_open=lambda name, url: func_client_mssql(dsn=url, **func_client_pool_size(app_state=s, db="mssql", name=name), recycle_sec=s.config_mssql_pool_recycle_sec), client_close=lambda c: func_mssql_close(client=c)), lambda d: func_client_dict_close(clients=d, client_close=lambda c: func_mssql_close(client=c))),
+        "client_clickhouse_dict": (lambda: func_client_dict_open(url_dict=s.config_clickhouse_url_dict, client_open=lambda name, url: func_client_clickhouse(dsn=url), client_close=lambda c: c.close()), lambda d: func_client_dict_close(clients=d, client_close=lambda c: c.close())),
+        "client_mongodb": (lambda: func_client_mongodb(url=s.config_mongodb_url), lambda c: c.close()),
+        "client_s3": (lambda: func_client_s3(region_name=s.config_aws_s3_region_name, **aws), lambda c: c._context.__aexit__(None, None, None)),
+        "client_s3_resource": (lambda: func_client_s3_resource(region_name=s.config_aws_s3_region_name, **aws), lambda c: c.meta.client.close()),
+        "client_sns": (lambda: func_client_sns(region_name=s.config_aws_sns_region_name, **aws), lambda c: func_client_sync_close(client=c)),
+        "client_ses": (lambda: func_client_ses(region_name=s.config_aws_ses_region_name, **aws), lambda c: func_client_sync_close(client=c)),
+        "client_openai": (lambda: func_client_openai(api_key=s.config_openai_key), lambda c: func_client_sync_close(client=c)),
+        "client_gemini": (lambda: func_client_gemini(api_key=s.config_gemini_key), lambda c: func_client_sync_close(client=c)),
+        "client_anthropic": (lambda: func_client_anthropic(api_key=s.config_anthropic_key), lambda c: c.close()),
+        "client_celery_producer": (lambda: func_client_celery(url=s.config_celery_url), lambda c: func_client_sync_close(client=c)),
+        "client_kafka_producer": (lambda: func_client_kafka(url=s.config_kafka_url, username=s.config_kafka_username, password=s.config_kafka_password), lambda c: c.stop()),
+        "client_rabbitmq_producer": (rabbitmq_open, lambda c: func_rabbitmq_close(connection=rabbitmq.get("connection"), channel=c)),
+        "client_sftp": (lambda: func_client_sftp(host=s.config_sftp_host, port=s.config_sftp_port, username=s.config_sftp_username, password=s.config_sftp_password, known_hosts_path=s.config_sftp_known_hosts_path, is_host_verify=s.config_sftp_is_host_verify), lambda c: func_sftp_close(client=c)),
+        "client_azure_email": (lambda: func_client_azure_email(connection_string=s.config_azure_email_connection_string), lambda c: func_client_sync_close(client=c)),
+        "client_azure_sms": (lambda: func_client_azure_sms(connection_string=s.config_azure_sms_connection_string), lambda c: func_client_sync_close(client=c)),
+        "client_azure_blob": (lambda: func_client_azure_blob(account_name=s.config_azure_account_name, account_key=s.config_azure_account_key), lambda c: c.close()),
+    }
+
+def func_client_registry_build(*, app_state: State) -> dict:
+    """Atom's registry plus the project's: the optional func_extend_client(*, app_state) in function_extend/ returns more entries in the same shape (name -> (open, close)). A project name must start with client_ and not be one of Atom's."""
+    registry = func_client_registry(app_state=app_state)
+    extend_client = getattr(app_state, "func_extend_client", None)
+    if extend_client is None: return registry
+    extend = extend_client(app_state=app_state)
+    if not isinstance(extend, dict): raise Exception("func_extend_client must return a dict: name -> (open, close)")
+    for name, entry in extend.items():
+        if not isinstance(name, str) or not name.startswith("client_"): raise Exception(f"func_extend_client: {name!r} must start with client_")
+        if name in registry: raise Exception(f"func_extend_client: {name} is Atom's client, choose another name")
+        if not (isinstance(entry, tuple) and len(entry) == 2 and callable(entry[0]) and (entry[1] is None or callable(entry[1]))): raise Exception(f"func_extend_client: {name} must be (open, close), close may be None")
+        registry[name] = entry
+    return registry
+
+async def func_client_open_one(*, client_open) -> object:
+    """Call one open (sync or async) and return its client."""
+    result = client_open()
+    return await result if inspect.isawaitable(result) else result
+
+async def func_client_registry_open(*, registry: dict) -> dict:
+    """Open every client of the registry at once; returns name -> client (None when its settings are empty). When any fails, or startup is cancelled, the ones that opened are closed first; one failure raises its own error, several raise one error naming each."""
+    names = list(registry)
+    tasks = [asyncio.ensure_future(func_client_open_one(client_open=registry[name][0])) for name in names]
+    try: await asyncio.gather(*tasks, return_exceptions=True)
+    except BaseException:
+        for task in tasks: task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        await func_client_close(registry=registry, clients={name: task.result() for name, task in zip(names, tasks, strict=True) if task.done() and not task.cancelled() and task.exception() is None})
+        raise
+    clients = {name: task.result() for name, task in zip(names, tasks, strict=True) if task.exception() is None}
+    failed = [(name, task.exception()) for name, task in zip(names, tasks, strict=True) if task.exception() is not None]
+    if not failed: return clients
+    await func_client_close(registry=registry, clients=clients)
+    if len(failed) == 1: raise failed[0][1]
+    raise Exception("clients failed to open: " + "; ".join(f"{name}: {error}" for name, error in failed)) from failed[0][1]
+
+async def func_client_close(*, registry: dict, clients: dict) -> None:
+    """Close each client of clients (name -> client) with its registry close, the project's first (reverse registry order); a client that is None or has no close is skipped, and one failing to close is printed while the rest still close."""
+    for name in reversed(list(registry)):
+        client, close = clients.get(name), registry[name][1]
+        if client is None or close is None: continue
+        try:
+            result = close(client)
+            if inspect.isawaitable(result): await result
+        except Exception as e: print(f"❌ close {name}: {e}")

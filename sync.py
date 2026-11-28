@@ -44,7 +44,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 # setting
 # Atom's version: raised by hand when a change is worth a new number (no tags); a project's sync.py shows the version it has
-ATOM_VERSION = "25.3.0"
+ATOM_VERSION = "26.0.0"
 REPO_URL = "https://github.com/atom36942/atom.git"
 # Single files replaced from upstream on every sync.
 SYNC_FILES = [
@@ -94,7 +94,7 @@ config_api = {
 # The readme.md sync writes into each *_extend folder whenever it is missing (rules in full: docs/backend.md "Where code goes").
 EXTEND_README = {
     "router_extend": "# router_extend\nAPI routes: one `<feature>.py` with `router = APIRouter()`. A route with params reads them with `app_state.func_request_param_read`, calls a `func_*` and returns `{\"status\": 1, \"message\": result}`; no business logic. Every route needs a `config_api` entry (id 200+) in `config_extend.py`. See docs/backend.md (Routes and functions, config_api).\n",
-    "function_extend": "# function_extend\nBusiness logic: `<feature>.py` (a big feature may split into `<feature>_<part>.py`) with keyword-only `func_*` functions, available as `app_state.func_*`; names are unique across Atom and the project. Optional `func_extend(*, app_state)` runs at startup and `func_extend_shutdown(*, app_state)` at shutdown. Reuse Atom's clients (`app_state.client_*`) and `func_*` helpers before writing your own. See docs/backend.md (Routes and functions, Reuse Atom).\n",
+    "function_extend": "# function_extend\nBusiness logic: `<feature>.py` (a big feature may split into `<feature>_<part>.py`) with keyword-only `func_*` functions, available as `app_state.func_*`; names are unique across Atom and the project. Optional `func_extend_client(*, app_state)` adds clients (`{\"client_<name>\": (open, close)}`, opened and closed with Atom's), `func_extend(*, app_state)` runs at startup and `func_extend_shutdown(*, app_state)` at shutdown. Reuse Atom's clients (`app_state.client_*`) and `func_*` helpers before writing your own. See docs/backend.md (Routes and functions, Reuse Atom).\n",
     "files_extend": "# files_extend\nShared constants and `param_specs` (`import files_extend.<module>`), plus JSON, prompts and templates read by path from the project root. Never written at runtime: generated files go in `tmp/<feature>/`, data in the database. See docs/backend.md (Where code goes).\n",
     "static_extend": "# static_extend\nWeb pages, served at `/static/<name>` and opened at `/page/<app>`: one file `<app>.html` or a folder `<app>/index.html` with its assets linked absolutely (`/static/<app>/js/app.js`). Lowercase names keep URLs clean; state such as a tab goes in the query (`/page/<app>?tab=x`). See docs/backend.md (Where code goes).\n",
     "script_extend": "# script_extend\nProject scripts and jobs: one `.py` per job with sections `# command`, `# info`, `# import`, `# config` (values from `config.py` or the environment only), `# setting`, `# logic`, `# main`. Imports stdlib, packages, `config`, `function` and the project's `function_extend`/`files_extend` (move helpers there when a script grows); runtime data in `tmp/<script>/`, deleted on success. See docs/backend.md (Scripts).\n",

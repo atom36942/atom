@@ -167,8 +167,6 @@ Disabled (`None`) by default; activated automatically when connection credential
 
 | Key | Usage |
 |---|---|
-| `config_posthog_project_host` | PostHog analytics host URL |
-| `config_posthog_project_key` | PostHog analytics project key |
 | `config_sentry_dsn` | Sentry DSN for error tracking |
 | `config_sentry_traces_sample_rate` | Share of requests Sentry traces and profiles, 0 to 1 (default `0.05`). Every error is still sent. Tracing every request (`1.0`) adds noticeable overhead to each one; raise it briefly while investigating a slow route. |
 

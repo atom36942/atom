@@ -4,6 +4,16 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [26.0.0] - 2026-11-28
+
+**Upgrade (projects must change):** Atom no longer has a Microsoft Graph or PostHog client.
+- `client_msgraph`, `client_posthog`, `func_client_msgraph`, `func_client_posthog`, the `config_msgraph_*` and `config_posthog_*` settings and the packages `msgraph-sdk`, `azure-identity` and `posthog` are removed: Atom never called them, and they were about 275 MB of every project's venv. A project that uses either keeps it as its own client: its package under `# extend` in `requirements.txt`, its settings in `config_extend.py`, its client in `func_extend_client` ([docs/extend.md](docs/extend.md#project-clients-func_extend_client)); with the same name (`client_msgraph`, `client_posthog`), code that uses it does not change. A project that doesn't use them changes nothing.
+
+**What changed:**
+- **One client registry:** each Atom client is defined once in `func_client_registry` (`function/clients.py`) as `name: (open, close)`; `main.py` opens them all at once and closes them from the same list, in place of a line per client and a separate close function. When one fails to open, the ones that opened are closed and startup stops with its error (several name each).
+- **Project clients:** optional `func_extend_client(*, app_state)` in `function_extend/` returns more entries in the same shape; they open with Atom's, close on shutdown and on a failed startup, and are `app_state.client_<name>`. `func_extend` and `app_state.extend` are unchanged.
+- `client_rabbitmq` (the connection) is no longer on `app_state`; `client_rabbitmq_producer` closes it with the channel.
+
 ## [25.3.0] - 2026-11-28
 
 - **`control` conflicts stop startup:** `my_update` / `admin_update` on a table in `row_update_disabled`; `my_delete`, `my_delete_all` / `admin_delete` on a table in `row_delete_disabled`; a `my_*` list on a table no user could own (no `created_by_id`, nor an `ownership` column for the action); `retention_day` on `config` (as on `users`) or on a table with `is_protected` while `is_protected_delete_disabled` is on. The cleanup itself also refuses `users` and `config`. Atom's own schema passes unchanged.

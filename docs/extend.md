@@ -87,9 +87,33 @@ async def func_resume_read(*, client_anthropic, pdf: bytes) -> dict:
 
 The default model is Claude Opus 5.5 (`claude-opus-5-5`); pass `model=` for another (`claude-haiku-5-5` for high-volume, simple extraction). A request Claude declines is rerun on Anthropic's fallback model; if that declines too, the result is `{}`. For anything beyond JSON (chat, streaming, tools), call `client_anthropic` directly.
 
+## Project clients: `func_extend_client`
+
+Atom opens its own clients from one registry (`func_client_registry` in `function/clients.py`): each client is defined once as `name: (open, close)`. A project adds its own clients the same way, without touching `main.py`: define `func_extend_client(*, app_state)` (sync) in any `function_extend/` module and return more entries.
+
+```python
+# function_extend/clients_extend.py
+def func_extend_client(*, app_state):
+    return {"client_example": (lambda: func_clients_extend_example_open(app_state=app_state), lambda c: c.close())}
+
+def func_clients_extend_example_open(*, app_state):
+    if not app_state.config_example_key: return None    # settings empty: no client, its package never imported
+    from example_sdk import ExampleClient
+    return ExampleClient(api_key=app_state.config_example_key)
+
+# any route or function
+example = app_state.client_example
+```
+
+- **open** takes nothing and returns the client, or `None` when its settings are empty; it may be sync or async. Import the SDK inside it, so a project that leaves the settings empty never loads it. Its package goes under `# extend` in `requirements.txt`, its settings in `config_extend.py`.
+- **close** takes the client and may be sync or async; `None` when there is nothing to close.
+- Names start with `client_` and are not Atom's (startup stops otherwise). Each becomes `app_state.client_<name>`, `None` when not configured.
+- All clients, Atom's and the project's, open at once at startup, before the schema and caches. When one fails, the ones that opened are closed and startup stops with its error. At shutdown each is closed, the project's first, after `func_extend_shutdown`; one failing to close is printed and the others still close.
+- An open runs before Atom's clients exist, so it uses only settings. A client built from Atom's clients (a pool on `client_postgres_dict`, say) goes in `func_extend`.
+
 ## Startup and shutdown: `func_extend`
 
-`main.py` is Atom's. To create a client Atom doesn't provide, or load data once at startup, define `func_extend` in any `function_extend/` module; Atom calls it after its own clients and caches are ready and stores the return value, whatever it is, in `app.state.extend` (`None` when `func_extend` is not defined). `func_extend_shutdown` runs on shutdown before Atom closes its clients, so it can still use them. Both are optional, take `app_state`, and may be sync or async.
+`main.py` is Atom's. To load data once at startup (or build something from Atom's clients), define `func_extend` in any `function_extend/` module; Atom calls it after its own clients and caches are ready and stores the return value, whatever it is, in `app.state.extend` (`None` when `func_extend` is not defined). `func_extend_shutdown` runs on shutdown before Atom closes its clients, so it can still use them. Both are optional, take `app_state`, and may be sync or async.
 
 ```python
 # function_extend/extend.py

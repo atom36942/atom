@@ -174,11 +174,6 @@ config_azure_email_connection_string = None
 config_azure_sms_connection_string = None
 config_azure_sms_from_number = None
 
-# msgraph
-config_msgraph_tenant_id = None
-config_msgraph_client_id = None
-config_msgraph_client_secret = None
-
 # sftp
 config_sftp_host = None
 config_sftp_port = None
@@ -190,8 +185,6 @@ config_sftp_is_host_verify = True
 # monitoring
 config_sentry_dsn = None
 config_sentry_traces_sample_rate = 0.05
-config_posthog_project_host = None
-config_posthog_project_key = None
 
 # table
 config_public_create_honeypot = "website"
