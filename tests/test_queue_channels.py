@@ -15,11 +15,12 @@ ROOT = Path(__file__).resolve().parent.parent
 class QueueChannelTests(unittest.TestCase):
     def test_every_channel_a_route_sends_on_has_a_consumer(self):
         sent = set(re.findall(r'channel="(\w+)"', (ROOT / "router" / "my.py").read_text()))
-        self.assertEqual(sent, {"channel_object_create", "channel_object_update"})
+        self.assertEqual(sent, {"object_create", "object_update"})
         self.assertEqual(sorted(sent - set(func_consumer_channels())), [])
 
-    def test_channel_names_start_with_channel(self):
-        self.assertEqual([name for name in func_consumer_channels() if not name.startswith("channel_")], [])
+    def test_channel_names_are_plain(self):
+        """A channel name says what the job does, <feature>_<verb>, with no prefix: object_create, webhook_deliver."""
+        self.assertEqual([name for name in func_consumer_channels() if not re.fullmatch(r"[a-z][a-z0-9_]*", name) or name.startswith("channel_")], [])
 
     def test_unknown_channel_stops_before_connecting(self):
         with patch("function.queues.func_run_broker") as run_broker, self.assertRaisesRegex(Exception, "unknown channel: func_postgres_create"):

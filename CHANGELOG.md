@@ -4,6 +4,18 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [30.0.0] - 2026-11-28
+
+**Upgrade (projects must change):** `queue_job.channel` is now `queue_job.task`. Every project's master database has `queue_job`, so **before deploying this version**, run once on it (in this order: rename, then deploy):
+```sql
+ALTER TABLE queue_job RENAME COLUMN channel TO task;
+ALTER INDEX IF EXISTS idx_queue_job_channel_status_run_at_id_btree RENAME TO idx_queue_job_task_status_run_at_id_btree;
+```
+Without it, startup adds an empty `task` column next to the old `channel` (required, no default), and every job insert fails. Also: job names have no `channel_` prefix any more: the webhook job is `webhook_deliver`, and `?queue=` on the object routes sends `object_create` / `object_update` (a project's consumer started with the old names, or its SQL on `queue_job`, uses the new ones).
+
+- **Job names are plain**, `<feature>_<verb>`: `webhook_deliver`, `object_create`, `order_sap_send`. The parameter of `func_producer` and `func_run_broker` stays `channel` (a Redis list, RabbitMQ queue or Kafka topic); on the Postgres queue it is stored in `queue_job.task`.
+- **OTP by Resend and Fast2SMS reuse the app's HTTP client** (`client_http`) instead of opening a new connection per code.
+
 ## [29.1.0] - 2026-11-28
 
 - **Failed queue jobs age out:** `queue_job` joins Atom's `control.retention_day` with 30 days, so `script/postgres_cleanup.py` deletes failed jobs (`status` 2: webhook deliveries or a project's jobs that ran out of retries) 30 days after they were queued; a job still waiting is never deleted, whatever its age. A project that keeps them longer sets its own number in `retention_day`.

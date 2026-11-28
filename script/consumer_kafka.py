@@ -1,7 +1,7 @@
 # type: continuous
 
-# command: venv/bin/python -m script.consumer_kafka channel_object_create
-# command: venv/bin/python -m script.consumer_kafka channel_object_update
+# command: venv/bin/python -m script.consumer_kafka object_create
+# command: venv/bin/python -m script.consumer_kafka object_update
 
 # info: Listens on one Kafka channel and runs that channel's function (func_consumer_channels) for each message.
 

@@ -19,8 +19,8 @@ from .postgres_metadata import func_postgres_schema_read
 
 # function
 QUEUE_POSTGRES_NOTIFY = "atom_queue_job"
-QUEUE_POSTGRES_INSERT = "WITH job AS (INSERT INTO queue_job (channel, payload) VALUES ($1, $2::jsonb) RETURNING id) SELECT (SELECT id FROM job), pg_notify('atom_queue_job', $1)"    # the notify channel is QUEUE_POSTGRES_NOTIFY
-QUEUE_POSTGRES_TAKE = "SELECT id, payload, attempt FROM queue_job WHERE channel = $1 AND status = 1 AND run_at <= now() ORDER BY run_at, id LIMIT 1 FOR UPDATE SKIP LOCKED"
+QUEUE_POSTGRES_INSERT = "WITH job AS (INSERT INTO queue_job (task, payload) VALUES ($1, $2::jsonb) RETURNING id) SELECT (SELECT id FROM job), pg_notify('atom_queue_job', $1)"    # the notify channel is QUEUE_POSTGRES_NOTIFY
+QUEUE_POSTGRES_TAKE = "SELECT id, payload, attempt FROM queue_job WHERE task = $1 AND status = 1 AND run_at <= now() ORDER BY run_at, id LIMIT 1 FOR UPDATE SKIP LOCKED"
 QUEUE_POSTGRES_POLL_SEC = 1
 
 async def func_producer(*, queue: str, client_celery_producer: Any, client_kafka_producer: Any, client_rabbitmq_producer: Any, client_redis_producer: Any, channel: str, payload: dict, client_postgres: Any = None) -> Any:
@@ -324,19 +324,19 @@ async def func_consumer_postgres(*, context: dict, connection: str) -> tuple:
     return context["client_postgres_dict"][connection], context["cache_postgres_schema_dict"][connection]
 
 async def func_consumer_object_create(*, payload: dict, context: dict) -> Any:
-    """Channel channel_object_create: the rows POST /my/object-create?queue=... sent, written to the database the request used (payload connection)."""
+    """Channel object_create: the rows POST /my/object-create?queue=... sent, written to the database the request used (payload connection)."""
     table, connection = payload.get("table"), payload.get("connection") or "master"
     client_postgres, cache_postgres_schema = await func_consumer_postgres(context=context, connection=connection)
     return await func_postgres_create(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=context["client_password_hasher"], cache_postgres_schema=cache_postgres_schema, connection=connection, buffer_postgres=context["buffer_postgres_create"], buffer_rows_max=context["config_buffer_rows_max"], buffer_full_mode="reject", column_regex=((context.get("cache_column_regex") or {}).get(connection) or {}).get(table) or {}, buffer_limit=((context.get("config_postgres_table_rule") or {}).get(connection) or {}).get(table, {}).get("buffer_limit") or 100, mode="now", table=table, obj_list=payload.get("obj_list"))    # always now: rows buffered in the consumer would be lost if it stopped after the job counted as done
 
 async def func_consumer_object_update(*, payload: dict, context: dict) -> Any:
-    """Channel channel_object_update: the rows PUT /my/object-update?queue=... sent, written to the database the request used (payload connection)."""
+    """Channel object_update: the rows PUT /my/object-update?queue=... sent, written to the database the request used (payload connection)."""
     client_postgres, cache_postgres_schema = await func_consumer_postgres(context=context, connection=payload.get("connection") or "master")
     return await func_postgres_update(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=context["client_password_hasher"], cache_postgres_schema=cache_postgres_schema, column_regex=((context.get("cache_column_regex") or {}).get(payload.get("connection") or "master") or {}).get(payload.get("table")) or {}, table=payload.get("table"), obj_list=payload.get("obj_list"), created_by_id=payload.get("created_by_id"), ownership_column=payload.get("ownership_column", "created_by_id"))
 
 def func_consumer_channels() -> dict:
     """The only place a channel name maps to the function that handles its messages; producers send on these names."""
-    return {"channel_object_create": func_consumer_object_create, "channel_object_update": func_consumer_object_update}
+    return {"object_create": func_consumer_object_create, "object_update": func_consumer_object_update}
 
 def func_consumer_run(*, queue: str, channel: str, broker_settings: dict, postgres_url: str, config_buffer_rows_max: int, cache_column_regex: dict = None, config_postgres_table_rule: dict = None, config_queue_concurrency: int = 10, config_queue_retry_max: int = 3, config_queue_retry_wait_sec: float = 2, postgres_url_dict: dict = None):
     """Runs one consumer process: listens on channel through queue and hands each message to that channel's function.

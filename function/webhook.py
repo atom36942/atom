@@ -16,9 +16,9 @@ from .background import func_runtime_error_record
 from .middleware import func_api_error
 from .queues import QUEUE_POSTGRES_NOTIFY
 from .queues import func_queue_postgres_job_take
-WEBHOOK_CHANNEL = "channel_webhook"
+WEBHOOK_CHANNEL = "webhook_deliver"
 WEBHOOK_EVENT_REGEX = re.compile(r"^[a-z0-9_.-]{1,100}\Z")
-WEBHOOK_SEND = f"WITH job AS (INSERT INTO queue_job (channel, payload) SELECT $1, jsonb_build_object('webhook_id', id, 'message_id', 'msg_' || replace(gen_random_uuid()::text, '-', ''), 'event', $2::text, 'data', $3::jsonb) FROM webhook WHERE is_active AND $2 = ANY(events) RETURNING id) SELECT (SELECT count(*) FROM job), pg_notify('{QUEUE_POSTGRES_NOTIFY}', $1)"  # noqa: S608 - a constant, values bound as $n
+WEBHOOK_SEND = f"WITH job AS (INSERT INTO queue_job (task, payload) SELECT $1, jsonb_build_object('webhook_id', id, 'message_id', 'msg_' || replace(gen_random_uuid()::text, '-', ''), 'event', $2::text, 'data', $3::jsonb) FROM webhook WHERE is_active AND $2 = ANY(events) RETURNING id) SELECT (SELECT count(*) FROM job), pg_notify('{QUEUE_POSTGRES_NOTIFY}', $1)"  # noqa: S608 - a constant, values bound as $n
 
 # function
 def func_webhook_secret_create() -> str:
@@ -58,7 +58,7 @@ async def func_webhook_create(*, client_postgres: asyncpg.Pool | None, user_id: 
     return {**dict(row), "secret": secret}
 
 async def func_webhook_send(*, client_postgres: Any, event: str, data: dict) -> int:
-    """Queue event with data for every active webhook subscribed to it: one queue_job row each on channel_webhook, delivered by the app (config_webhook_is_active).
+    """Queue event with data for every active webhook subscribed to it: one queue_job row each on webhook_deliver, delivered by the app (config_webhook_is_active).
     client_postgres is a pool or a connection: pass the connection of an open transaction and the deliveries are queued only if it commits. Returns the number queued."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     func_webhook_event_check(event=event)

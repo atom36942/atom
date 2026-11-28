@@ -17,7 +17,7 @@ When something happens in your app, Atom calls another system's URL with a signe
 |---|---|
 | **Webhook** (subscription) | A row in `webhook`: the receiver's `url`, the `events` it wants, its signing `secret`, `is_active` |
 | **Event** | A name for what happened, such as `shipment.delivered`: 1-100 of `a-z 0-9 . - _` |
-| **Delivery** | One event for one webhook: a `queue_job` row on channel `channel_webhook` until it is sent |
+| **Delivery** | One event for one webhook: a `queue_job` row with task `webhook_deliver` until it is sent |
 | **Signing secret** | `whsec_` + base64 of 32 random bytes, created by Atom and shown once |
 | **Signature** | `webhook-signature: v1,<base64 HMAC-SHA256(key, "<id>.<timestamp>.<body>")>`, so the receiver knows the call is yours and unchanged |
 | **Outbox** | Deliveries are rows written in the same transaction as the change: if the change rolls back, nothing is sent |
@@ -51,8 +51,8 @@ When something happens in your app, Atom calls another system's URL with a signe
 | Pause or change events | `PUT /admin/object-update?table=webhook` with `{"id": 3, "is_active": false}` or `events`; a paused webhook's queued deliveries are skipped |
 | Remove | `POST /admin/object-delete` with `{"table": "webhook", "ids": [3]}` |
 | Rotate the secret | Create a new webhook for the same URL, give the receiver the new secret, delete the old one |
-| See failed deliveries | `/admin/postgres-query-runner-read`: `SELECT * FROM queue_job WHERE channel = 'channel_webhook' AND status = 2` |
-| Resend failed ones | `/admin/postgres-query-runner-write`: `UPDATE queue_job SET status = 1, attempt = 0, run_at = now() WHERE channel = 'channel_webhook' AND status = 2` |
+| See failed deliveries | `/admin/postgres-query-runner-read`: `SELECT * FROM queue_job WHERE task = 'webhook_deliver' AND status = 2` |
+| Resend failed ones | `/admin/postgres-query-runner-write`: `UPDATE queue_job SET status = 1, attempt = 0, run_at = now() WHERE task = 'webhook_deliver' AND status = 2` |
 
 ## The receiver
 

@@ -43,7 +43,7 @@ class WebhookTests(unittest.TestCase):
         finally: drop_database(cls.db_name)
 
     def setUp(self):
-        fetch(self.url, "DELETE FROM queue_job WHERE channel = 'channel_webhook'")
+        fetch(self.url, "DELETE FROM queue_job WHERE task = 'webhook_deliver'")
         fetch(self.url, "DELETE FROM webhook")
         self.requests = []
         self.answer = 200
@@ -56,7 +56,7 @@ class WebhookTests(unittest.TestCase):
         return fetch(self.url, "INSERT INTO webhook (created_by_id, url, events, secret, is_active) VALUES (1, $1, $2, $3, $4) RETURNING id", url, events, SECRET, is_active)[0]["id"]
 
     def jobs(self):
-        return fetch(self.url, "SELECT payload, status, attempt, error FROM queue_job WHERE channel = 'channel_webhook' ORDER BY id")
+        return fetch(self.url, "SELECT payload, status, attempt, error FROM queue_job WHERE task = 'webhook_deliver' ORDER BY id")
 
     def run_async(self, steps):
         async def run():
@@ -75,7 +75,7 @@ class WebhookTests(unittest.TestCase):
         async def run(payload):
             try: await webhook.func_webhook_deliver(client_postgres=pool, client_http=http, payload=payload, timeout_sec=5)
             except Exception as e: return e
-        return webhook.func_queue_postgres_job_take(client_postgres=pool, channel="channel_webhook", run=run, retry_max=retry_max, retry_wait_sec=60)
+        return webhook.func_queue_postgres_job_take(client_postgres=pool, channel="webhook_deliver", run=run, retry_max=retry_max, retry_wait_sec=60)
 
     def test_admin_creates_a_webhook_and_sees_its_secret_once(self):
         with patch.object(webhook, "func_webhook_url_check", AsyncMock(return_value=URL)):
@@ -114,7 +114,7 @@ class WebhookTests(unittest.TestCase):
             await webhook.func_webhook_send(client_postgres=pool, event="task.closed", data={})
             with patch.object(webhook, "func_webhook_url_check", AsyncMock(return_value=URL)):
                 first = await self.take(pool, http, retry_max=1)
-                await pool.execute("UPDATE queue_job SET run_at = now() WHERE channel = 'channel_webhook'")
+                await pool.execute("UPDATE queue_job SET run_at = now() WHERE task = 'webhook_deliver'")
                 second = await self.take(pool, http, retry_max=1)
             return first, second
         self.assertEqual(self.run_async(steps), ("retry", "failed"))

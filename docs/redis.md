@@ -144,7 +144,7 @@ LPUSH {channel} {payload}
 BRPOP {channel} 0
 ```
 
-Using `LPUSH` with `BRPOP` provides FIFO processing. Current job channels are `channel_object_create` and `channel_object_update` (see `func_consumer_channels`).
+Using `LPUSH` with `BRPOP` provides FIFO processing. Current job channels are `object_create` and `object_update` (see `func_consumer_channels`).
 
 Run the corresponding consumer process when Redis queue mode is enabled; otherwise jobs remain in the list. Redis lists in this implementation do not provide acknowledgement or automatic redelivery after a worker removes a job, so use RabbitMQ, Kafka, or another durable workflow when stronger delivery guarantees are required.
 

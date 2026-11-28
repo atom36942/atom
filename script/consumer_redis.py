@@ -1,7 +1,7 @@
 # type: continuous
 
-# command: venv/bin/python -m script.consumer_redis channel_object_create
-# command: venv/bin/python -m script.consumer_redis channel_object_update
+# command: venv/bin/python -m script.consumer_redis object_create
+# command: venv/bin/python -m script.consumer_redis object_update
 
 # info: Listens on one Redis channel and runs that channel's function (func_consumer_channels) for each message.
 

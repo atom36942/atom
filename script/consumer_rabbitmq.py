@@ -1,7 +1,7 @@
 # type: continuous
 
-# command: venv/bin/python -m script.consumer_rabbitmq channel_object_create
-# command: venv/bin/python -m script.consumer_rabbitmq channel_object_update
+# command: venv/bin/python -m script.consumer_rabbitmq object_create
+# command: venv/bin/python -m script.consumer_rabbitmq object_update
 
 # info: Listens on one RabbitMQ channel and runs that channel's function (func_consumer_channels) for each message.
 

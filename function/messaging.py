@@ -3,7 +3,6 @@ import asyncio
 from typing import Any
 import time
 from collections import deque
-import httpx
 import jwt
 import orjson
 from starlette.datastructures import State
@@ -23,9 +22,8 @@ async def func_otp_send_email(*, app_state: State, service: str, sender: str, em
         if not app_state.config_resend_url: raise func_api_error(message="resend URL not configured", status_code=500)
         headers = {"Authorization": f"Bearer {app_state.config_resend_key}", "Content-Type": "application/json"}
         payload = {"from": sender, "to": [email], "subject": "your otp code", "html": f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>"}
-        async with httpx.AsyncClient() as client:
-            response = await client.post(app_state.config_resend_url, headers=headers, data=orjson.dumps(payload).decode("utf-8"))
-            if response.status_code not in (200, 201): raise func_api_error(message=f"email delivery service failed (HTTP {response.status_code})", status_code=502)
+        response = await app_state.client_http.post(app_state.config_resend_url, headers=headers, content=orjson.dumps(payload))
+        if response.status_code not in (200, 201): raise func_api_error(message=f"email delivery service failed (HTTP {response.status_code})", status_code=502)
     elif service == "azure":
         if not app_state.client_azure_email: raise func_api_error(message="azure email client not configured", status_code=500)
         message = {"senderAddress": sender, "recipients": {"to": [{"address": email}]}, "content": {"subject": "your otp code", "plainText": str(otp)}}
@@ -56,20 +54,18 @@ async def func_otp_send_mobile(*, app_state: State, service: str, mobile: str, o
         if not app_state.config_fast2sms_key: raise func_api_error(message="fast2sms API key not configured", status_code=500)
         if not app_state.config_fast2sms_url: raise func_api_error(message="fast2sms URL not configured", status_code=500)
         params = {"authorization": app_state.config_fast2sms_key, "route": "otp", "variables_values": str(otp), "numbers": mobile}
-        async with httpx.AsyncClient() as client:
-            response = await client.get(app_state.config_fast2sms_url, params=params)
-            if not response.is_success: raise func_api_error(message=f"SMS delivery service failed (HTTP {response.status_code})", status_code=502)
-            result = response.json()
-            if result.get("return") is not True: raise func_api_error(message="SMS delivery service rejected request", status_code=502)
-            return result
-    elif service == "azure":
+        response = await app_state.client_http.get(app_state.config_fast2sms_url, params=params)
+        if not response.is_success: raise func_api_error(message=f"SMS delivery service failed (HTTP {response.status_code})", status_code=502)
+        result = response.json()
+        if result.get("return") is not True: raise func_api_error(message="SMS delivery service rejected request", status_code=502)
+        return result
+    if service == "azure":
         if not app_state.client_azure_sms: raise func_api_error(message="azure sms client not configured", status_code=500)
         from_number = sender or app_state.config_azure_sms_from_number
         if not from_number: raise func_api_error(message="azure sms from_number not configured", status_code=500)
         await app_state.client_azure_sms.send(from_=from_number, to=[mobile], message=f"Your OTP code is {otp}")
         return "done"
-    else:
-        raise Exception(f"mobile service {service} not supported")
+    raise Exception(f"mobile service {service} not supported")
 
 async def func_email_send(*, app_state: State, service: str, sender: str, to: list, subject: str, text: str, cc: list = None, bcc: list = None, reply_to: list = None) -> dict:
     """Sends a custom email via the specified service (ses, resend, azure)."""

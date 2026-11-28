@@ -2,7 +2,7 @@
 from types import SimpleNamespace
 import unittest
 from unittest.mock import AsyncMock
-from unittest.mock import patch
+from unittest.mock import MagicMock
 
 import httpx
 
@@ -48,11 +48,13 @@ class ServiceErrorTests(unittest.IsolatedAsyncioTestCase):
             (func_otp_send_mobile, dict(service="fast2sms", mobile="123", otp=123456),
              SimpleNamespace(config_fast2sms_key=None), "fast2sms API key not configured"),
         ]:
-            with self.subTest(service=args["service"]), patch("function.messaging.httpx.AsyncClient") as client:
+            with self.subTest(service=args["service"]):
+                state.client_http = MagicMock(post=AsyncMock(), get=AsyncMock())
                 with self.assertRaisesRegex(Exception, message) as caught:
                     await operation(app_state=state, **args)
                 self.assertEqual(caught.exception.status_code, 500)
-                client.assert_not_called()
+                state.client_http.post.assert_not_called()
+                state.client_http.get.assert_not_called()
 
     async def test_delivery_failures_are_502_without_provider_body(self):
         cases = [
@@ -68,14 +70,12 @@ class ServiceErrorTests(unittest.IsolatedAsyncioTestCase):
         ]
         for operation, args, state, method, response in cases:
             with self.subTest(service=args["service"], status=response.status_code):
-                with patch("function.messaging.httpx.AsyncClient") as factory:
-                    client = factory.return_value.__aenter__.return_value
-                    setattr(client, method, AsyncMock(return_value=response))
-                    with self.assertRaises(Exception) as caught:
-                        await operation(app_state=state, **args)
-                    status, body = await status_of(caught.exception)
-                    self.assertEqual(status, 502)
-                    self.assertNotIn("private provider details", body["message"])
+                state.client_http = MagicMock(**{method: AsyncMock(return_value=response)})    # the app's shared HTTP client
+                with self.assertRaises(Exception) as caught:
+                    await operation(app_state=state, **args)
+                status, body = await status_of(caught.exception)
+                self.assertEqual(status, 502)
+                self.assertNotIn("private provider details", body["message"])
 
     async def test_programming_errors_are_generic_500(self):
         for error in (AttributeError("private state"), KeyError("private field"), TypeError("private type")):

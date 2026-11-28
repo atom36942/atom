@@ -48,12 +48,12 @@ Standalone consumer scripts reside in [`script/`](../script). They run as indepe
 Atom's `script/` has one consumer per broker: `consumer_redis`, `consumer_rabbitmq`, `consumer_kafka`, `consumer_celery`. Each reads only its own broker's `.env` keys plus the `config_postgres_url_<name>` databases, and takes the channel to listen on from the command. A job sent by a request on another database (`?connection=` on a flagged route) carries that database's name in its payload (`connection`); the consumer opens that database's pool on its first such job and writes there.
 
 ### Channels:
-`func_consumer_channels` (`function/queues.py`) is the only place a channel name maps to the function that handles it. Channel names start with `channel_` and say what the message does:
+`func_consumer_channels` (`function/queues.py`) is the only place a channel name maps to the function that handles it. A channel name is plain and says what the job does, `<feature>_<verb>` (`object_create`, `webhook_deliver`, `order_sap_send`). On the Postgres queue it is stored in the `task` column of `queue_job`:
 
 | Channel | Sent by | Handled by |
 |---|---|---|
-| `channel_object_create` | `POST /my/object-create?queue=...` | `func_consumer_object_create` (`func_postgres_create`) |
-| `channel_object_update` | `PUT /my/object-update?queue=...` | `func_consumer_object_update` (`func_postgres_update`) |
+| `object_create` | `POST /my/object-create?queue=...` | `func_consumer_object_create` (`func_postgres_create`) |
+| `object_update` | `PUT /my/object-update?queue=...` | `func_consumer_object_update` (`func_postgres_update`) |
 
 A new channel is one `func_consumer_<name>(*, payload, context)` plus one line in `func_consumer_channels`; every broker script then supports it. A project's own consumer goes in `script_extend/` and calls `func_run_broker` with its own function.
 
@@ -63,7 +63,7 @@ Each broker script calls `func_consumer_run`, which checks the channel, opens th
 ```python
 func_run_broker(
     queue="postgres",                # postgres | redis | rabbitmq | kafka | celery
-    channel="channel_object_create", # topic, queue or list name
+    channel="object_create", # topic, queue or list name
     broker_settings={...},           # connection credentials
     setup_callback=setup,            # runs once (opens db pools, loads schema)
     execute_callback=execute,        # runs per message
@@ -92,7 +92,7 @@ A job counts as done only after its function returns. A job that raises is retri
 - Postgres: any number of consumers may run one channel at once (`SKIP LOCKED` gives each job to one of them). A new job wakes them at once (`pg_notify('atom_queue_job', <channel>)`, sent when the insert commits); without it they look every second. A consumer killed mid-job loses its connection, its transaction rolls back and the job is waiting again, so nothing is stuck. The lock is held for the whole job, so a server `idle_in_transaction_session_timeout` shorter than the longest job makes it run again. Send a failed job again with `UPDATE queue_job SET status = 1, attempt = 0, run_at = now() WHERE id = <id>`; delete it to drop it.
 
 ### Running a Consumer:
-One process per broker and channel, for example `venv/bin/python -m script.consumer_redis channel_object_create`. The `# command` lines at the top of each consumer list its channels; the API call's `queue` must match the script's broker.
+One process per broker and channel, for example `venv/bin/python -m script.consumer_redis object_create`. The `# command` lines at the top of each consumer list its channels; the API call's `queue` must match the script's broker.
 
 ---
 

@@ -121,7 +121,7 @@ class PostgresDeliveryTests(unittest.TestCase):
         return asyncio.run(run())
 
     def rows(self):
-        return self.sql("SELECT payload, status, attempt, error FROM queue_job WHERE channel = $1 ORDER BY id", self.channel)
+        return self.sql("SELECT payload, status, attempt, error FROM queue_job WHERE task = $1 ORDER BY id", self.channel)
 
     def consumer(self):
         return ConsumerProcess(self, queue="postgres", channel=self.channel, url_key="config_postgres_url_master", url=self.url)
