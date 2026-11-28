@@ -40,7 +40,7 @@ A read replica of master needs only its `.env` line, `config_postgres_url_replic
 | `last_active_at` (`/my/profile`) | Written to master |
 | A write route flagged for `connection` | Sent to the replica, which refuses it (give the replica a read-only login) |
 
-A database **with** its own `config_postgres_schema_<name>` (a warehouse, logs, TimescaleDB) has only its own rules: nothing is open to `/public`, `/private` or `/my` until its own `control` lists it.
+A database **with** its own `config_postgres_schema_<name>` (a warehouse, logs, TimescaleDB), even one with no tables yet (`{"table": {}, "control": {}, "sql": {}}`), has only its own rules: nothing is open to `/public`, `/private` or `/my` until its own `control` lists it.
 
 ### Picking a database per request (`?connection=<name>`)
 `connection` is the one query parameter that picks which PostgreSQL database a request uses. Its value is a `<name>` from a `config_postgres_url_<name>` line in `.env` (`master`, `replica1`, `analytics`, ...).

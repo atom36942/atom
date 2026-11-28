@@ -39,6 +39,7 @@ def func_postgres_table_rule_dict(*, schemas: dict) -> dict:
     rules = {}
     for name, schema in schemas.items():
         control = (schema or {}).get("control") or {}
+        rules.setdefault(name, {})    # every database with a schema has its own entry, even without tables yet: only a database with no schema follows master's rules
         for table, columns in func_postgres_schema_columns(config_postgres_schema=schema).items():
             columns = [col for col in columns or [] if isinstance(col, dict)]
             rule = {group: [action for key, (g, action) in CONTROL_ACCESS.items() if g == group and table in (control.get(key) or [])] for group in TABLE_ACCESS}

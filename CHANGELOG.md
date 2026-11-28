@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [24.0.1] - 2026-11-28
+
+- **Fix: a database whose schema has no tables yet followed master's rules.** Only a database with no `config_postgres_schema_<name>` at all (a read replica) follows master's; one with its own schema, even `{"table": {}, "control": {}, "sql": {}}`, is closed to every table route until its own `control` lists a table.
+
 ## [24.0.0] - 2026-11-27
 
 **Upgrade (projects must change):** a schema is `{"table", "control", "sql"}` and a table only `{"column": [...]}`; startup stops on each removed setting or key and names its replacement.

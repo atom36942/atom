@@ -206,7 +206,8 @@ class TableRuleTests(unittest.TestCase):
         self.assertEqual((rules["message"]["ownership"]["delete"], rules["log_users_delete"]["ownership"]["read"]), (["created_by_id", "received_by_id"], ["created_by_id", "user_id"]))
 
     def test_a_database_without_its_own_schema_follows_master(self):
-        state = SimpleNamespace(cache_postgres_table_rule=func_postgres_table_rule_dict(schemas={"master": {"table": {"task": {"column": self.COLUMNS}}, "control": {"my_read": ["task"], "buffer_limit": {"task": 500}}}, "logs": {"table": {"event": {"column": self.COLUMNS}}}}))
+        state = SimpleNamespace(cache_postgres_table_rule=func_postgres_table_rule_dict(schemas={"master": {"table": {"task": {"column": self.COLUMNS}}, "control": {"my_read": ["task"], "buffer_limit": {"task": 500}}}, "logs": {"table": {"event": {"column": self.COLUMNS}}}, "warehouse": {"table": {}, "control": {}, "sql": {}}}))
+        with self.assertRaisesRegex(Exception, "config_postgres_schema_warehouse"): func_check_table_access(app_state=state, connection="warehouse", table="task", group="my", action="read")    # its own schema, even empty: closed, never master's
         func_check_table_access(app_state=state, connection="replica1", table="task", group="my", action="read")    # replica1: only a config_postgres_url_replica1, so master's rules
         self.assertEqual((func_postgres_rule_database(app_state=state, connection="replica1"), func_postgres_rule_database(app_state=state, connection="logs"), func_postgres_rule_database(app_state=state)), ("master", "logs", "master"))
         self.assertEqual(func_buffer_limit(app_state=state, table="task", connection="replica1"), 500)
