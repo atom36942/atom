@@ -13,7 +13,7 @@ One generated column per table, from the text columns it covers, with a GIN inde
 
 ```python
 # config_extend.py, in the table's columns
-{"name": "search", "datatype": "tsvector", "generated": "setweight(to_tsvector('english', coalesce(title, '')), 'A') || setweight(to_tsvector('english', coalesce(description, '')), 'B')", "index": "gin(search)"},
+{"name": "search", "datatype": "tsvector", "generated": "setweight(to_tsvector('english', coalesce(title, '')), 'A') || setweight(to_tsvector('english', coalesce(description, '')), 'B')", "index": ["gin(search)"]},
 ```
 
 - **Weights** `A` to `D`: a match in `A` (the title) ranks above one in `B` (the description).

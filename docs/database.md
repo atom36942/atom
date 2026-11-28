@@ -9,7 +9,7 @@ Atom provides a comprehensive database layer powered by **asyncpg**, featuring c
 Atom manages asynchronous PostgreSQL connection pools initialized during startup in `main.py`.
 
 ### Databases by name (`client_postgres_dict`)
-Every database is one `.env` line, `config_postgres_url_<name>`. `master` is required and is the default database (writes, users, config, schema init):
+Every database is one `.env` line, `config_postgres_url_<name>`. `master` is required and is the default database (writes, users and auth, config, schema init; [master holds auth](#master-holds-auth-other-databases-hold-data)):
 ```bash
 config_postgres_url_master=postgresql://atom:secret@localhost:5432/atom
 config_postgres_url_replica1=postgresql://reader:secret@replica-host:5432/atom
@@ -21,6 +21,13 @@ config_postgres_pool_max_size_analytics=3    # optional, per database: analytics
 `config_postgres_pool_min_size_<name>` / `config_postgres_pool_max_size_<name>` size one database's pool; a database without them uses the shared two. The same works for SQL Server (`config_mssql_pool_min_size_<name>`, `config_mssql_pool_max_size_<name>`). A size for a name that has no URL (a typo such as `_tset`), or a max below its min, stops startup.
 `config_postgres_query_timeout_sec` (default `0`, no limit) cancels any query on the app's pools that runs longer, so a hung query cannot hold a pool connection for good; it applies to startup's schema changes and exports too. If startup fails while opening the pools, the ones already open are closed.
 Each name becomes a pool in `app.state.client_postgres_dict` (for example `client_postgres_dict["master"]`) with its schema in `app.state.cache_postgres_schema_dict`. Code that always uses the main database reads `client_postgres_dict["master"]`. Every URL needs a name: an unsuffixed `config_postgres_url` (also `config_redis_url`, `config_clickhouse_url`, `config_mssql_url`) or an empty `config_postgres_url_` stops startup.
+
+### Master holds auth; other databases hold data
+Atom's login users live in **`master` only**: `users`, tokens, permissions, API keys, OTP, two-factor and the user routes (`/auth/*`, `/my/user-*`, `/admin/user-*`) always read and write `master`. Every other database (`analytics`, `logs`, `telemetry`, a TimescaleDB, a warehouse) is for data: its own tables in its own `config_postgres_schema_<name>`, reached by the object and table routes with `?connection=<name>` and by project code through `client_postgres_dict["<name>"]`. A user always logs in through `master`, and the same token then works on any database the route allows.
+
+A table named `users` in another database is a plain table: no login, no admin user, no login triggers.
+
+Several separate projects don't share one Atom app and switch auth per database: each project is its own Atom app with its own `master`. To keep hosting cheap, the apps can share one App Service plan and one Postgres server (one database each), each on its own subdomain.
 
 ### Picking a database per request (`?connection=<name>`)
 `connection` is the one query parameter that picks which PostgreSQL database a request uses. Its value is a `<name>` from a `config_postgres_url_<name>` line in `.env` (`master`, `replica1`, `analytics`, ...).
@@ -53,22 +60,22 @@ curl -H "Authorization: Bearer $TOKEN" "http://localhost:8000/admin/postgres-sch
 
 Each database has its own schema: `config_postgres_schema_<name>` is applied at startup to the database of `config_postgres_url_<name>`, master first. `config_postgres_schema_master` holds Atom's tables; a project adds one for another database in `config_extend.py`, and that database gets exactly what its schema lists (nothing of Atom's, no `users`). A schema naming a database without a URL stops startup.
 
-Each table is an object: `column` (required) and who may use it through Atom's object routes (`public`, `private`, `my`; closed unless listed; the admin routes reach every table in it), plus `row_lock`, `row_delete_max`, `buffer_limit` and `retention_day`. The schema is the one place a table's structure, access and labels are set; the keys are in [config.md](config.md#table-keys).
+A schema is `{"table", "control", "sql"}`. Each table is `{"column": [...]}`; its column keys hold the column's rules (`read_blocked`, `write_blocked`, `ownership`, `regex`, `int_mapping`). `control` holds the database's rules: extensions, switches, which tables each route group may use (`public_read`, `private_read`, `my_create`, ...; closed unless listed; the admin routes reach every table in it), `row_update_disabled`, `row_delete_disabled`, `row_delete_max`, `buffer_limit` and `retention_day`. The schema is the one place a table's structure, access and labels are set; the keys and who enforces each are in [config.md](config.md#parts).
 
 When `config_is_postgres_schema_init = True`, Atom inspects and automatically migrates each database on startup:
-- Creates the PostgreSQL extensions of its `extension` part.
+- Creates the PostgreSQL extensions of its `control.extension`.
 - Creates missing tables declared in its `table` part, with their primary key: `id`, several columns (`device`, `time`), or none.
 - Adds missing columns and alters types if necessary.
 - Installs unique constraints, checks and indexes from the column specs.
-- Attaches Atom's triggers (truncate, `updated_at`, `is_protected`, `row_lock`, `row_delete_max`) only to the tables that database's schema lists.
-- Only in the database whose schema has `users` (master): seeds the root admin user (`admin` / `role: 1`) and attaches the root protection and `users` triggers.
+- Attaches Atom's triggers (`is_truncate_disabled`, `is_updated_at_set`, `is_protected_delete_disabled`, `row_update_disabled`, `row_delete_disabled`, `row_delete_max`) only to the tables that database's schema lists.
+- Only in `master`: the users setup, by the flat settings `config_is_root_user` (seeds and guards `admin`, id 1, role 1), `config_is_users_password_log`, `config_is_users_delete_log` and `config_is_totp_clear` (the `users` triggers).
 - Runs its `sql` part last (for example `create_hypertable`, [timescaledb.md](timescaledb.md)).
 
 ```python
 # config_extend.py: a second database, telematics (config_postgres_url_telematics in .env)
 config_postgres_schema_telematics = {
-"extension": ["timescaledb"],
-"table": {"reading": {"column": [{"name": "device", "datatype": "text", "is_primary": True}, {"name": "time", "datatype": "timestamptz", "is_primary": True}, {"name": "speed", "datatype": "real"}]}},
+"table": {"reading": {"column": [{"name": "device", "datatype": "text", "is_primary_key": True}, {"name": "time", "datatype": "timestamptz", "is_primary_key": True}, {"name": "speed", "datatype": "real"}]}},
+"control": {"extension": ["timescaledb"]},
 "sql": {"reading_hypertable": "SELECT create_hypertable('reading', 'time', if_not_exists => TRUE)"},
 }
 ```

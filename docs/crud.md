@@ -15,7 +15,7 @@ Endpoints are split into **access tiers** (`/my/*`, `/public/*`, `/private/*`, `
 | **Private** | `/private/object-*` | Any logged-in user | All rows, read only. |
 | **Admin** | `/admin/object-*` | Root and users granted the route's id | Any row. |
 
-Each table lists what each tier may do on it (`"public": ["read"]`, `"my": ["create", "read"]`, ...) in its `config_postgres_schema_<name>`; a tier or action not listed is refused with 403, and so is a table in no schema ([table keys](config.md#table-keys)). A `relation=` read needs the same tier's `read` on every joined table.
+Each schema's `control` lists the tables each tier may use per action (`"public_read": ["task"]`, `"my_create": ["task"]`, ...); a table not listed is refused with 403, and so is a table in no schema ([control](config.md#control)). A `relation=` read needs the same tier's `read` on every joined table.
 
 ---
 
@@ -25,11 +25,7 @@ For a focused explanation of ownership conventions, configuration policy, SQL en
 
 Atom uses ownership-column conventions to scope generic user CRUD without trusting a user ID supplied by the client. `/my/object-read`, `/my/object-update`, `/my/object-delete`, and `/my/object-delete-all` accept an optional `ownership_column` query parameter. It defaults to `created_by_id`. The authenticated user ID always comes from the verified token.
 
-Each operation has its own allowlist:
-
-- `config_column_ownership_read`: columns accepted by `/my/object-read`.
-- `config_column_ownership_update`: columns accepted by `/my/object-update`.
-- `config_column_ownership_delete`: columns accepted by `/my/object-delete` and `/my/object-delete-all`, and used by internal account-data cleanup to discover user-linked rows.
+Besides `created_by_id`, a column is accepted for an action when its `ownership` key lists it: `"ownership": ["read", "update", "delete"]` ([column keys](config.md#column-keys)). Read covers `/my/object-read` and its export, update `/my/object-update`, delete `/my/object-delete` and `/my/object-delete-all`; the `delete` owners are also how the users-delete worker finds a deleted user's rows.
 
 Create does not accept `ownership_column`; `/my/object-create` always stamps `created_by_id` from the authenticated user.
 
@@ -94,12 +90,12 @@ Use `curl -G --data-urlencode` for query parameters containing spaces, JSON, com
 | `page` | `int` | none | Optional jump to page N (OFFSET), within the first `config_page_offset_max` rows; not with `after`. See [Paging](#paging). |
 | `limit` | `int` | `config_sql_read_limit_default` (100) | Positive page size. Requests exceeding `config_sql_read_limit_max` (10,000) are rejected. |
 | `postgres` | `str` | master | Configured database name, e.g. `read` for `config_postgres_url_read`. Unknown name is 404. |
-| `ownership_column` | `str` | `created_by_id` | `/my/object-read` only: column from `config_column_ownership_read` matched to the logged-in user's ID. |
+| `ownership_column` | `str` | `created_by_id` | `/my/object-read` only: `created_by_id` or a column of the table whose `ownership` lists `read`, matched to the logged-in user's ID. |
 | `group_column` + `group_values` | `str` + JSON list | none | The first page of each value instead of one list, in one statement (a board: a column per status): `group_column=status&group_values=[1,2,3]` returns `{"groups": {"1": {"obj_list", "after"}, ...}}`, every value present (empty ones too), at most 50 values; filters, `order`, `column` and `limit` apply to each value. A value's next page is a plain read with `filter` `status = 1` added and that value's `after`. Not with `after`, `page` or `relation`; not on array or JSON columns. An index on (`group_column`, the order columns) serves each value without a scan. |
 
 `/public/object-read` and `/admin/object-read` accept the same parameters except `ownership_column`. Public reads require permitted tables and relations; admin reads require admin authorization and do not add user ownership filtering. Blocked columns cannot be explicitly selected or filtered; `column=*` removes them from results.
 
-`/private/user-read` (token) is the user list for any logged-in user: `filter`, `order`, `after`, `page` and `limit` as above, always on `users` and always the `users` columns with `private_read` in their `users_access` (`id`, `username`, `name`, `role`, `permissions`, `created_at`, `deactivated_at`). Every other `users` column is blocked from its columns, filters and order, so `filter=["role = 2","deactivated_at is null","username ilike %ann%"]` works and `filter=["mobile ilike %98%"]` is a 400. A project that adds `private_read` to a column makes it readable to every logged-in user.
+`/private/user-read` (token) is the user list for any logged-in user: `filter`, `order`, `after`, `page` and `limit` as above, always on `users` and always the `users` columns in `config_users_private_read_column` (`id`, `username`, `name`, `role`, `permissions`, `created_at`, `deactivated_at`). Every other `users` column is blocked from its columns, filters and order, so `filter=["role = 2","deactivated_at is null","username ilike %ann%"]` works and `filter=["mobile ilike %98%"]` is a 400. A project that adds a column to `config_users_private_read_column` makes it readable to every logged-in user.
 
 ### Basic selection and sorting
 
@@ -387,11 +383,11 @@ Use these before writing a project route; most screens need nothing else.
 | Counts or totals per value (dashboard cards, charts, calendar) | `table-column-groupby` | `col` (one or more columns), `agg`, `filter` |
 | The values of a dropdown | `table-column-distinct` | `col`, `filter`, `limit`, `after` |
 | CSV download of a list | `object-read-export` | the same as the list |
-| Users of the app (user management) | `/private/user-read` | `filter`, `limit`, `after`; the `private_read` columns |
+| Users of the app (user management) | `/private/user-read` | `filter`, `limit`, `after`; the `config_users_private_read_column` columns |
 | Create, change, delete your own rows | `/my/object-create`, `/my/object-update`, `/my/object-delete` | `table`; update and delete only the caller's rows |
 | Selected users read, change or delete anyone's rows (a support team, a shared task list) | `/admin/object-create`, `-read`, `-read-export`, `-update`, `-delete` | `table`; the user holds that route's id in `users.permissions` |
 
-Pick the tier by who calls: `/my` (own rows), `/private` (any logged-in user, all rows), `/public` (no login), `/admin` (root and users granted the route's id, every table in the schema); for the other tiers the table must list that tier's action. Hide columns with `config_column_read_blocked`. Write a project route only for joins, several different lists in one statement, computed filters or business checks.
+Pick the tier by who calls: `/my` (own rows), `/private` (any logged-in user, all rows), `/public` (no login), `/admin` (root and users granted the route's id, every table in the schema); for the other tiers the table must be in that tier's access list in `control`. Hide columns with `read_blocked` on the column. Write a project route only for joins, several different lists in one statement, computed filters or business checks.
 
 ---
 
@@ -402,7 +398,7 @@ Executes single or bulk updates in one transaction, up to 5,000 rows per stateme
 ### Features:
 - **Bulk Updates**: Each row can get different values. When every updated column has a simple type (numbers, boolean, text, uuid, dates and times), each column is sent as one array and joined on `id` (`UPDATE ... FROM unnest($1::bigint[], $2::text[], ...)`), so cost grows in a straight line with the rows; JSON, array and PostGIS columns use a `CASE` per column. If an `id` repeats in one request, its first values are used.
 - **Audit Stamping**: Automatically stamps `updated_at = now()` and `updated_by_id = current_user.id`.
-- **Ownership Verification**: `/my/object-update` defaults to `created_by_id` and accepts only columns from `config_column_ownership_update`. The selected column is matched to the authenticated user ID.
+- **Ownership Verification**: `/my/object-update` defaults to `created_by_id` and accepts only a column whose `ownership` lists `update`. The selected column is matched to the authenticated user ID.
 
 ### Request Example:
 ```bash
@@ -444,15 +440,25 @@ Body contains an explicit array of integer `ids`:
 ```json
 {"table": "test", "ids": [1, 2, 3]}
 ```
-For ordinary tables, deletes rows where `id = ANY()` AND `created_by_id = current_user.id` by default; the table must list `delete` in its `my` keys. `table=users` is refused: a user deletes their account with `DELETE /my/user-delete`.
+For ordinary tables, deletes rows where `id = ANY()` AND `created_by_id = current_user.id` by default; the table must be in `control.my_delete`. `table=users` is refused: a user deletes their account with `DELETE /my/user-delete`.
 
 ### 2. Delete Consumer / Owned Records (`POST /my/object-delete?ownership_column=received_by_id`)
-Pass the optional `ownership_column` query parameter to select a column from `config_column_ownership_delete`; it defaults to `created_by_id` when omitted. Keep `table` and `ids` in the JSON body, for example `{"table": "message", "ids": [1, 2, 3]}`. Rows must match both a supplied ID and `<ownership_column> = current_user.id`. For `table="users"`, omit `ownership_column`; the own-account deletion checks apply instead.
+Pass the optional `ownership_column` query parameter to select a column whose `ownership` lists `delete`; it defaults to `created_by_id` when omitted. Keep `table` and `ids` in the JSON body, for example `{"table": "message", "ids": [1, 2, 3]}`. Rows must match both a supplied ID and `<ownership_column> = current_user.id`. For `table="users"`, omit `ownership_column`; the own-account deletion checks apply instead.
+
+### Soft delete and restore (`?mode=soft`)
+`mode` on the delete routes: `hard` (default) deletes the rows; `soft` sets `deleted_at = now()` and `deleted_by_id` = the token's user (and `updated_by_id`) on rows not yet deleted; `restore` sets `deleted_at` (and `deleted_by_id`) back to `NULL`. The table needs a `deleted_at` column (400 otherwise); the request never sends these columns ([audit columns](config.md#column-keys)).
+
+| Route | Modes | Rows |
+|---|---|---|
+| `POST /admin/object-delete?mode=` | `hard`, `soft`, `restore` | Body `{"table", "ids"}`, any rows |
+| `POST /my/object-delete?mode=` | `hard`, `soft` | Body `{"table", "ids"}`, the user's own (by `ownership_column`) |
+| `DELETE /admin/user-delete?id=&mode=` | `hard`, `soft`, `restore` | One user (never id 1) |
+| `DELETE /my/user-delete?mode=` | `hard`, `soft` | The user's own account; only an admin restores it |
 
 ### 3. Bulk Wipe User Records (`DELETE /my/object-delete-all`)
 Wipes all records belonging to the current user in a table in batches capped by `config_batch_item_limit` (currently 1,000; fallback 5,000 when unset or zero) to prevent database locks and gateway timeouts on very large tables. Guarded by:
-- The table's `my` must list `delete_all`.
-- The ownership column must be in `config_column_ownership_delete` and exist in the table.
+- The table must be in `control.my_delete_all`.
+- The ownership column must be `created_by_id` or a column of the table whose `ownership` lists `delete`.
 
 The optional `ownership_column` query parameter defaults to `created_by_id`. Rows must belong to the logged-in user through the selected column. Bulk deletion of `users` is always rejected.
 

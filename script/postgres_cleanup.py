@@ -2,7 +2,7 @@
 
 # command: venv/bin/python -m script.postgres_cleanup
 
-# info: Deletes rows older than their table's retention_day (in config_postgres_schema_<name>: otp 1, log_api 7 and script_run 90 days by default; a table without it is kept), in every database; runs on config_schedule_script_postgres_cleanup (every hour by default).
+# info: Deletes rows older than their table's days in control.retention_day of config_postgres_schema_<name> (otp 1, log_api 7 and script_run 90 days by default; a table without it is kept), in every database; runs on config_schedule_script_postgres_cleanup (every hour by default).
 # - step: <database>.<table>, deletes that table's old rows (script_run keeps a run still going)
 
 # import
@@ -42,11 +42,10 @@ async def cleanup_run(*, config) -> None:
         result = []
         for database, schema in func_postgres_schema_dict(values=config).items():
             if not url_dict.get(database): continue
-            for table, spec in ((schema or {}).get("table") or {}).items():
-                if not isinstance(spec, dict) or not spec.get("retention_day"): continue
+            for table, retention_day in (((schema or {}).get("control") or {}).get("retention_day") or {}).items():
                 print(f"step: {database}.{table}", flush=True)
-                result.append(f"{database}.{table} {await rows_delete(postgres_url=url_dict[database], table=table, retention_day=spec['retention_day'])}")
-        print(f"deleted rows: {', '.join(result) or 'none (no table has retention_day)'}", flush=True)
+                result.append(f"{database}.{table} {await rows_delete(postgres_url=url_dict[database], table=table, retention_day=retention_day)}")
+        print(f"deleted rows: {', '.join(result) or 'none (no table in control.retention_day)'}", flush=True)
 
 def main():
     config = func_config_read()

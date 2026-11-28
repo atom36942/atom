@@ -19,8 +19,8 @@ from tests.integration.support import requires_postgres
 
 
 LOG_API_ON_REPORTS = """from config import config_postgres_schema_master as base_config_postgres_schema_master
-config_postgres_schema_master = {**base_config_postgres_schema_master, "table": {k: v for k, v in base_config_postgres_schema_master["table"].items() if k != "log_api"}}
-config_postgres_schema_reports = {"table": {"log_api": base_config_postgres_schema_master["table"]["log_api"], "report": {"column": [{"name": "id", "datatype": "bigint", "identity": "always", "is_primary": True}, {"name": "title", "datatype": "text"}]}}}
+config_postgres_schema_master = {**base_config_postgres_schema_master, "table": {k: v for k, v in base_config_postgres_schema_master["table"].items() if k != "log_api"}, "control": {k: ([t for t in v if t != "log_api"] if isinstance(v, list) and k != "extension" else {t: n for t, n in v.items() if t != "log_api"} if isinstance(v, dict) else v) for k, v in base_config_postgres_schema_master["control"].items()}}
+config_postgres_schema_reports = {"table": {"log_api": base_config_postgres_schema_master["table"]["log_api"], "report": {"column": [{"name": "id", "datatype": "bigint", "identity": "always", "is_primary_key": True}, {"name": "title", "datatype": "text"}]}}, "control": {"row_update_disabled": ["log_api"], "buffer_limit": {"log_api": 1000}, "retention_day": {"log_api": 7}}}
 """    # API logs go to the reports database: log_api out of master's schema, into reports'; its report table admins may read
 
 
@@ -238,7 +238,7 @@ class HttpIntegrationTests(unittest.TestCase):
         tables = {r["tablename"] for r in fetch(self.reports_url, "SELECT tablename FROM pg_tables WHERE schemaname = 'public'")}
         self.assertEqual(tables, {"report", "log_api"})
         triggers = fetch(self.reports_url, "SELECT tgname FROM pg_trigger WHERE tgrelid = 'report'::regclass AND NOT tgisinternal")
-        self.assertEqual(triggers, [])    # tables Atom does not manage are left untouched
+        self.assertEqual(triggers, [{"tgname": "trigger_truncate_disable_report"}])    # only control.is_truncate_disabled (on by default in every database): no users or root triggers outside master
 
     def test_api_usage_reads_the_log_database_and_rejects_postgres_param(self):
         self.client.get("/my/profile", headers=self.auth())

@@ -154,7 +154,7 @@ curl -X POST "http://localhost:8000/my/object-delete" \
 
 ---
 
-For records received by or assigned to you, pass an operation-approved `ownership_column`. Read uses `config_column_ownership_read`, update uses `config_column_ownership_update`, and delete uses `config_column_ownership_delete`. Keep `table` and `ids` in the JSON body for ID-based deletion. Omit `ownership_column` to use `created_by_id`. The user ID always comes from the authenticated token. See [ownership and account deletion rules](crud.md).
+For records received by or assigned to you, pass an operation-approved `ownership_column`. The column's `ownership` key in the schema lists the actions it allows (`read`, `update`, `delete`). Keep `table` and `ids` in the JSON body for ID-based deletion. Omit `ownership_column` to use `created_by_id`. The user ID always comes from the authenticated token. See [ownership and account deletion rules](crud.md).
 
 ## Next Steps
 

@@ -53,7 +53,7 @@ class SchemaPlanTests(unittest.IsolatedAsyncioTestCase):
     async def test_every_name_for_a_type_matches_what_postgres_reports(self):
         types = ["timestamp", "timestamptz", "time", "timetz", "double precision", "float", "real", "char(2)", "character(2)", "int2", "int4", "int8", "integer", "smallint", "bigint", "decimal(10,2)", "numeric(10,2)", "boolean", "varchar(20)", "bit varying(8)"]
         config = copy.deepcopy(self.config)
-        config["table"]["type_names"] = {"column": [{"name": "id", "datatype": "bigint", "identity": "always", "is_primary": True}, *[{"name": f"c{i}", "datatype": datatype} for i, datatype in enumerate(types)]]}
+        config["table"]["type_names"] = {"column": [{"name": "id", "datatype": "bigint", "identity": "always", "is_primary_key": True}, *[{"name": f"c{i}", "datatype": datatype} for i, datatype in enumerate(types)]]}
         await func_postgres_schema_init(app_state=self.app_state, client_postgres=self.pool, config_postgres_schema=config, root_user_password_hash=PASSWORD_HASH)
         plan = await func_postgres_schema_plan(app_state=self.app_state, client_postgres=self.pool, config_postgres_schema=config)
         self.assertEqual([step["sql"] for step in plan if not step["is_routine"]], [], "an unchanged column is never rewritten")
@@ -90,7 +90,7 @@ class SchemaPlanTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_apply_runs_the_change_then_the_check_passes(self):
         config = {"config_postgres_schema_master": title_as_varchar(self.config), "config_postgres_lock_timeout_sec": 5}
-        await plan_apply(postgres_url=self.url, config=config["config_postgres_schema_master"], root_user_password="root-test-password", lock_timeout_sec=config["config_postgres_lock_timeout_sec"])
+        await plan_apply(postgres_url=self.url, config=config["config_postgres_schema_master"], database="master", root_user_password="root-test-password", lock_timeout_sec=config["config_postgres_lock_timeout_sec"])
         self.assertEqual(await self.title_type(), "character varying")
         self.assertEqual(await func_postgres_schema_check(app_state=self.app_state, client_postgres=self.pool, config_postgres_schema=config["config_postgres_schema_master"]), "schema check done")
 

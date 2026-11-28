@@ -10,6 +10,7 @@ Atom's users, logins and tokens: **stateless JWT tokens**, **Argon2 password has
 | Two-factor login (TOTP) | [auth-totp.md](auth-totp.md) |
 | Single sign-on with Google, Microsoft and any OIDC provider | [auth-oidc.md](auth-oidc.md) |
 | Pages for user management | [user-management.md](user-management.md) |
+| Which database: users and auth live in `master` only; other databases hold data | [database.md](database.md#master-holds-auth-other-databases-hold-data) |
 
 ---
 
@@ -39,19 +40,19 @@ Uniqueness constraints are declared under `config_postgres_schema_master["table"
 
 - **Composite with Role (Default & Recommended)**: Scopes identity per role, enabling multi-persona accounts (e.g. Driver vs. Rider):
   ```python
-  {"name": "email", "datatype": "text", "unique": "email,role"},
+  {"name": "email", "datatype": "text", "unique": [["email", "role"]]},
   ```
 - **Globally Unique Across System**:
   ```python
-  {"name": "email", "datatype": "text", "unique": "email"},
+  {"name": "email", "datatype": "text", "unique": [["email"]]},
   ```
 - **Multi-Tenant Scoping**:
   ```python
-  {"name": "email", "datatype": "text", "unique": "email,org_id"},
+  {"name": "email", "datatype": "text", "unique": [["email", "org_id"]]},
   ```
-- **Multiple Simultaneous Rules**: Use a pipe `|`:
+- **Multiple Simultaneous Rules**: one list per constraint:
   ```python
-  {"name": "username", "datatype": "text", "unique": "username|username,tenant_id"},
+  {"name": "username", "datatype": "text", "unique": [["username"], ["username", "tenant_id"]]},
   ```
 - **Soft-Delete Uniqueness (Partial Index)**: In PostgreSQL, `NULL != NULL`. To enforce uniqueness only among active users, define a partial index in `config_postgres_schema_master["sql"]`:
   ```sql
@@ -61,7 +62,7 @@ Uniqueness constraints are declared under `config_postgres_schema_master["table"
 
 ### Adding a Custom Identity Column:
 For an OIDC provider, add it to `config_oidc_provider`: its column comes with it. For anything else (a provider without ID tokens, a company directory):
-1. Add the column to `users` in `config_extend.py`, unique per role: `{"name": "github_login_id", "datatype": "text", "unique": "github_login_id,role"}`, with `"users_access": ["my_update_blocked"]`.
+1. Add the column to `users` in `config_extend.py`, unique per role: `{"name": "github_login_id", "datatype": "text", "unique": [["github_login_id", "role"]], "write_blocked": ["my"]}`.
 2. Add its login route in `router_extend/` (e.g. `POST /auth/login-github`) ending with `func_auth_login_finish`, so 2FA applies.
 
 ---
@@ -112,22 +113,22 @@ Rows of `users` are written only through these APIs; the generic object APIs (`/
 
 | API | Query | Body | Rules |
 |---|---|---|---|
-| `POST /admin/user-create` | | `{role, username, password, ...columns}` | The three required; any other `users` column (profile fields, a project's own columns) is set in the same insert, except `my_update_blocked`, `update_alone` and `update_blocked` columns (sign-up, login, verification, permissions, system: set them with an update) and `id`, `deactivated_at`; returns `{"id": ...}` |
+| `POST /admin/user-create` | | `{role, username, password, ...columns}` | The three required; any other `users` column (profile fields, a project's own columns) is set in the same insert, except columns `write_blocked` for `my` or `admin` and the `config_users_update_alone_column` ones (sign-up, login, verification, permissions, system: set them with an update) and `id`, `deactivated_at`; returns `{"id": ...}` |
 | `PUT /admin/user-update` | | `{id, ...users columns}`, or several as `{"obj_list": [{id, ...}, ...]}` | Up to `config_batch_item_limit` users, ids unique, each with its own columns and checked by the same rules; one transaction, so a missing id (404) or any refused user updates none. `email`/`mobile` need `otp` only when `config_is_otp_require_users_update` is on. The root user's `role` and `deactivated_at` cannot change. `permissions` must be ids of routes with `user_check_permission` in `config_api` |
-| `DELETE /admin/user-delete` | `id` | | One user; never the root user |
-| `PUT /my/user-update` | | `{...own users columns}` | Own row from the token (an `id`, if sent, must be the user's own). `email`/`mobile` always need `otp` (sent to the new value with `/public/otp-send-email` or `-mobile`). `my_update_blocked` columns (`role`, `permissions`, `deactivated_at`, ...) are refused |
-| `DELETE /my/user-delete` | | | Own account; token only |
+| `DELETE /admin/user-delete` | `id`, `mode` | | One user; never the root user. `mode`: `hard` (default), `soft` (`deleted_at = now()`, `deleted_by_id` = the admin), `restore` (`deleted_at` back to `NULL`) |
+| `PUT /my/user-update` | | `{...own users columns}` | Own row from the token (an `id`, if sent, must be the user's own). `email`/`mobile` always need `otp` (sent to the new value with `/public/otp-send-email` or `-mobile`). columns `write_blocked` for `my` (`role`, `permissions`, `deactivated_at`, ...) are refused |
+| `DELETE /my/user-delete` | `mode` | | Own account; token only. `mode`: `hard` (default) or `soft` (only an admin restores it) |
 
 Both updates accept any `users` column (Atom's and a project's own), checked against the table; only the fields sent are updated.
 
 Rules for both updates:
-- An `update_alone` column (`username`, `password`, `email`, `mobile`) is updated alone: `{password}`, `{email, otp}`, never `{password, name}`.
-- `update_blocked` columns (`created_*`, `updated_*`, `deleted_*`, `is_protected`, `last_active_at`) are refused by both; `my_update_blocked` columns only by `/my/user-update`; every other column, a project's own included, is allowed. A project sets `users_access` on its own columns in `config_extend.py` ([users columns](config.md#users-columns-users_access)).
+- A `config_users_update_alone_column` column (`username`, `password`, `email`, `mobile`) is updated alone: `{password}`, `{email, otp}`, never `{password, name}`.
+- The audit columns (`created_*`, `updated_*`, `deleted_*`) and columns `write_blocked` for `admin` (`is_protected`, `last_active_at`, `totp_secret`, ...) are refused by both; columns `write_blocked` for `my` only by `/my/user-update`; every other column, a project's own included, is allowed. A project sets `write_blocked` on its own columns in `config_extend.py` ([users columns](config.md#users-columns)).
 - `password` is hashed (Argon2) and logged in `log_users_password`; `email` is saved in lowercase; formats follow each `users` column's `regex` (`username`, `password`, `email_secondary`, `mobile_secondary`), with its `regex_message` as the error.
 
 ### Deactivated or deleted accounts
 
-Set `deactivated_at` to block a user and keep the account (clear it to restore); `deleted_at` (soft delete) or `/admin/user-delete` removes them. Atom refuses them with 403 and one of two messages, the same everywhere:
+Set `deactivated_at` to block a user and keep the account (clear it to restore); soft delete (`/admin/user-delete?mode=soft` or `/my/user-delete?mode=soft`: `deleted_at`, restorable with `mode=restore`) or a hard delete removes them. Atom refuses them with 403 and one of two messages, the same everywhere:
 
 | Where | When the user is blocked |
 |---|---|
@@ -139,7 +140,7 @@ A page handles it the same way in every case:
 - On a 403 with either message, or a profile with `deactivated_at` or `deleted_at`: log out, clear its storage, and say which, e.g. "Your account is deactivated. Please contact your admin." or "Your account was deleted. Please contact your admin." (never "Session expired").
 - No extra request for it: the page's regular sync (token renewal, then `/my/profile`, e.g. every 3 hours) catches a block on an open page. The server keeps accepting an access token issued before the block until it expires (`config_access_token_expires_sec`, 7 days); use `realtime` on routes that must stop at once.
 
-Deleting needs two switches, because the database guards `users` too: `config_is_user_delete=true` and `"delete"` removed from the `users` table's `row_lock` in `config_postgres_schema_master` (default on: the API then answers "users delete blocked in the database"). The root user (`id` 1) is never deleted.
+Hard deleting needs two switches, because the database guards `users` too: `config_is_user_delete=true` and `users` removed from `control.row_delete_disabled` in `config_postgres_schema_master` (listed by default: the API then answers "users hard delete blocked in the database"). Soft delete needs neither. The root user (`id` 1) is never deleted.
 
 ## 5. OTP Flow
 
@@ -175,7 +176,7 @@ Atom generates HS256 JWT pairs signed with `config_token_secret_key`:
 }
 ```
 
-- **Payload Claims**: Minimal claims: the `users` columns with `token` in `users_access` (`id`, `role`, `username`, `id_ext`, `deactivated_at`, `deleted_at`, `permissions`).
+- **Payload Claims**: Minimal claims: the `users` columns in `config_users_token_column`, plus `id` (`id`, `role`, `username`, `id_ext`, `deactivated_at`, `deleted_at`, `permissions`).
 - **Token Type**: Encodes `type: "access"` or `type: "refresh"`.
 - **Refreshing**: `POST /my/token-refresh` reads the current refresh token, re-reads the user and mints a fresh pair; a deleted or deactivated account gets `403` instead, as at login.
 
@@ -194,7 +195,7 @@ async def func_api_my_profile(*, request: Request):
 
 ## 7. Root Superadmin User Architecture
 
-Atom features an automatic superadministrator (**root user**) with `role: 1` that is seeded on startup and defended by database triggers:
+With `config_is_root_user` on (default), Atom keeps a superadministrator (**root user**) with `role: 1` in `master`, seeded at each start and defended by a database trigger:
 
 | Attribute | Value | Configuration / Source |
 | :--- | :--- | :--- |
@@ -207,7 +208,7 @@ Atom features an automatic superadministrator (**root user**) with `role: 1` tha
 At startup, Atom ensures the `admin` user exists with `role: 1`, updates the password hash if `config_root_user_password` changed, restores active status if deleted/deactivated, and guarantees `id = 1`.
 
 ### Built-in Defenses:
-1. **PostgreSQL Trigger Protection (`is_root_user_delete_disabled` = True)**:
+1. **PostgreSQL Trigger Protection (`config_is_root_user` = True)**:
    Installs `trigger_protect_root_users` on the `users` table. Any direct SQL `DELETE` or API delete targeting `id = 1` raises an exception:
    ```sql
    RAISE EXCEPTION 'DELETE not allowed for root user (id=1)';

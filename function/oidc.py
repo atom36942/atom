@@ -26,7 +26,7 @@ def func_oidc_provider_check(*, name: str, provider: Any) -> None:
     if provider.get("link_email") not in (None, True, False): raise ValueError(f"{where}: link_email must be true or false")
 
 def func_oidc_config_apply(*, values: dict) -> None:
-    """Check config_oidc_provider and give each provider its users column oidc_<name> (the provider's sub, unique per role), blocked for the user's own edits (users_access my_update_blocked) like the other login columns."""
+    """Check config_oidc_provider and give each provider its users column oidc_<name> (the provider's sub, unique per role), blocked for the user's own edits (write_blocked ["my"]) like the other login columns."""
     providers = values.get("config_oidc_provider") or {}
     if not isinstance(providers, dict): raise ValueError("config_oidc_provider must be a dict of provider name to settings")
     for name, provider in providers.items(): func_oidc_provider_check(name=name, provider=provider)
@@ -35,7 +35,7 @@ def func_oidc_config_apply(*, values: dict) -> None:
     users = list(postgres["table"]["users"].get("column") or [])
     names = {c.get("name") for c in users}
     columns = [f"oidc_{name}" for name in providers if f"oidc_{name}" not in names]
-    users += [{"name": c, "datatype": "text", "unique": f"{c},role", "users_access": ["my_update_blocked"]} for c in columns]
+    users += [{"name": c, "datatype": "text", "unique": [[c, "role"]], "write_blocked": ["my"]} for c in columns]
     values["config_postgres_schema_master"] = {**postgres, "table": {**postgres["table"], "users": {**postgres["table"]["users"], "column": users}}}
 
 async def func_oidc_keys(*, client_http: Any, cache_oidc: dict, provider: dict, kid: str | None) -> list:

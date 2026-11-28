@@ -10,7 +10,7 @@ from function import func_middleware_api_user_check_fill
 from function import func_user_update_check
 from function import func_user_update
 from function import func_user_delete
-from function import func_validate_restricted_columns
+from function import func_object_access
 from function import func_check_batch_limit
 from function import func_check_honeypot
 from function import func_attach_user_audit_fields
@@ -29,10 +29,11 @@ class PermissionTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(Exception, "not allowed for table: product"):
             func_check_table_access(app_state=SimpleNamespace(), table="product", group="public", action="read")    # no rules at all: closed
 
-    def test_restricted_fields_checked_across_entire_batch(self):
-        with self.assertRaisesRegex(Exception, "restricted field: role"):
-            func_validate_restricted_columns(app_state=SimpleNamespace(config_column_admin={"role"}),
-                                             obj_list=[{"name": "ok"}, {"role": 1}])
+    def test_the_gate_refuses_a_write_blocked_or_audit_column_anywhere_in_the_batch(self):
+        state = SimpleNamespace(func_check_table_access=lambda **kwargs: None, cache_postgres_table_rule={"master": {"task": {"write_blocked": {"my": ["status"], "public": [], "private": [], "admin": []}}}})
+        for row, message in (({"status": 1}, "status: not writable by my"), ({"created_by_id": 9}, "created_by_id: not writable by my .set by Atom")):
+            with self.subTest(row=row), self.assertRaisesRegex(Exception, message): func_object_access(app_state=state, table="task", group="my", action="create", obj_list=[{"title": "ok"}, row])
+        func_object_access(app_state=state, table="task", group="admin", action="update", obj_list=[{"status": 1}])
 
     def test_every_generic_object_api_checks_the_table_access(self):
         import inspect
@@ -48,7 +49,9 @@ class PermissionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(set(found), set(routes))
         for path, access in routes.items():
             group, _, action = access.partition(" ")
-            with self.subTest(path=path): self.assertIn(f'group="{group}"' + (f', action="{action}")' if action else ""), found[path])
+            with self.subTest(path=path):    # every Atom table route goes through the one gate, with its own prefix as the group
+                self.assertIn("func_object_access(", found[path])
+                self.assertIn(f'group="{group}"' + (f', action="{action}"' if action else ""), found[path])
 
     def test_global_user_checks_fill_every_route_with_a_credential_unless_it_sets_its_own(self):
         config_api = {"/public": {"id": 1, "auth": []}, "/my/x": {"id": 2, "auth": ["jwt"]}, "/admin/x": {"id": 3, "auth": ["jwt"], "user_check_role": {"mode": "token", "roles": [1]}},
@@ -67,13 +70,13 @@ class PermissionTests(unittest.IsolatedAsyncioTestCase):
         import config
         self.assertEqual((config.config_api_global_user_check_deleted, config.config_api_global_user_check_deactivated), ("token", "token"))
         from function import func_postgres_users_access
-        self.assertTrue({"deleted_at", "deactivated_at"} <= set(func_postgres_users_access(config_postgres_schema=config.config_postgres_schema_master)["token"]))
+        self.assertTrue({"deleted_at", "deactivated_at"} <= set(func_postgres_users_access(config_users_token_column=config.config_users_token_column)["token"]))
 
     def test_atom_tables_nobody_edits_are_locked(self):
         import config
-        tables = config.config_postgres_schema_master["table"]
-        self.assertEqual(sorted(name for name, spec in tables.items() if "update" in spec.get("row_lock", [])), ["api_key", "log_api", "log_users_password"])
-        self.assertEqual(sorted(name for name, spec in tables.items() if "delete" in spec.get("row_lock", [])), ["config", "log_users_delete", "log_users_password", "users"])
+        control = config.config_postgres_schema_master["control"]
+        self.assertEqual(sorted(control["row_update_disabled"]), ["api_key", "log_api", "log_users_password"])
+        self.assertEqual(sorted(control["row_delete_disabled"]), ["config", "log_users_delete", "log_users_password", "users"])
 
     def test_generic_object_apis_refuse_the_users_table(self):
         func_check_table_not_users(table="orders")

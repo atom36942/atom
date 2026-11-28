@@ -92,6 +92,34 @@ class HttpRouteTests(unittest.TestCase):
                 user = getattr(self.client, method)(path, headers=self.auth(self.alice))
                 self.assertEqual((user.status_code, user.json()["message"]), (403, "permission denied"))
 
+    def test_openapi_dropdowns_come_from_the_schema(self):
+        paths = self.client.get("/openapi.json").json()["paths"]
+        enum = lambda path, method, name: next(p["schema"].get("enum") for p in paths[path][method]["parameters"] if p["name"] == name)
+        self.assertEqual(enum("/my/object-read", "get", "ownership_column"), ["created_by_id", "received_by_id", "user_id"])    # created_by_id, then every column whose ownership lists read
+        self.assertEqual(enum("/my/object-update", "put", "ownership_column"), ["created_by_id"])
+        self.assertEqual(enum("/my/object-delete", "post", "ownership_column"), ["created_by_id", "received_by_id"])
+        self.assertEqual((enum("/my/object-delete", "post", "mode"), enum("/admin/object-delete", "post", "mode"), enum("/admin/user-delete", "delete", "mode")), (["hard", "soft"], ["hard", "soft", "restore"], ["hard", "soft", "restore"]))
+
+    def test_a_user_soft_delete_and_restore_are_filled_by_atom(self):
+        carol = app_login(self.client, path="/auth/signup-username-password", body={"role": 5, "username": "carol", "password": "carol-pass"})
+        carol_id = self.client.get("/my/profile", headers=self.auth(carol)).json()["message"]["id"]
+        self.assertIn("deleted_at cannot be updated", self.message(self.client.put("/admin/user-update", json={"id": carol_id, "deleted_at": "2020-01-01"}, headers=self.auth(self.admin)), 400))    # an update never sets it: only the delete action
+        self.assertEqual(self.message(self.client.delete("/admin/user-delete", params={"id": carol_id, "mode": "soft"}, headers=self.auth(self.admin))), "user soft deleted")
+        [row] = fetch(self.url, "SELECT deleted_at IS NOT NULL AS deleted, deleted_by_id FROM users WHERE id = $1", carol_id)
+        self.assertEqual(row, {"deleted": True, "deleted_by_id": 1})    # the admin, from the token
+        self.assertEqual(fetch(self.url, "SELECT type, created_by_id FROM log_users_delete WHERE user_id = $1 ORDER BY id", carol_id), [{"type": 1, "created_by_id": 1}])
+        self.message(self.client.delete("/admin/user-delete", params={"id": carol_id, "mode": "soft"}, headers=self.auth(self.admin)), 404)    # already deleted
+        self.assertEqual(self.message(self.client.delete("/admin/user-delete", params={"id": carol_id, "mode": "restore"}, headers=self.auth(self.admin))), "user restored")
+        self.assertEqual(fetch(self.url, "SELECT deleted_at, deleted_by_id FROM users WHERE id = $1", carol_id), [{"deleted_at": None, "deleted_by_id": None}])
+        self.assertEqual(self.message(self.client.delete("/my/user-delete", params={"mode": "soft"}, headers=self.auth(carol))), "user soft deleted")
+        self.assertEqual(fetch(self.url, "SELECT deleted_by_id FROM users WHERE id = $1", carol_id), [{"deleted_by_id": carol_id}])    # the user themself
+        self.message(self.client.delete("/admin/user-delete", params={"id": 1, "mode": "soft"}, headers=self.auth(self.admin)), 403)    # never the root user
+
+    def test_audit_columns_never_come_from_a_my_or_public_request(self):
+        for path, params in (("/my/object-create", {"table": "test"}), ("/public/object-create", {"table": "test"})):
+            with self.subTest(path=path): self.assertIn("deleted_at: not writable by", self.message(self.client.post(path, params=params, json={"title": "x", "deleted_at": "2020-01-01"}, headers=self.auth(self.alice)), 400))
+
+
     def test_admin_routes_root_holds_every_id_others_need_a_grant(self):
         admin_ids = sorted(cfg["id"] for path, cfg in self.app.state.config_api.items() if path.startswith("/admin/"))
         self.assertEqual(fetch(self.url, "SELECT permissions FROM users WHERE id = 1"), [{"permissions": admin_ids}])    # set at startup
@@ -185,7 +213,7 @@ class HttpRouteTests(unittest.TestCase):
 
     def test_object_read_export_rejects_bad_input_before_streaming(self):
         self.assertEqual(self.client.get("/my/object-read-export", params={"table": "test"}).status_code, 401)
-        self.assertEqual(self.message(self.client.get("/my/object-read-export", params={"table": "users"}, headers=self.auth(self.alice)), 403), "my read not allowed for table: users (add \"read\" to \"my\" of users in config_postgres_schema_master)")
+        self.assertEqual(self.message(self.client.get("/my/object-read-export", params={"table": "users"}, headers=self.auth(self.alice)), 403), "my read not allowed for table: users (add \"users\" to control.my_read in config_postgres_schema_master)")
         self.assertEqual(self.message(self.client.get("/my/object-read-export", params={"table": "test", "page": 2}, headers=self.auth(self.alice)), 400), "request contains unknown parameters")
         self.assertEqual(self.message(self.client.get("/my/object-read-export", params={"table": "test", "limit": 0}, headers=self.auth(self.alice)), 400), "Rows must be between 1 and 1,000,000.")
         self.assertEqual(self.client.get("/my/object-read-export", params={"table": "test", "column": "password"}, headers=self.auth(self.alice)).status_code, 400)
@@ -196,7 +224,7 @@ class HttpRouteTests(unittest.TestCase):
         public = self.client.get("/public/object-read-export", params={"table": "test", "column": "id,title"})
         self.assertEqual(public.status_code, 200, public.text)
         self.assertIn("shared-export", {r["title"] for r in csv_rows(public)})
-        self.assertEqual(self.message(self.client.get("/public/object-read-export", params={"table": "users"}), 403), "public read not allowed for table: users (add \"read\" to \"public\" of users in config_postgres_schema_master)")
+        self.assertEqual(self.message(self.client.get("/public/object-read-export", params={"table": "users"}), 403), "public read not allowed for table: users (add \"users\" to control.public_read in config_postgres_schema_master)")
         self.assertEqual(self.client.get("/private/object-read-export", params={"table": "test"}).status_code, 401)
         private = self.client.get("/private/object-read-export", params={"table": "test", "column": "id,title"}, headers=self.auth(self.bob))
         self.assertIn("shared-export", {r["title"] for r in csv_rows(private)})
@@ -223,10 +251,10 @@ class HttpRouteTests(unittest.TestCase):
 
     def test_public_and_private_reads_respect_table_allowlists(self):
         self.message(self.client.post("/public/object-create", params={"table": "test"}, json={"title": "public row"}))
-        self.assertEqual(self.message(self.client.post("/public/object-create", params={"table": "task"}, json={"title": "x"}), 403), "public create not allowed for table: task (add \"create\" to \"public\" of task in config_postgres_schema_master)")
+        self.assertEqual(self.message(self.client.post("/public/object-create", params={"table": "task"}, json={"title": "x"}), 403), "public create not allowed for table: task (add \"task\" to control.public_create in config_postgres_schema_master)")
         titles = [r["title"] for r in self.message(self.client.get("/private/object-read", params={"table": "test"}, headers=self.auth(self.alice)))["obj_list"]]
         self.assertIn("public row", titles)
-        self.assertEqual(self.message(self.client.get("/private/object-read", params={"table": "users"}, headers=self.auth(self.alice)), 403), "private read not allowed for table: users (add \"read\" to \"private\" of users in config_postgres_schema_master)")
+        self.assertEqual(self.message(self.client.get("/private/object-read", params={"table": "users"}, headers=self.auth(self.alice)), 403), "private read not allowed for table: users (add \"users\" to control.private_read in config_postgres_schema_master)")
         users = self.message(self.client.get("/private/user-read", headers=self.auth(self.alice)))["obj_list"]
         self.assertTrue({"alice", "bob"} <= {u["username"] for u in users})
         self.assertEqual({k for u in users for k in u}, {"id", "username", "name", "role", "permissions", "created_at", "deactivated_at"})
@@ -315,10 +343,10 @@ class HttpRouteTests(unittest.TestCase):
         row_id = created[0] if isinstance(created, list) else fetch(self.url, "SELECT id FROM test WHERE title = 'audit target'")[0]["id"]
         for column, value in (("created_by_id", self.bob_id), ("created_at", "2020-01-01"), ("deleted_by_id", 1)):
             with self.subTest(column=column):
-                self.assertIn(f"{column} is set by Atom", self.message(self.client.put("/admin/object-update", params={"table": "test"}, json={"id": row_id, column: value}, headers=self.auth(self.admin)), 400))
-                self.assertIn(f"{column} is set by Atom", self.message(self.client.post("/admin/object-create", params={"table": "test"}, json={"title": "x", column: value}, headers=self.auth(self.admin)), 400))
+                self.assertIn(f"{column}: not writable by admin (set by Atom)", self.message(self.client.put("/admin/object-update", params={"table": "test"}, json={"id": row_id, column: value}, headers=self.auth(self.admin)), 400))
+                self.assertIn(f"{column}: not writable by admin (set by Atom)", self.message(self.client.post("/admin/object-create", params={"table": "test"}, json={"title": "x", column: value}, headers=self.auth(self.admin)), 400))
         upload = lambda mode, csv: self.client.post("/admin/postgres-import", data={"mode": mode, "table": "test"}, files={"file": ("rows.csv", csv.encode(), "text/csv")}, headers=self.auth(self.admin))
-        self.assertIn("created_by_id is set by Atom", self.message(upload("create", f"title,created_by_id\nforged,{self.bob_id}\n"), 400))
+        self.assertIn("created_by_id: not writable by admin (set by Atom)", self.message(upload("create", f"title,created_by_id\nforged,{self.bob_id}\n"), 400))
         self.assertEqual(fetch(self.url, "SELECT count(*) AS n FROM test WHERE title = 'forged'"), [{"n": 0}])
         self.message(upload("create", "title\nimported by admin\n"))
         self.assertEqual(fetch(self.url, "SELECT created_by_id FROM test WHERE title = 'imported by admin'"), [{"created_by_id": 1}])    # the importing admin, set by Atom

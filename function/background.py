@@ -74,7 +74,7 @@ async def func_inmemory_cache_cleanup_periodic_task(*, cache_api_response: dict,
     return
 
 async def func_table_retention_cleanup(*, conn: asyncpg.Connection, table: str, cutoff, timeout_sec: float) -> int:
-    """Delete at most 5,000 rows of table created before cutoff (the table's retention_day in its schema; script/postgres_cleanup.py calls it until done). script_run keeps a run still going. Rows are found by (tableoid, ctid), so tables without id and partitioned ones work too."""
+    """Delete at most 5,000 rows of table created before cutoff (the table's days in control.retention_day of its schema; script/postgres_cleanup.py calls it until done). script_run keeps a run still going. Rows are found by (tableoid, ctid), so tables without id and partitioned ones work too."""
     keep = " AND status <> 1" if table == "script_run" else ""
     result = await conn.execute(f'DELETE FROM "{table}" WHERE (tableoid, ctid) IN (SELECT tableoid, ctid FROM "{table}" WHERE created_at < $1{keep} ORDER BY created_at LIMIT 5000 FOR UPDATE SKIP LOCKED)', cutoff, timeout=timeout_sec)    # noqa: S608 - table names come from config_postgres_schema, not requests
     return int(result.split()[-1])

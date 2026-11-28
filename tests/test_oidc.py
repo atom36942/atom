@@ -75,7 +75,7 @@ class ProviderCheckTests(unittest.TestCase):
         values = {"config_oidc_provider": {"google": PROVIDER, "okta": PROVIDER}, "config_postgres_schema_master": config.config_postgres_schema_master}
         func_oidc_config_apply(values=values)
         columns = [c for c in values["config_postgres_schema_master"]["table"]["users"]["column"] if c["name"].startswith("oidc_")]
-        self.assertEqual(columns, [{"name": "oidc_google", "datatype": "text", "old": "google_login_id", "unique": "oidc_google,role", "users_access": ["my_update_blocked"]}, {"name": "oidc_okta", "datatype": "text", "unique": "oidc_okta,role", "users_access": ["my_update_blocked"]}])
+        self.assertEqual(columns, [{"name": "oidc_google", "datatype": "text", "old_name": "google_login_id", "unique": [["oidc_google", "role"]], "write_blocked": ["my"]}, {"name": "oidc_okta", "datatype": "text", "unique": [["oidc_okta", "role"]], "write_blocked": ["my"]}])
         self.assertNotIn("oidc_okta", [c["name"] for c in config.config_postgres_schema_master["table"]["users"]["column"]], "config.py itself is not changed")
 
 

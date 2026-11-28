@@ -4,7 +4,7 @@ Which users may call a route, beyond their role. Part of [auth](auth.md).
 
 `users.permissions` (`smallint[]`, nullable) holds the route ids a user may call: each is a `config_api` route's `id`. `NULL` and `[]` grant none. One id is one route, nothing else: no table map, no actions.
 
-It holds only route ids. Any other access a project needs, such as which rows a user may see (their countries, companies or branches), goes in its own `users` column added in `config_extend.py` (e.g. `report_country text[]`), never as made-up ids in `permissions`: the ids share one numbering with the routes, so a later route with the same id would be granted with it. Such a column is set only through `/admin/user-update` (`"users_access": ["my_update_blocked"]` on it, [users columns](config.md#users-columns-users_access)), and the project's routes read it from the database on each request, so a change applies without a new login.
+It holds only route ids. Any other access a project needs, such as which rows a user may see (their countries, companies or branches), goes in its own `users` column added in `config_extend.py` (e.g. `report_country text[]`), never as made-up ids in `permissions`: the ids share one numbering with the routes, so a later route with the same id would be granted with it. Such a column is set only through `/admin/user-update` (`"write_blocked": ["my"]` on it, [users columns](config.md#users-columns)), and the project's routes read it from the database on each request, so a change applies without a new login.
 
 A request passes these gates, in order, before the route runs. Role and permission are independent: a route sets either or both, and either one needs a credential (a non-empty `auth`).
 
@@ -13,7 +13,7 @@ A request passes these gates, in order, before the route runs. Role and permissi
 | 1 | Credential | `auth`: `["jwt"]` (access token), `["api_key"]` (API key) or both; `[]` is public | 401 |
 | 2 | Role: the user's role is in the list | `"user_check_role": {"mode": "token", "roles": [2]}` | 403 `access denied` |
 | 3 | Permission: the route's own `id` is in the user's `permissions` | `"user_check_permission": {"mode": "token"}` or `{"mode": "realtime"}` | 403 `permission denied` |
-| 4 | Table (admin object and table routes only): the table is in the schema of the request's database | `config_postgres_schema_<name>` ([table keys](config.md#table-keys)) | 403 `admin read not allowed for table: x (not in config_postgres_schema_master)` |
+| 4 | Table (admin object and table routes only): the table is in the schema of the request's database | `config_postgres_schema_<name>` ([control](config.md#control)) | 403 `admin read not allowed for table: x (not in config_postgres_schema_master)` |
 
 ## Admin routes: one id each
 
@@ -53,6 +53,6 @@ A project route works the same way, for example only some role 2 users may close
 "/task/close": {"id": 205, "auth": ["jwt"], "user_check_role": {"mode": "token", "roles": [2]}, "user_check_permission": {"mode": "token"}},
 ```
 
-- **Granting**: only `/admin/user-update` writes `permissions`; `/my/user-update` refuses it (`my_update_blocked`) and the object routes refuse `table=users`.
+- **Granting**: only `/admin/user-update` writes `permissions`; `/my/user-update` refuses it (`"write_blocked": ["my"]`) and the object routes refuse `table=users`.
 - **Labels**: id 205 is labelled `/task/close` in `/info` by itself; `/admin/user-update` refuses ids of routes without `user_check_permission`.
-- **Startup refuses**: a mode other than `token` or `realtime`; any other key (an `action`); `token` mode without `token` in the `users_access` of `users.permissions`.
+- **Startup refuses**: a mode other than `token` or `realtime`; any other key (an `action`); `token` mode without `permissions` in `config_users_token_column`.

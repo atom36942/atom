@@ -24,7 +24,7 @@ ROWS = [
 ]
 
 SEARCH_ON_TEST = """from config import config_postgres_schema_master as base_config_postgres_schema_master
-config_postgres_schema_master = {**base_config_postgres_schema_master, "table": {**base_config_postgres_schema_master["table"], "test": {**base_config_postgres_schema_master["table"]["test"], "column": [*base_config_postgres_schema_master["table"]["test"]["column"], {"name": "search", "datatype": "tsvector", "generated": "setweight(to_tsvector('english', coalesce(title, '')), 'A') || setweight(to_tsvector('english', coalesce(description, '')), 'B')", "index": "gin(search)"}]}}}
+config_postgres_schema_master = {**base_config_postgres_schema_master, "table": {**base_config_postgres_schema_master["table"], "test": {**base_config_postgres_schema_master["table"]["test"], "column": [*base_config_postgres_schema_master["table"]["test"]["column"], {"name": "search", "datatype": "tsvector", "generated": "setweight(to_tsvector('english', coalesce(title, '')), 'A') || setweight(to_tsvector('english', coalesce(description, '')), 'B')", "index": ["gin(search)"]}]}}}
 """    # a project's searchable table: test gets a weighted search column (title A, description B), read through /admin/object-read (root holds its id)
 
 

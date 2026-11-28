@@ -833,9 +833,9 @@ const groupby = (table, col, { filter = [], ...params } = {}) => api(`/admin/tab
 // tables and columns from GET /admin/postgres-schema; the few server settings the page needs from GET /admin/monitor?view=app
 let SCHEMA = {}, INFO = {}, STATS = {};
 const AUDIT = ["created_at", "created_by_id", "updated_at", "updated_by_id"];
-const RULES_DEFAULT = { read_blocked: ["password"], database: "", database_url: "", is_log_api: true, log_db: "master" };
+const RULES_DEFAULT = { read_blocked: {}, database: "", database_url: "", is_log_api: true, log_db: "master" };
 let RULES = { ...RULES_DEFAULT };
-const readable = col => !RULES.read_blocked.includes(col);
+const readable = (table, col) => !(RULES.read_blocked[table] || []).includes(col);    // admin read_blocked of the master table, from /admin/monitor
 const isNotNull = c => String(c?.is_nullable).toUpperCase() === "NO" || c?.is_nullable === false;
 const logConn = () => RULES.log_db && RULES.log_db !== "master" ? RULES.log_db : undefined;    // log_api may live in its own database (the one whose schema has it)
 const connFor = table => table === "log_api" ? logConn() : undefined;
@@ -843,7 +843,7 @@ const rulesFetch = async () => {
   const app = await api("/admin/monitor?view=app").catch(() => null);
   const cfg = Object.fromEntries((app?.config || []).map(c => [c.name, c.value]));
   return {
-    read_blocked: Array.isArray(cfg.config_column_read_blocked) ? cfg.config_column_read_blocked : RULES_DEFAULT.read_blocked,
+    read_blocked: app?.server?.read_blocked_admin && typeof app.server.read_blocked_admin === "object" ? app.server.read_blocked_admin : RULES_DEFAULT.read_blocked,
     database: typeof app?.server?.database === "string" ? app.server.database : "",
     database_url: typeof app?.server?.database_url === "string" ? app.server.database_url : "",
     is_log_api: cfg.config_is_log_api !== false,
@@ -1339,7 +1339,7 @@ const sectionLoad = (force = false) => {
 // a table's insights, without writing a query: its size, how fast it grows (created_at, when indexed) and how its rows split on the columns that group well
 const indexed = (table, col) => !!SCHEMA[table]?.[col] && (SCHEMA[table][col].is_index || SCHEMA[table][col].is_primary);
 const BREAKDOWN_NAMES = /^(role|status|status_code|type|kind|state|category|priority|method|level|source|country|city|currency|language|gender|channel|platform|is_.+)$/;
-const breakdownColumns = table => columns(table).map(c => c.column_name).filter(c => readable(c) && (intMap(table, c) || kind(SCHEMA[table][c]) === "bool" || BREAKDOWN_NAMES.test(c))).slice(0, 6);
+const breakdownColumns = table => columns(table).map(c => c.column_name).filter(c => readable(table, c) && (intMap(table, c) || kind(SCHEMA[table][c]) === "bool" || BREAKDOWN_NAMES.test(c))).slice(0, 6);
 const BIG_TABLE = 1e6;    // above about a million rows a breakdown reads only when asked: each one scans the whole table
 const tableOpen = table => {
   const stats = STATS[table], cols = breakdownColumns(table), growth = indexed(table, "created_at");
@@ -1380,7 +1380,7 @@ const columnsHtml = table => {
   const yes = on => on ? `<span class="pill ok">yes</span>` : `<span class="muted">—</span>`;
   return `<table><thead><tr><th>Column</th><th>Kind</th><th>Required</th><th>Unique</th><th>Fast filter</th><th>Values</th></tr></thead><tbody>${columns(table).map(c => {
     const map = intMap(table, c.column_name);
-    return `<tr><td class="mono">${he(c.column_name)}${readable(c.column_name) ? "" : ' <span class="muted">(never shown)</span>'}</td><td title="${he(c.datatype)}">${KIND_LABEL[kind(c)]}</td><td>${yes(isNotNull(c) && !c.is_primary)}</td><td>${yes(c.is_unique || c.is_primary)}</td><td>${yes(c.is_index || c.is_primary)}</td><td class="muted">${map ? he(Object.entries(map).map(([k, v]) => `${k} ${v}`).join(", ")) : ""}</td></tr>`;
+    return `<tr><td class="mono">${he(c.column_name)}${readable(table, c.column_name) ? "" : ' <span class="muted">(never shown)</span>'}</td><td title="${he(c.datatype)}">${KIND_LABEL[kind(c)]}</td><td>${yes(isNotNull(c) && !c.is_primary)}</td><td>${yes(c.is_unique || c.is_primary)}</td><td>${yes(c.is_index || c.is_primary)}</td><td class="muted">${map ? he(Object.entries(map).map(([k, v]) => `${k} ${v}`).join(", ")) : ""}</td></tr>`;
   }).join("")}</tbody></table>`;
 };
 $("view").addEventListener("click", async e => {

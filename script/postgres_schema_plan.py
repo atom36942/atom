@@ -41,14 +41,15 @@ def args_read():
     return parser.parse_args()
 
 
-def app_state_build():
-    return SimpleNamespace(**{name: getattr(function, name) for name in function.__all__})
+def app_state_build(*, settings=None):
+    """Atom's functions, plus the merged config_* settings (the users setup switches such as config_is_root_user are read from them)."""
+    return SimpleNamespace(**{name: getattr(function, name) for name in function.__all__}, **{key: value for key, value in (settings or {}).items() if key.startswith("config_")})
 
 
-async def plan_read(*, postgres_url, config):
+async def plan_read(*, postgres_url, config, database, settings=None):
     """The plan for one database, with its merged config_postgres_schema_<name>."""
     pool = await func_client_postgres(dsn=postgres_url, min_size=1, max_size=1, is_read_only=True)
-    try: return await func_postgres_schema_plan(app_state=app_state_build(), client_postgres=pool, config_postgres_schema=config)
+    try: return await func_postgres_schema_plan(app_state=app_state_build(settings=settings), client_postgres=pool, config_postgres_schema=config, database=database)
     finally: await pool.close()
 
 
@@ -65,13 +66,13 @@ def plan_print(*, plan):
     return len(changes)
 
 
-async def plan_apply(*, postgres_url, config, root_user_password, lock_timeout_sec):
+async def plan_apply(*, postgres_url, config, database, root_user_password, lock_timeout_sec, settings=None):
     """Run the schema steps as startup does: one app at a time (the same advisory lock), each table lock waited for at most config_postgres_lock_timeout_sec."""
     pool = await func_client_postgres(dsn=postgres_url, min_size=1, max_size=2)    # one connection holds the lock, one runs the steps
     try:
         async with func_postgres_advisory_lock(client_postgres=pool, lock_id=3):
             password_hash = func_client_password_hasher().hash(str(root_user_password)) if root_user_password else None
-            return await func_postgres_schema_init(app_state=app_state_build(), client_postgres=pool, config_postgres_schema=config, root_user_password_hash=password_hash, lock_timeout_sec=lock_timeout_sec)
+            return await func_postgres_schema_init(app_state=app_state_build(settings=settings), client_postgres=pool, config_postgres_schema=config, database=database, root_user_password_hash=password_hash, lock_timeout_sec=lock_timeout_sec)
     finally: await pool.close()
 
 
@@ -87,10 +88,10 @@ def main():
             print(f"== {name}: skipped, config_postgres_url_{name} is not set\n")
             continue
         print(f"== {name}")
-        changes = plan_print(plan=asyncio.run(plan_read(postgres_url=urls[name], config=schema)))
+        changes = plan_print(plan=asyncio.run(plan_read(postgres_url=urls[name], config=schema, database=name, settings=config)))
         if args.apply and not changes: print("Nothing to apply.")
         elif args.apply:
-            asyncio.run(plan_apply(postgres_url=urls[name], config=schema, root_user_password=config_root_user_password, lock_timeout_sec=config["config_postgres_lock_timeout_sec"]))
+            asyncio.run(plan_apply(postgres_url=urls[name], config=schema, database=name, settings=config, root_user_password=config_root_user_password, lock_timeout_sec=config["config_postgres_lock_timeout_sec"]))
             print(f"Applied {changes} changes.")
         print()
 

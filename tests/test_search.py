@@ -6,7 +6,7 @@ from function import func_postgres_schema_config_validate
 from function import func_postgres_search_language
 from function import func_postgres_where_build
 
-ID = {"name": "id", "datatype": "bigint", "identity": "always", "is_primary": True}
+ID = {"name": "id", "datatype": "bigint", "identity": "always", "is_primary_key": True}
 SEARCH = {"datatype": "tsvector", "default": "(setweight(to_tsvector('english'::regconfig, COALESCE(title, ''::text)), 'A'::\"char\"))"}
 SCHEMA = {"note": {"id": {"datatype": "bigint"}, "title": {"datatype": "text"}, "search": SEARCH}}
 
@@ -17,9 +17,9 @@ def where(filters):
 
 class GeneratedColumnTests(unittest.TestCase):
     def test_a_generated_column_takes_no_value_rules(self):
-        column = {"name": "search", "datatype": "tsvector", "generated": "to_tsvector('simple', title)", "index": "gin(search)"}
+        column = {"name": "search", "datatype": "tsvector", "generated": "to_tsvector('simple', title)", "index": ["gin(search)"]}
         func_postgres_schema_config_validate(config_postgres_schema={"table": {"note": {"column": [ID, {"name": "title", "datatype": "text"}, column]}}})
-        for key, value in (("default", "''"), ("is_mandatory", True), ("unique", "search")):
+        for key, value in (("default", "''"), ("is_not_null", True), ("unique", [["search"]]), ("allowed_values", ["a"])):
             with self.subTest(key=key), self.assertRaisesRegex(Exception, "is generated"):
                 func_postgres_schema_config_validate(config_postgres_schema={"table": {"note": {"column": [ID, {**column, key: value}]}}})
         with self.assertRaisesRegex(Exception, "SQL expression"): func_postgres_schema_config_validate(config_postgres_schema={"table": {"note": {"column": [ID, {**column, "generated": " "}]}}})

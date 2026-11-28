@@ -24,12 +24,12 @@ def state(**changes):
 
 
 def users_schema(*token):
-    """A users table whose token holds these columns (users_access token; id always)."""
-    return {"table": {"users": {"column": [{"name": "id", "datatype": "bigint", "is_primary": True}, *[{"name": name, "datatype": "text", "users_access": ["token"]} for name in token if name != "id"]]}}}
+    """A users table with these columns (id always); the token holds them through config_users_token_column (users_token)."""
+    return {"table": {"users": {"column": [{"name": "id", "datatype": "bigint", "is_primary_key": True}, *[{"name": name, "datatype": "text"} for name in token if name != "id"]]}}}
 
 class IndexSortOrderTests(unittest.TestCase):
     def validate(self, index):
-        func_postgres_schema_config_validate(config_postgres_schema={"table": {"item": {"column": [{"name": "id", "datatype": "bigint", "is_primary": True}, {"name": "score", "datatype": "text", "index": index}]}}})
+        func_postgres_schema_config_validate(config_postgres_schema={"table": {"item": {"column": [{"name": "id", "datatype": "bigint", "is_primary_key": True}, {"name": "score", "datatype": "text", "index": [index]}]}}})
 
     def test_a_btree_column_may_name_its_sort_order(self):
         for index in ("btree(score desc nulls last,id)", "btree(score asc,id)", "btree(score nulls first)", "btree(score,id)", "gin_trgm(score)"): self.validate(index)
@@ -40,7 +40,7 @@ class IndexSortOrderTests(unittest.TestCase):
 
 
 class ConfigExtendKeepsAtomTests(unittest.TestCase):
-    BASE = SimpleNamespace(config_api={"/health": {"id": 1}, "/info": {"id": 2}}, config_postgres_schema_master={"extension": ["postgis", "pg_trgm"], "table": {"users": [], "log_api": []}, "control": {"is_index_drop": True}, "sql": {}},
+    BASE = SimpleNamespace(config_api={"/health": {"id": 1}, "/info": {"id": 2}}, config_postgres_schema_master={"table": {"users": [], "log_api": []}, "sql": {}, "control": {"extension": ["postgis", "pg_trgm"], "is_index_drop": True}},
                            config_users_role_label={1: "Admin"})
 
     def check(self, **extend):
@@ -57,11 +57,11 @@ class ConfigExtendKeepsAtomTests(unittest.TestCase):
 
     def test_postgres_keeps_every_part_and_entry_atom_defines(self):
         base = self.BASE.config_postgres_schema_master
-        self.check(config_postgres_schema_master={**base, "extension": [*base["extension"], "hstore"], "control": {"is_index_drop": False, "is_new": True}, "table": {**base["table"], "task": []}})    # values change, additions are free
-        with self.assertRaisesRegex(Exception, r"config_postgres_schema_master drops 4 of Atom's entries \(extension, control, sql, table.log_api\)"):
+        self.check(config_postgres_schema_master={**base, "control": {"extension": [*base["control"]["extension"], "hstore"], "is_index_drop": False, "is_new": True}, "table": {**base["table"], "task": []}})    # values change, additions are free
+        with self.assertRaisesRegex(Exception, r"config_postgres_schema_master drops 3 of Atom's entries \(sql, control, table.log_api\)"):
             self.check(config_postgres_schema_master={"table": {"users": []}})    # written from scratch: Atom's parts are gone
-        with self.assertRaisesRegex(Exception, r"drops 2 of Atom's entries \(extension.pg_trgm, control.is_index_drop\)"):
-            self.check(config_postgres_schema_master={**base, "extension": ["postgis"], "control": {}})
+        with self.assertRaisesRegex(Exception, r"drops 2 of Atom's entries \(control.is_index_drop, control.extension.pg_trgm\)"):
+            self.check(config_postgres_schema_master={**base, "control": {"extension": ["postgis"]}})
 
     def test_role_labels_keep_atom_codes_but_labels_and_additions_are_free(self):
         self.check(config_users_role_label={1: "Owner", 2: "User"})
@@ -208,6 +208,7 @@ class AdminPermissionCheckTests(unittest.TestCase):
         app.get("/admin/x")(lambda: None)
         app.state.config_api = {"/admin/x": {"id": 205, "auth": ["jwt"], **cfg}}
         app.state.config_postgres_schema_master = users_schema("id", "role", "permissions")
+        app.state.config_users_token_column = ["id", "role", "permissions"]
         app.state.config_uvicorn_workers = 1
         return app
 
@@ -225,6 +226,7 @@ class GroupGateCheckTests(unittest.TestCase):
         app.get(path)(lambda: None)
         app.state.config_api = {path: {"id": 205, **cfg}}
         app.state.config_postgres_schema_master = users_schema("id", "role", "permissions")
+        app.state.config_users_token_column = ["id", "role", "permissions"]
         app.state.config_uvicorn_workers = 1
         return app
 
@@ -239,6 +241,7 @@ class PermissionConfigCheckTests(unittest.TestCase):
         app.get("/x")(lambda: None)
         app.state.config_api = {"/x": {"id": 205, "auth": ["jwt"], **cfg}}
         app.state.config_postgres_schema_master = users_schema(*token_encode)
+        app.state.config_users_token_column = list(token_encode)
         app.state.config_uvicorn_workers = 1
         return app
 
@@ -250,7 +253,7 @@ class PermissionConfigCheckTests(unittest.TestCase):
             ({"user_check_permission": {"mode": "inmemory"}}, None, ("permissions",), "allowed: token, realtime"),
             ({"user_check_permission": {"mode": "token", "id": 9}}, None, ("permissions",), "invalid user_check_permission"),
             ({"user_check_permission": True}, None, ("permissions",), "invalid user_check_permission"),
-            ({"user_check_permission": {"mode": "token"}}, None, ("id", "role"), "add \"token\" to the users_access of users.permissions"),
+            ({"user_check_permission": {"mode": "token"}}, None, ("id", "role"), "add \"permissions\" to config_users_token_column"),
         ]:
             with self.subTest(cfg=cfg, labels=labels), self.assertRaisesRegex(Exception, message):
                 func_check_api_config(app=self.app(cfg, labels, token_encode))
@@ -378,12 +381,12 @@ class StartupCheckTableIdTests(unittest.TestCase):
         original = state.config_postgres_schema_master
         try:
             main.app.state.func_check(app=main.app)    # Atom's own tables pass
-            for columns in ([{"name": "title", "datatype": "text"}], [{"name": "title", "datatype": "text"}, {"name": "id", "datatype": "bigint", "is_primary": True}],
-                            [{"name": "time", "datatype": "timestamptz", "is_primary": True}, {"name": "device", "datatype": "text", "is_primary": True}, {"name": "value", "datatype": "float8"}]):
+            for columns in ([{"name": "title", "datatype": "text"}], [{"name": "title", "datatype": "text"}, {"name": "id", "datatype": "bigint", "is_primary_key": True}],
+                            [{"name": "time", "datatype": "timestamptz", "is_primary_key": True}, {"name": "device", "datatype": "text", "is_primary_key": True}, {"name": "value", "datatype": "float8"}]):
                 with self.subTest(columns=columns):
                     state.config_postgres_schema_master = {**original, "table": {**original["table"], "note": {"column": columns}}}
                     main.app.state.func_check(app=main.app)
-            state.config_postgres_schema_master = {**original, "table": {**original["table"], "note": {"column": [{"name": "id", "datatype": "text", "is_primary": True}]}}}
+            state.config_postgres_schema_master = {**original, "table": {**original["table"], "note": {"column": [{"name": "id", "datatype": "text", "is_primary_key": True}]}}}
             with self.assertRaisesRegex(Exception, r"config_postgres_schema_master: note.id must be an integer column"): main.app.state.func_check(app=main.app)
         finally:
             state.config_postgres_schema_master = original

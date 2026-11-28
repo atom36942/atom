@@ -19,7 +19,7 @@ from tests.integration.support import drop_database
 from tests.integration.support import fetch
 from tests.integration.support import requires_postgres
 
-DOC = [{"name": "id", "datatype": "bigint", "is_primary": True, "identity": "always"}, {"name": "created_by_id", "datatype": "bigint"}, {"name": "title", "datatype": "text"}, {"name": "embedding", "datatype": "vector(3)", "index": "hnsw(embedding)"}]
+DOC = [{"name": "id", "datatype": "bigint", "is_primary_key": True, "identity": "always"}, {"name": "created_by_id", "datatype": "bigint"}, {"name": "title", "datatype": "text"}, {"name": "embedding", "datatype": "vector(3)", "index": ["hnsw(embedding)"]}]
 DOCS = [("north", [0, 1, 0]), ("north-east", [0.7, 0.7, 0]), ("east", [1, 0, 0]), ("south", [0, -1, 0]), ("up", [0, 0, 1]), ("empty", None)]
 
 

@@ -5,24 +5,24 @@ Practical answers to common "how do I…" questions. Open a question for the ste
 <details>
 <summary><strong>How do I enable or disable user deletion?</strong></summary>
 
-User deletion is **off by default** and needs **two switches**, because Atom guards the `users` table twice: once in the API and once with a database trigger.
+Hard deletion is **off by default** and needs **two switches**, because Atom guards the `users` table twice: once in the API and once with a database trigger. Soft delete (`?mode=soft`: sets `deleted_at`, restorable by an admin with `?mode=restore`) needs neither.
 
 | Switch | Where | Default | To enable deletion |
 |---|---|---|---|
 | `config_is_user_delete` | `.env` | `false` | `config_is_user_delete=true` |
-| `"delete"` in the `users` table's `row_lock` | `config_postgres_schema_master["table"]["users"]` | listed (trigger blocks every `DELETE` on `users`) | drop it in `config_extend.py` (below), then restart |
+| `users` in `control.row_delete_disabled` | `config_postgres_schema_master["control"]` | listed (trigger blocks every `DELETE` on `users`) | drop it in `config_extend.py` (below), then restart |
 
 ```python
 # config_extend.py, under # atom
 config_postgres_schema_master = {
 **base_config_postgres_schema_master,
-"table": {**base_config_postgres_schema_master["table"], "users": {**base_config_postgres_schema_master["table"]["users"], "row_lock": []}},
+"control": {**base_config_postgres_schema_master["control"], "row_delete_disabled": [t for t in base_config_postgres_schema_master["control"]["row_delete_disabled"] if t != "users"]},
 }
 ```
 
-With only the first switch on, the delete APIs answer `users delete blocked in the database: remove "delete" from row_lock of users in config_postgres_schema_master`. Leave either switch off to keep users undeletable; other tables are unaffected.
+With only the first switch on, the delete APIs answer `users hard delete blocked in the database: users is in control.row_delete_disabled of config_postgres_schema_master (soft delete with mode=soft instead)`. Leave either switch off to keep users undeletable; other tables are unaffected.
 
-Users are deleted only through `DELETE /my/user-delete` (own account, token only) and `DELETE /admin/user-delete?id=7` (one user). The root user (`id` 1) is never deleted. The generic `/my/object-delete` and `/admin/object-delete` always refuse `table=users`.
+Users are deleted only through `DELETE /my/user-delete` (own account, token only) and `DELETE /admin/user-delete?id=7` (one user), each with `mode=hard` (default) or `soft` (`/admin` also `restore`). The root user (`id` 1) is never deleted. The generic `/my/object-delete` and `/admin/object-delete` always refuse `table=users`.
 
 </details>
 
@@ -312,17 +312,18 @@ config_postgres_schema_master = {
 **base_config_postgres_schema_master,
 "table": {
 **base_config_postgres_schema_master["table"],
-"project": {"my": ["create", "read", "update", "delete"], "column": [
-    {"name": "id", "datatype": "bigint", "identity": "always", "is_primary": True},
+"project": {"column": [
+    {"name": "id", "datatype": "bigint", "identity": "always", "is_primary_key": True},
     {"name": "created_at", "datatype": "timestamptz", "default": "now()"},
-    {"name": "created_by_id", "datatype": "bigint", "index": "btree(created_by_id,id)"},
-    {"name": "title", "datatype": "varchar(200)", "is_mandatory": True},
+    {"name": "created_by_id", "datatype": "bigint", "index": ["btree(created_by_id,id)"]},
+    {"name": "title", "datatype": "varchar(200)", "is_not_null": True},
 ]},
 },
+"control": {**base_config_postgres_schema_master["control"], **{key: [*base_config_postgres_schema_master["control"][key], "project"] for key in ("my_create", "my_read", "my_update", "my_delete")}},
 }
 ```
 
-Atom's object routes reach the table only as its `public`, `private` and `my` lists allow; the admin routes reach it for users granted their ids ([table keys](config.md#table-keys)).
+Atom's object routes reach the table only as the `control` access lists allow (`public_read`, `private_read`, `my_create`, ...); the admin routes reach it for users granted their ids ([control](config.md#control)).
 
 Restart Atom after the change. Startup schema initialization creates the table and missing columns, then refreshes the schema cache used by generic CRUD routes. Review data types, defaults, indexes, and uniqueness rules before applying changes to production. See [extend.md](extend.md#4-add-or-change-database-tables).
 
@@ -638,7 +639,7 @@ curl -X POST "http://localhost:8000/my/object-create?table=test&mode=buffer" \
 
 A successful response with `"message": "buffered"` means the row is accepted in memory but is **not yet committed or readable from PostgreSQL**. `"buffered released"` means that buffer group reached its limit and was inserted immediately.
 
-Pending groups are flushed when they reach the table's buffer limit, approximately every 60 seconds, by `GET /admin/sync`, and during graceful shutdown. A table's `buffer_limit` in its schema (Atom's `log_api`: `1000`) overrides the default of 100. Rows are grouped by table and column shape, so differently shaped objects can reach their limits independently.
+Pending groups are flushed when they reach the table's buffer limit, approximately every 60 seconds, by `GET /admin/sync`, and during graceful shutdown. A table's entry in its schema's `control.buffer_limit` (Atom's `log_api`: `1000`) overrides the default of 100. Rows are grouped by table and column shape, so differently shaped objects can reach their limits independently.
 
 Use buffering for high-volume, low-urgency records where delayed visibility and possible loss during a crash or forced shutdown are acceptable. Use `mode=now` when the caller needs the inserted ID, must read the row immediately, or requires database persistence before success is returned.
 

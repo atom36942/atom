@@ -12,6 +12,32 @@ config_is_pgweb_enabled = False
 config_request_body_max_kb = 10240
 config_request_form_max_kb = 102400
 
+# database
+config_postgres_url_dict = {}
+config_redis_url_dict = {}
+config_mssql_url_dict = {}
+config_clickhouse_url_dict = {}
+config_mongodb_url = None
+
+# auth
+config_root_user_password = None
+config_is_root_user = True
+config_is_users_password_log = True
+config_is_users_delete_log = True
+config_users_token_column = ["deactivated_at", "deleted_at", "role", "permissions", "username", "id_ext"]
+config_users_private_read_column = ["created_at", "deactivated_at", "role", "permissions", "username", "name"]
+config_users_update_alone_column = ["username", "email", "mobile", "password"]
+config_token_secret_key = None
+config_access_token_expires_sec = 604800
+config_refresh_token_expires_sec = 2592000
+config_login_password = None
+config_signup_allowed_roles = []
+config_login_allowed_roles = ["*"]
+config_users_role_label = {1: "Admin"}
+config_is_user_delete = False
+config_api_global_user_check_deleted = "token"
+config_api_global_user_check_deactivated = "token"
+
 # cors
 config_cors_allow_origins = []
 config_cors_allow_origin_regex = None
@@ -19,13 +45,6 @@ config_cors_allow_methods = ["*"]
 config_cors_allow_headers = ["*"]
 config_cors_expose_headers = ["*"]
 config_cors_allow_credentials = True
-
-# database
-config_postgres_url_dict = {}
-config_redis_url_dict = {}
-config_mssql_url_dict = {}
-config_clickhouse_url_dict = {}
-config_mongodb_url = None
 
 # postgres
 config_is_postgres_schema_init = True
@@ -59,18 +78,20 @@ config_cache_row_limit_users_role = 10000
 config_cache_row_limit_users_deactivated = 10000
 config_cache_row_limit_users_deleted = 10000
 
-# auth
-config_root_user_password = None
-config_token_secret_key = None
-config_access_token_expires_sec = 604800
-config_refresh_token_expires_sec = 2592000
-config_login_password = None
-config_signup_allowed_roles = []
-config_login_allowed_roles = ["*"]
-config_users_role_label = {1: "Admin"}
-config_is_user_delete = False
-config_api_global_user_check_deleted = "token"
-config_api_global_user_check_deactivated = "token"
+# log_api
+config_is_log_api = True
+config_is_log_api_all = False
+config_is_log_api_detail = False
+config_log_api_detail_max_kb = 64
+config_is_log_api_detail_mask = False
+
+# schedule
+config_schedule_timezone = "UTC"
+config_schedule_script_postgres_cleanup = "every 1h"
+config_schedule_script_postgres_backup = "off"
+
+# retention
+config_retention_day_user_soft_deleted = 30
 
 # api_key
 config_api_key_max = 20
@@ -86,6 +107,7 @@ config_is_otp_require_users_update = False
 # totp
 config_totp_encryption_key = None
 config_totp_issuer = None
+config_is_totp_clear = True
 
 # oidc
 config_oidc_provider = {}
@@ -93,21 +115,6 @@ config_oidc_provider = {}
 # profile
 config_is_profile_update_last_active_at = True
 config_profile_metadata_sql = {}
-
-# log_api
-config_is_log_api = True
-config_is_log_api_all = False
-config_is_log_api_detail = False
-config_log_api_detail_max_kb = 64
-config_is_log_api_detail_mask = False
-
-# schedule
-config_schedule_timezone = "UTC"
-config_schedule_script_postgres_cleanup = "every 1h"
-config_schedule_script_postgres_backup = "off"
-
-# retention
-config_retention_day_user_soft_deleted = 30
 
 # queue
 config_queue_services = ["postgres", "redis", "rabbitmq", "kafka", "celery"]
@@ -190,15 +197,7 @@ config_posthog_project_key = None
 config_public_create_honeypot = "website"
 config_mongodb_my_create_allowed = {"test": ["post"]}
 
-# column
-config_column_ownership_read = ["created_by_id", "received_by_id", "assigned_to_id", "user_id"]
-config_column_ownership_update = ["created_by_id", "assigned_to_id"]
-config_column_ownership_delete = ["created_by_id", "received_by_id", "assigned_to_id"]
-config_column_admin = ["created_at", "updated_at", "created_by_id", "role", "verified_at", "verified_by_id"]
-config_column_audit_blocked = ["created_at", "created_by_id", "updated_at", "updated_by_id", "deleted_at", "deleted_by_id"]
-config_column_read_blocked = ["password", "key_hash", "secret", "totp_secret", "totp_recovery"]
-
-# column dict
+# dict
 config_options = {
 "gender": ["male", "female"],
 "country": "files/country.txt",
@@ -208,73 +207,66 @@ config_options = {
 
 # schema
 config_postgres_schema_master = {
-"extension": ["postgis", "pg_trgm", "btree_gin", "vector"],
 "table":{
 "test": {
-"public": ["create", "read"],
-"private": ["read"],
-"my": ["create", "read", "update", "delete", "delete_all"],
 "column": [
-{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
-{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
-{"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id,id)"},
+{"name":"id","datatype":"bigint","identity":"always","is_primary_key": True},
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":["btree(created_at)"]},
+{"name":"created_by_id","datatype":"bigint","index":["btree(created_by_id,id)"]},
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"updated_by_id","datatype":"bigint"},
-{"name":"type","datatype":"smallint","index":"btree(type)"},
-{"name":"title","datatype":"text","is_mandatory": True,"index":"gin_trgm(title)"},
+{"name":"type","datatype":"smallint","index":["btree(type)"]},
+{"name":"title","datatype":"text","is_not_null": True,"index":["gin_trgm(title)"]},
 {"name":"description","datatype":"text"},
-{"name":"slug","datatype":"text","index":"btree(slug)"},
-{"name":"code","datatype":"text","is_mandatory": False,"unique":"code,type|code,slug"},
-{"name":"email","datatype":"text","regex":"^[a-zA-Z0-9+_.-]+@[a-zA-Z0-9.-]+$","regex_message":"Email must look like name@example.com","index":"btree(email)"},
-{"name":"tags","datatype":"text[]","index":"gin(tags)"},
-{"name":"tags_int","datatype":"integer[]","index":"gin(tags_int)"},
-{"name":"tags_bigint","datatype":"bigint[]","index":"gin(tags_bigint)"},
+{"name":"slug","datatype":"text","index":["btree(slug)"]},
+{"name":"code","datatype":"text","is_not_null": False,"unique":[["code", "type"], ["code", "slug"]]},
+{"name":"email","datatype":"text","index":["btree(email)"],"regex":"^[a-zA-Z0-9+_.-]+@[a-zA-Z0-9.-]+$","regex_message":"Email must look like name@example.com"},
+{"name":"tags","datatype":"text[]","index":["gin(tags)"]},
+{"name":"tags_int","datatype":"integer[]","index":["gin(tags_int)"]},
+{"name":"tags_bigint","datatype":"bigint[]","index":["gin(tags_bigint)"]},
 {"name":"rating","datatype":"numeric(3,1)","check":"rating >= 0 AND rating <= 10"},
-{"name":"coordinate","datatype":"geography(Point, 4326)","index":"gist(coordinate)"},
-{"name":"status","datatype":"smallint","default":1,"index":"btree(status,type)"},
-{"name":"address","datatype":"text","old":"adress"},
-{"name":"metadata","datatype":"jsonb","index":"gin(metadata)"}
+{"name":"coordinate","datatype":"geography(Point, 4326)","index":["gist(coordinate)"]},
+{"name":"status","datatype":"smallint","default":1,"index":["btree(status,type)"]},
+{"name":"address","datatype":"text","old_name":"adress"},
+{"name":"metadata","datatype":"jsonb","index":["gin(metadata)"]},
 ],
 },
 "test_comment": {
-"my": ["create", "read", "update", "delete"],
 "column": [
-{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
+{"name":"id","datatype":"bigint","identity":"always","is_primary_key": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
-{"name":"created_by_id","datatype":"bigint","is_mandatory": True,"index":"btree(created_by_id,id)"},
+{"name":"created_by_id","datatype":"bigint","is_not_null": True,"index":["btree(created_by_id,id)"]},
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"updated_by_id","datatype":"bigint"},
-{"name":"test_id","datatype":"bigint","is_mandatory": True,"index":"btree(test_id)"},
-{"name":"description","datatype":"text","is_mandatory": True},
+{"name":"test_id","datatype":"bigint","is_not_null": True,"index":["btree(test_id)"]},
+{"name":"description","datatype":"text","is_not_null": True},
 ],
 },
 "users": {
-"row_lock": ["delete"],
-"row_delete_max": 100,
 "column": [
-{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
-{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)","users_access":["private_read", "update_blocked"]},
-{"name":"created_by_id","datatype":"bigint","users_access":["update_blocked"]},
-{"name":"updated_at","datatype":"timestamptz","users_access":["update_blocked"]},
-{"name":"updated_by_id","datatype":"bigint","users_access":["update_blocked"]},
-{"name":"verified_at","datatype":"timestamptz","users_access":["my_update_blocked"]},
-{"name":"verified_by_id","datatype":"bigint","users_access":["my_update_blocked"]},
-{"name":"deactivated_at","datatype":"timestamptz","users_access":["token", "private_read", "my_update_blocked"]},
-{"name":"deactivated_by_id","datatype":"bigint","users_access":["my_update_blocked"]},
-{"name":"deleted_at","datatype":"timestamptz","users_access":["token", "update_blocked"]},
-{"name":"deleted_by_id","datatype":"bigint","users_access":["update_blocked"]},
-{"name":"is_protected","datatype":"boolean","users_access":["update_blocked"]},
-{"name":"role","datatype":"smallint","is_mandatory": True,"index":"btree(role)","users_access":["token", "private_read", "my_update_blocked"]},
-{"name":"permissions","datatype":"smallint[]","default": None,"users_access":["token", "private_read", "my_update_blocked"]},
-{"name":"username","datatype":"text","unique":"username,role","regex":"^(?=.{1,120}\\Z)\\S+\\Z","regex_message":"Username must be 1-120 characters and contain no spaces","users_access":["token", "private_read", "update_alone"]},
-{"name":"email","datatype":"text","unique":"email,role","users_access":["update_alone"]},
-{"name":"mobile","datatype":"text","unique":"mobile,role","users_access":["update_alone"]},
-{"name":"id_ext","datatype":"text","unique":"id_ext,role","users_access":["token", "my_update_blocked"]},
-{"name":"password","datatype":"text","index":"btree(password)","regex":"^(?=.{6,120}\\Z)\\S+\\Z","regex_message":"Password must be 6-120 characters and contain no spaces","users_access":["update_alone"]},
-{"name":"oidc_google","datatype":"text","old":"google_login_id","unique":"oidc_google,role","users_access":["my_update_blocked"]},
-{"name":"last_active_at","datatype":"timestamptz","users_access":["update_blocked"]},
-{"name":"name","datatype":"text","index":"gin_trgm(name)","users_access":["private_read"]},
-{"name":"country","datatype":"text","index":"gin_trgm(country)"},
+{"name":"id","datatype":"bigint","identity":"always","is_primary_key": True},
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":["btree(created_at)"]},
+{"name":"created_by_id","datatype":"bigint"},
+{"name":"updated_at","datatype":"timestamptz"},
+{"name":"updated_by_id","datatype":"bigint"},
+{"name":"verified_at","datatype":"timestamptz","write_blocked":["my"]},
+{"name":"verified_by_id","datatype":"bigint","write_blocked":["my"]},
+{"name":"deactivated_at","datatype":"timestamptz","write_blocked":["my"]},
+{"name":"deactivated_by_id","datatype":"bigint","write_blocked":["my"]},
+{"name":"deleted_at","datatype":"timestamptz"},
+{"name":"deleted_by_id","datatype":"bigint"},
+{"name":"is_protected","datatype":"boolean","write_blocked":["my", "public", "private", "admin"]},
+{"name":"role","datatype":"smallint","is_not_null": True,"index":["btree(role)"],"write_blocked":["my"]},
+{"name":"permissions","datatype":"smallint[]","default": None,"write_blocked":["my"]},
+{"name":"username","datatype":"text","unique":[["username", "role"]],"regex":"^(?=.{1,120}\\Z)\\S+\\Z","regex_message":"Username must be 1-120 characters and contain no spaces"},
+{"name":"email","datatype":"text","unique":[["email", "role"]]},
+{"name":"mobile","datatype":"text","unique":[["mobile", "role"]]},
+{"name":"id_ext","datatype":"text","unique":[["id_ext", "role"]],"write_blocked":["my"]},
+{"name":"password","datatype":"text","index":["btree(password)"],"regex":"^(?=.{6,120}\\Z)\\S+\\Z","regex_message":"Password must be 6-120 characters and contain no spaces","read_blocked":["my", "public", "private", "admin"]},
+{"name":"oidc_google","datatype":"text","old_name":"google_login_id","unique":[["oidc_google", "role"]],"write_blocked":["my"]},
+{"name":"last_active_at","datatype":"timestamptz","write_blocked":["my", "public", "private", "admin"]},
+{"name":"name","datatype":"text","index":["gin_trgm(name)"]},
+{"name":"country","datatype":"text","index":["gin_trgm(country)"]},
 {"name":"state","datatype":"text"},
 {"name":"city","datatype":"text"},
 {"name":"email_secondary","datatype":"text","regex":"^(?=.{3,254}\\Z)[^\\s@]+@[^\\s@]+\\.[^\\s@]+\\Z","regex_message":"Email must look like name@example.com"},
@@ -285,206 +277,199 @@ config_postgres_schema_master = {
 {"name":"gender","datatype":"text"},
 {"name":"date_of_birth","datatype":"date"},
 {"name":"dashboard","datatype":"jsonb"},
-{"name":"source","datatype":"smallint","users_access":["my_update_blocked"]},
-{"name":"parent_id","datatype":"bigint","users_access":["my_update_blocked"]},
-{"name":"totp_secret","datatype":"text","users_access":["update_blocked"]},
-{"name":"totp_enabled_at","datatype":"timestamptz","users_access":["my_update_blocked"]},
-{"name":"totp_last_step","datatype":"bigint","users_access":["update_blocked"]},
-{"name":"totp_recovery","datatype":"text[]","users_access":["update_blocked"]},
+{"name":"source","datatype":"smallint","write_blocked":["my"]},
+{"name":"parent_id","datatype":"bigint","write_blocked":["my"]},
+{"name":"totp_secret","datatype":"text","read_blocked":["my", "public", "private", "admin"],"write_blocked":["my", "public", "private", "admin"]},
+{"name":"totp_enabled_at","datatype":"timestamptz","write_blocked":["my"]},
+{"name":"totp_last_step","datatype":"bigint","write_blocked":["my", "public", "private", "admin"]},
+{"name":"totp_recovery","datatype":"text[]","read_blocked":["my", "public", "private", "admin"],"write_blocked":["my", "public", "private", "admin"]},
 ],
 },
 "config": {
-"row_lock": ["delete"],
 "column": [
-{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
-{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
+{"name":"id","datatype":"bigint","identity":"always","is_primary_key": True},
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":["btree(created_at)"]},
 {"name":"created_by_id","datatype":"bigint"},
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"updated_by_id","datatype":"bigint"},
 {"name":"deactivated_at","datatype":"timestamptz"},
 {"name":"deactivated_by_id","datatype":"bigint"},
-{"name":"key","datatype":"text","is_mandatory": True,"unique":"key"},
-{"name":"value","datatype":"jsonb","is_mandatory": True},
+{"name":"key","datatype":"text","is_not_null": True,"unique":[["key"]]},
+{"name":"value","datatype":"jsonb","is_not_null": True},
 ],
 },
 "otp": {
-"retention_day": 1,
 "column": [
-{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
-{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
+{"name":"id","datatype":"bigint","identity":"always","is_primary_key": True},
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":["btree(created_at)"]},
 {"name":"created_by_id","datatype":"bigint"},
-{"name":"otp","datatype":"integer","is_mandatory": True},
-{"name":"email","datatype":"text","index":"btree(email)"},
-{"name":"mobile","datatype":"text","index":"btree(mobile)"},
+{"name":"otp","datatype":"integer","is_not_null": True},
+{"name":"email","datatype":"text","index":["btree(email)"]},
+{"name":"mobile","datatype":"text","index":["btree(mobile)"]},
 {"name":"attempt","datatype":"smallint","default":0},
 ],
 },
 "blob": {
-"my": ["create", "read", "update", "delete"],
 "column": [
-{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
+{"name":"id","datatype":"bigint","identity":"always","is_primary_key": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
-{"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
-{"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
+{"name":"created_by_id","datatype":"bigint","index":["btree(created_by_id)"]},
+{"name":"deleted_at","datatype":"timestamptz","index":["btree(deleted_at)"]},
 {"name":"deleted_by_id","datatype":"bigint"},
-{"name":"type","datatype":"smallint","is_mandatory": True,"int_mapping":{1: "File", 2: "Presigned Url"}},
-{"name":"service","datatype":"text","is_mandatory": True},
-{"name":"file_url","datatype":"text","is_mandatory": True}
+{"name":"type","datatype":"smallint","is_not_null": True,"int_mapping":{1: "File", 2: "Presigned Url"}},
+{"name":"service","datatype":"text","is_not_null": True},
+{"name":"file_url","datatype":"text","is_not_null": True},
 ],
 },
 "message": {
-"my": ["create", "read", "update", "delete", "delete_all"],
 "column": [
-{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
-{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
-{"name":"created_by_id","datatype":"bigint","is_mandatory": True,"index":"btree(created_by_id)"},
+{"name":"id","datatype":"bigint","identity":"always","is_primary_key": True},
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":["btree(created_at)"]},
+{"name":"created_by_id","datatype":"bigint","is_not_null": True,"index":["btree(created_by_id)"]},
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"updated_by_id","datatype":"bigint"},
-{"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
+{"name":"deleted_at","datatype":"timestamptz","index":["btree(deleted_at)"]},
 {"name":"deleted_by_id","datatype":"bigint"},
-{"name":"received_by_id","datatype":"bigint","is_mandatory": True,"index":"btree(received_by_id)"},
-{"name":"description","datatype":"text","is_mandatory": True},
-{"name":"read_at","datatype":"timestamptz"}
+{"name":"received_by_id","datatype":"bigint","is_not_null": True,"index":["btree(received_by_id)"],"ownership":["read", "delete"]},
+{"name":"description","datatype":"text","is_not_null": True},
+{"name":"read_at","datatype":"timestamptz"},
 ],
 },
 "notification": {
-"my": ["create", "read", "update", "delete", "delete_all"],
 "column": [
-{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
-{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
-{"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
+{"name":"id","datatype":"bigint","identity":"always","is_primary_key": True},
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":["btree(created_at)"]},
+{"name":"created_by_id","datatype":"bigint","index":["btree(created_by_id)"]},
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"updated_by_id","datatype":"bigint"},
-{"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
+{"name":"deleted_at","datatype":"timestamptz","index":["btree(deleted_at)"]},
 {"name":"deleted_by_id","datatype":"bigint"},
-{"name":"type","datatype":"smallint","is_mandatory": True,"index":"btree(type)"},
-{"name":"received_by_id","datatype":"bigint","is_mandatory": True,"index":"btree(received_by_id)"},
-{"name":"title","datatype":"text","is_mandatory": True},
+{"name":"type","datatype":"smallint","is_not_null": True,"index":["btree(type)"]},
+{"name":"received_by_id","datatype":"bigint","is_not_null": True,"index":["btree(received_by_id)"],"ownership":["read", "delete"]},
+{"name":"title","datatype":"text","is_not_null": True},
 {"name":"description","datatype":"text"},
 {"name":"reference_table","datatype":"text"},
 {"name":"reference_id","datatype":"bigint"},
-{"name":"read_at","datatype":"timestamptz"}
+{"name":"read_at","datatype":"timestamptz"},
 ],
 },
 "log_api": {
-"my": ["read"],
-"row_lock": ["update"],
-"buffer_limit": 1000,
-"retention_day": 7,
 "column": [
-{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
-{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
-{"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id,created_at)"},
+{"name":"id","datatype":"bigint","identity":"always","is_primary_key": True},
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":["btree(created_at)"]},
+{"name":"created_by_id","datatype":"bigint","index":["btree(created_by_id,created_at)"]},
 {"name":"ip_address","datatype":"text"},
 {"name":"response_type","datatype":"text"},
 {"name":"method","datatype":"text"},
 {"name":"path","datatype":"text"},
 {"name":"query_param","datatype":"text"},
-{"name":"status_code","datatype":"smallint","index":"btree(status_code)"},
+{"name":"status_code","datatype":"smallint","index":["btree(status_code)"]},
 {"name":"response_time_ms","datatype":"integer"},
 {"name":"error","datatype":"text"},
 {"name":"request_id","datatype":"text"},
 {"name":"request_header","datatype":"jsonb"},
 {"name":"response_header","datatype":"jsonb"},
 {"name":"request_body","datatype":"text"},
-{"name":"response_body","datatype":"text"}
+{"name":"response_body","datatype":"text"},
 ],
 },
 "api_key": {
-"my": ["read", "delete"],
-"row_lock": ["update"],
 "column": [
-{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
+{"name":"id","datatype":"bigint","identity":"always","is_primary_key": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
-{"name":"created_by_id","datatype":"bigint","is_mandatory": True,"index":"btree(created_by_id)"},
-{"name":"name","datatype":"text","is_mandatory": True},
-{"name":"key_hash","datatype":"text","is_mandatory": True,"unique":"key_hash"},
-{"name":"key_prefix","datatype":"text","is_mandatory": True},
+{"name":"created_by_id","datatype":"bigint","is_not_null": True,"index":["btree(created_by_id)"]},
+{"name":"name","datatype":"text","is_not_null": True},
+{"name":"key_hash","datatype":"text","is_not_null": True,"unique":[["key_hash"]],"read_blocked":["my", "public", "private", "admin"]},
+{"name":"key_prefix","datatype":"text","is_not_null": True},
 {"name":"scopes","datatype":"text[]"},
-{"name":"expires_at","datatype":"timestamptz"}
+{"name":"expires_at","datatype":"timestamptz"},
 ],
 },
 "webhook": {
 "column": [
-{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
+{"name":"id","datatype":"bigint","identity":"always","is_primary_key": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
 {"name":"updated_at","datatype":"timestamptz"},
-{"name":"created_by_id","datatype":"bigint","is_mandatory": True},
+{"name":"created_by_id","datatype":"bigint","is_not_null": True},
 {"name":"updated_by_id","datatype":"bigint"},
-{"name":"url","datatype":"text","is_mandatory": True},
-{"name":"events","datatype":"text[]","is_mandatory": True},
-{"name":"secret","datatype":"text","is_mandatory": True},
-{"name":"is_active","datatype":"boolean","is_mandatory": True,"default":"true"}
+{"name":"url","datatype":"text","is_not_null": True},
+{"name":"events","datatype":"text[]","is_not_null": True},
+{"name":"secret","datatype":"text","is_not_null": True,"read_blocked":["my", "public", "private", "admin"]},
+{"name":"is_active","datatype":"boolean","default":"true","is_not_null": True},
 ],
 },
 "log_users_password": {
-"row_lock": ["update", "delete"],
 "column": [
-{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
+{"name":"id","datatype":"bigint","identity":"always","is_primary_key": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
 {"name":"created_by_id","datatype":"bigint"},
-{"name":"user_id","datatype":"bigint"},
-{"name":"password","datatype":"text"}
+{"name":"user_id","datatype":"bigint","ownership":["read"]},
+{"name":"password","datatype":"text"},
 ],
 },
 "script_run": {
-"retention_day": 90,
 "column": [
-{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
-{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(script,created_at)"},
+{"name":"id","datatype":"bigint","identity":"always","is_primary_key": True},
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":["btree(script,created_at)"]},
 {"name":"updated_at","datatype":"timestamptz"},
-{"name":"script","datatype":"text","is_mandatory": True},
-{"name":"started_by","datatype":"text","is_mandatory": True,"in":("schedule","manual"),"is_private_read_blocked": True},
-{"name":"host","datatype":"text","is_private_read_blocked": True},
-{"name":"status","datatype":"smallint","is_mandatory": True,"default":1,"in":(1,2,3),"int_mapping":{1: "Running", 2: "Done", 3: "Failed"}},
-{"name":"step","datatype":"text","is_private_read_blocked": True},
-{"name":"message","datatype":"text","is_private_read_blocked": True},
-{"name":"peak_memory_mb","datatype":"integer","is_private_read_blocked": True},
-{"name":"finished_at","datatype":"timestamptz"}
+{"name":"script","datatype":"text","is_not_null": True},
+{"name":"started_by","datatype":"text","is_not_null": True,"allowed_values":["schedule", "manual"],"read_blocked":["private"]},
+{"name":"host","datatype":"text","read_blocked":["private"]},
+{"name":"status","datatype":"smallint","default":1,"is_not_null": True,"allowed_values":[1, 2, 3],"int_mapping":{1: "Running", 2: "Done", 3: "Failed"}},
+{"name":"step","datatype":"text","read_blocked":["private"]},
+{"name":"message","datatype":"text","read_blocked":["private"]},
+{"name":"peak_memory_mb","datatype":"integer","read_blocked":["private"]},
+{"name":"finished_at","datatype":"timestamptz"},
 ],
 },
 "queue_job": {
 "column": [
-{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
+{"name":"id","datatype":"bigint","identity":"always","is_primary_key": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
 {"name":"updated_at","datatype":"timestamptz"},
-{"name":"channel","datatype":"text","is_mandatory": True},
-{"name":"payload","datatype":"jsonb","is_mandatory": True},
-{"name":"status","datatype":"smallint","is_mandatory": True,"default":1,"in":(1,2),"int_mapping":{1: "Waiting", 2: "Failed"}},
-{"name":"attempt","datatype":"integer","is_mandatory": True,"default":0},
-{"name":"run_at","datatype":"timestamptz","is_mandatory": True,"default":"now()","index":"btree(channel,status,run_at,id)"},
-{"name":"error","datatype":"text"}
+{"name":"channel","datatype":"text","is_not_null": True},
+{"name":"payload","datatype":"jsonb","is_not_null": True},
+{"name":"status","datatype":"smallint","default":1,"is_not_null": True,"allowed_values":[1, 2],"int_mapping":{1: "Waiting", 2: "Failed"}},
+{"name":"attempt","datatype":"integer","default":0,"is_not_null": True},
+{"name":"run_at","datatype":"timestamptz","default":"now()","is_not_null": True,"index":["btree(channel,status,run_at,id)"]},
+{"name":"error","datatype":"text"},
 ],
 },
 "log_users_delete": {
-"my": ["read"],
-"row_lock": ["delete"],
 "column": [
-{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
-{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
+{"name":"id","datatype":"bigint","identity":"always","is_primary_key": True},
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":["btree(created_at)"]},
 {"name":"created_by_id","datatype":"bigint"},
-{"name":"type","datatype":"smallint","is_mandatory": True,"in":(1,2,3),"index":"btree(type,created_at)","int_mapping":{1: "User Soft Deleted", 2: "User Restored", 3: "User Hard Deleted"}},
-{"name":"user_id","datatype":"bigint","is_mandatory": True,"index":"btree(user_id,created_at)"},
-{"name":"worker_status","datatype":"smallint","in":(1,2,3,4),"index":"btree(worker_status,worker_next_retry_at,created_at)","int_mapping":{None: "Pending", 1: "Processing", 2: "Completed", 3: "Failed", 4: "Dead"}},
+{"name":"type","datatype":"smallint","is_not_null": True,"index":["btree(type,created_at)"],"allowed_values":[1, 2, 3],"int_mapping":{1: "User Soft Deleted", 2: "User Restored", 3: "User Hard Deleted"}},
+{"name":"user_id","datatype":"bigint","is_not_null": True,"index":["btree(user_id,created_at)"],"ownership":["read"]},
+{"name":"worker_status","datatype":"smallint","index":["btree(worker_status,worker_next_retry_at,created_at)"],"allowed_values":[1, 2, 3, 4],"int_mapping":{None: "Pending", 1: "Processing", 2: "Completed", 3: "Failed", 4: "Dead"}},
 {"name":"worker_retry_count","datatype":"integer","default":0},
 {"name":"worker_next_retry_at","datatype":"timestamptz","default":"now()"},
 {"name":"worker_processed_at","datatype":"timestamptz"},
-{"name":"worker_last_error","datatype":"text"}
+{"name":"worker_last_error","datatype":"text"},
 ],
 },
 },
 "control":{
+"extension": ["postgis", "pg_trgm", "btree_gin", "vector"],
 "is_updated_at_set": True,
 "is_protected_delete_disabled": True,
-"is_truncate_table": False,
-"is_log_users_password": True,
-"is_log_users_delete": True,
-"is_root_user_create": True,
-"is_root_user_delete_disabled": True,
+"is_truncate_disabled": True,
+"public_create": ["test"],
+"public_read": ["test"],
+"private_read": ["test"],
+"my_create": ["test", "test_comment", "blob", "message", "notification"],
+"my_read": ["test", "test_comment", "blob", "message", "notification", "log_api", "api_key", "log_users_delete"],
+"my_update": ["test", "test_comment", "blob", "message", "notification"],
+"my_delete": ["test", "test_comment", "blob", "message", "notification", "api_key"],
+"my_delete_all": ["test", "message", "notification"],
+"row_update_disabled": ["log_api", "api_key", "log_users_password"],
+"row_delete_disabled": ["users", "config", "log_users_password", "log_users_delete"],
+"row_delete_max": {"users": 100},
+"buffer_limit": {"log_api": 1000},
+"retention_day": {"otp": 1, "log_api": 7, "script_run": 90},
 },
-"sql":{
-"users_totp_clear":"CREATE OR REPLACE FUNCTION users_totp_clear() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.totp_enabled_at IS NULL AND OLD.totp_enabled_at IS NOT NULL THEN NEW.totp_secret = NULL; NEW.totp_last_step = NULL; NEW.totp_recovery = NULL; END IF; RETURN NEW; END $$; CREATE OR REPLACE TRIGGER users_totp_clear BEFORE UPDATE OF totp_enabled_at ON users FOR EACH ROW EXECUTE FUNCTION users_totp_clear();",
-},
+"sql":{},
 }
 
 # api

@@ -96,32 +96,41 @@ def func_check_runtime_config(*, app_state: State) -> None:
     values = {key: int_check(getattr(app_state, key, None), key) for key in ("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_uvicorn_workers", "config_request_body_max_kb", "config_request_form_max_kb", "config_api_cache_inmemory_max_kb")}
     if values["config_sql_read_limit_default"] > values["config_sql_read_limit_max"]: raise Exception("config_sql_read_limit_default must not exceed config_sql_read_limit_max")
     values = getattr(app_state, "_state", None) or vars(app_state)
-    if "config_table" in values: raise ValueError("config_table was removed in Atom 9.0.0: set a table's buffer size as buffer_limit on the table in config_postgres_schema_<name>")
-    moved = {"config_table_public_create_allowed": "public", "config_table_public_read_allowed": "public", "config_table_private_read_allowed": "private", "config_table_my_create_blocked": "my", "config_table_my_read_blocked": "my", "config_table_my_delete_all_allowed": "my", "config_table_write_blocked": "admin (and my)", "config_table_exclude_from_users_delete": "users_delete_skip", "config_column_private_read_blocked": "is_private_read_blocked on the column", "config_column_int_mapping": "int_mapping on the column (users role: config_users_role_label; permissions: from config_api)", "config_postgres_db_log_api": "none (the database whose schema has log_api gets the API logs)"}
-    moved.update({key: "buffer_limit" for key in values if key.startswith("config_buffer_limit_")})
+    if "config_table" in values: raise ValueError("config_table was removed in Atom 9.0.0: set a table's buffer size in control.buffer_limit of config_postgres_schema_<name> ({table: rows})")
+    moved = {"config_table_public_create_allowed": "control.public_create", "config_table_public_read_allowed": "control.public_read", "config_table_private_read_allowed": "control.private_read", "config_table_my_create_blocked": "control.my_create", "config_table_my_read_blocked": "control.my_read", "config_table_my_delete_all_allowed": "control.my_delete_all", "config_table_write_blocked": "nothing (the /admin routes reach every table; control.my_* opens tables to users)", "config_table_exclude_from_users_delete": "nothing (the users-delete worker skips users and log_users_delete)", "config_column_private_read_blocked": "read_blocked: [\"private\"] on the column", "config_column_int_mapping": "int_mapping on the column (users role: config_users_role_label; permissions: from config_api)", "config_postgres_db_log_api": "none (the database whose schema has log_api gets the API logs)"}
+    moved.update({key: "control.buffer_limit" for key in values if key.startswith("config_buffer_limit_")})
     if "config_column_regex" in values: raise ValueError("config_column_regex removed in Atom 24.0.0: set regex and regex_message on each column in config_postgres_schema_<name> (users.password included: checked before it is hashed); delete it from config_extend.py and .env")
-    moved.update({key: "retention_day" for key in values if key.startswith("config_retention_day_table_")})
-    if found := [key for key in moved if key in values]: raise ValueError(f"{found[0]} removed in Atom 23.0.0: set {moved[found[0]]} on each table in config_postgres_schema_<name>" + (f" (and {len(found) - 1} more: {', '.join(found[1:4])}{', ...' if len(found) > 4 else ''})" if len(found) > 1 else "") + "; delete it from config_extend.py and .env")
+    moved.update({key: "control.retention_day" for key in values if key.startswith("config_retention_day_table_")})
+    if found := [key for key in moved if key in values]: raise ValueError(f"{found[0]} removed: use {moved[found[0]]} in config_postgres_schema_<name>" + (f" (and {len(found) - 1} more: {', '.join(found[1:4])}{', ...' if len(found) > 4 else ''})" if len(found) > 1 else "") + "; delete it from config_extend.py and .env")
     login_roles = values.get("config_login_allowed_roles")
     if "config_login_allowed_roles" in values and not (isinstance(login_roles, (list, tuple)) and (list(login_roles) == ["*"] or login_roles and all(isinstance(role, int) and not isinstance(role, bool) for role in login_roles))): raise ValueError('config_login_allowed_roles must be ["*"] (every role) or a list of roles, e.g. [1, 2]')
     role_label = values.get("config_users_role_label")
     if "config_users_role_label" in values and (not isinstance(role_label, dict) or not all(isinstance(code, int) and not isinstance(code, bool) and isinstance(label, str) for code, label in role_label.items())): raise ValueError("config_users_role_label must be {role: \"label\"}, e.g. {1: \"Admin\", 2: \"User\"}")
     if "config_sql" in values: raise ValueError("config_sql was removed in Atom 9.0.0: its queries are Atom's own; set config_cache_row_limit_config, config_cache_row_limit_users_role, config_cache_row_limit_users_deactivated, config_cache_row_limit_users_deleted and config_profile_metadata_sql instead")
-    if removed := [key for key in ("config_column_token_encode", "config_column_users_private_read", "config_column_single_update", "config_column_users_my_blocked", "config_column_users_blocked") if key in values]: raise ValueError(f"{', '.join(removed)} removed in Atom 24.0.0: set users_access on each users column in config_postgres_schema_master (token, private_read, update_alone, my_update_blocked, update_blocked); delete it from config_extend.py and .env")
-    for column in func_postgres_users_access(config_postgres_schema=values.get("config_postgres_schema_master") or {})["private_read"]:
-        if column == "password" or column in (values.get("config_column_read_blocked") or []): raise ValueError(f"users.{column}: private_read never applies to a column in config_column_read_blocked")
+    if removed := [key for key in ("config_column_token_encode", "config_column_users_private_read", "config_column_single_update", "config_column_users_my_blocked", "config_column_users_blocked") if key in values]: raise ValueError(f"{', '.join(removed)} removed in Atom 24.0.0: list the users columns in config_users_token_column, config_users_private_read_column, config_users_update_alone_column; a column only an admin may change gets \"write_blocked\": [\"my\"], one no request may change \"write_blocked\": [\"my\", \"public\", \"private\", \"admin\"]; delete it from config_extend.py and .env")
+    column_moved = {"config_column_read_blocked": "\"read_blocked\": [\"my\", \"public\", \"private\", \"admin\"] on each column to hide", "config_column_audit_blocked": "nothing: the audit columns (created_at, created_by_id, updated_at, updated_by_id, deleted_at, deleted_by_id) are always set by Atom", "config_column_admin": "\"write_blocked\": [\"my\", \"public\"] on each column only an admin may set", "config_column_ownership_read": "\"ownership\": [\"read\", ...] on each owner column (created_by_id is always the owner)", "config_column_ownership_update": "\"ownership\": [\"update\", ...] on each owner column", "config_column_ownership_delete": "\"ownership\": [\"delete\", ...] on each owner column"}
+    if removed := [key for key in column_moved if key in values]: raise ValueError(f"{removed[0]} removed in Atom 24.0.0: use {column_moved[removed[0]]} in config_postgres_schema_<name>; delete it from config_extend.py and .env")
+    for key in ("config_is_root_user", "config_is_users_password_log", "config_is_users_delete_log", "config_is_totp_clear"):
+        if key in values and not isinstance(values[key], bool): raise ValueError(f"{key} must be True or False")
+    users_columns = {col.get("name"): col for col in ((((values.get("config_postgres_schema_master") or {}).get("table") or {}).get("users") or {}).get("column") or []) if isinstance(col, dict)}
+    for key in ("config_users_token_column", "config_users_private_read_column", "config_users_update_alone_column"):
+        listed = values.get(key)
+        if key in values and (not isinstance(listed, list) or not all(isinstance(column, str) for column in listed) or len(set(listed)) != len(listed)): raise ValueError(f"{key} must be a list of users column names, each once")
+        if users_columns and (wrong := [column for column in listed or [] if column not in users_columns]): raise ValueError(f"{key}: {', '.join(wrong)} is not a column of users in config_postgres_schema_master")
+    for column in values.get("config_users_private_read_column") or []:
+        if column == "password" or "private" in ((users_columns.get(column) or {}).get("read_blocked") or []): raise ValueError(f"config_users_private_read_column: users.{column} is read_blocked for private, so /private/user-read can never show it")
     if removed := [key for key in ("config_inmemory_cache_cleanup_auto_sec", "config_schedule_check_sec") if key in values]: raise ValueError(f"{', '.join(removed)} removed in Atom 22.0.0: fixed in code (cache cleanup every 300 s, schedule check every 600 s); delete it from config_extend.py and .env")
     if removed := [key for key in ("config_webhook_timeout_sec", "config_webhook_retry_max", "config_webhook_retry_wait_sec", "config_webhook_poll_sec", "config_webhook_verify_tolerance_sec") if key in values]: raise ValueError(f"{', '.join(removed)} removed in Atom 22.0.0: webhook timing is fixed (10 s timeout, 8 retries from 60 s doubling, 5 s poll, 300 s signature tolerance); delete it from config_extend.py and .env")
     if removed := [key for key in ("config_permission_table", "config_permission_user_roles", "config_permission_user_column_blocked", "config_permission_table_write_allowed", "config_permission_user_create_roles", "config_table_permission_write_allowed", "config_column_users_permission_blocked") if key in values]: raise ValueError(f"{', '.join(removed)} removed in Atom 22.0.0 with the /permission routes: grant a user the id of the /admin route instead (users.permissions holds route ids only)")
     for key in ("config_cache_row_limit_config", "config_cache_row_limit_users_role", "config_cache_row_limit_users_deactivated", "config_cache_row_limit_users_deleted"):
         limit = values.get(key)
         if limit is not None and (isinstance(limit, bool) or not isinstance(limit, int) or limit < 0): raise ValueError(f"{key} must be an integer, 0 or more")
-    for old_key, new_key in (("config_otp_retention_day", "retention_day on the otp table"), ("config_log_api_retention_day", "retention_day on the log_api table"), ("config_users_delete_retention_day", "config_retention_day_user_soft_deleted"), ("config_retention_day_otp", "retention_day on the otp table"), ("config_retention_day_log_api", "retention_day on the log_api table"), ("config_retention_day_script_run", "retention_day on the script_run table"), ("config_retention_day_users_delete", "config_retention_day_user_soft_deleted")):
+    for old_key, new_key in (("config_otp_retention_day", "control.retention_day.otp"), ("config_log_api_retention_day", "control.retention_day.log_api"), ("config_users_delete_retention_day", "config_retention_day_user_soft_deleted"), ("config_retention_day_otp", "control.retention_day.otp"), ("config_retention_day_log_api", "control.retention_day.log_api"), ("config_retention_day_script_run", "control.retention_day.script_run"), ("config_retention_day_users_delete", "config_retention_day_user_soft_deleted")):
         if old_key in values: raise ValueError(f"{old_key} was renamed to {new_key}; rename it in config_extend.py or .env")
     retention = getattr(app_state, "config_retention_day_user_soft_deleted", None)
     if retention is not None and (isinstance(retention, bool) or not isinstance(retention, int) or not 1 <= retention <= 36500): raise ValueError("config_retention_day_user_soft_deleted must be an integer from 1 to 36500, or None")
-    otp_retention = (((values.get("config_postgres_schema_master") or {}).get("table") or {}).get("otp") or {}).get("retention_day") if isinstance((((values.get("config_postgres_schema_master") or {}).get("table") or {}).get("otp")), dict) else None
-    if otp_retention and otp_retention * 86400 <= getattr(app_state, "config_otp_expiry_sec", 0): raise ValueError("otp retention_day must exceed the OTP expiry window (config_otp_expiry_sec)")
+    otp_retention = ((((values.get("config_postgres_schema_master") or {}).get("control") or {}).get("retention_day")) or {}).get("otp")
+    if otp_retention and otp_retention * 86400 <= getattr(app_state, "config_otp_expiry_sec", 0): raise ValueError("control.retention_day.otp must exceed the OTP expiry window (config_otp_expiry_sec)")
     keep_alive = getattr(app_state, "config_uvicorn_timeout_keep_alive_sec", 250)
     if isinstance(keep_alive, bool) or not isinstance(keep_alive, int) or keep_alive < 1: raise Exception("config_uvicorn_timeout_keep_alive_sec must be an integer, 1 or more")
     query_timeout = getattr(app_state, "config_postgres_query_timeout_sec", 0)
@@ -147,13 +156,13 @@ def func_check_api_config(*, app: FastAPI) -> None:
     # ids under 200 belong to Atom, so a new Atom route never takes a project's id
     project_paths = {route.path for route in func_app_route_list(app=app) if hasattr(route, "path") and getattr(getattr(route, "endpoint", None), "__module__", "").startswith("router_extend")}
     api_ids = []
-    token_columns = func_postgres_users_access(config_postgres_schema=getattr(app.state, "config_postgres_schema_master", None) or {})["token"]
+    token_columns = func_postgres_users_access(config_users_token_column=getattr(app.state, "config_users_token_column", None))["token"]
     user_mode_allowed = ("redis", "realtime", "inmemory", "token")
     for key in ("config_api_global_user_check_deleted", "config_api_global_user_check_deactivated"):
         value = getattr(app.state, key, None)
         if value is not None and value not in user_mode_allowed: raise Exception(f"invalid {key}: {value!r}, allowed: {', '.join(user_mode_allowed)} or None")
         column = key.removeprefix("config_api_global_user_check_") + "_at"
-        if value == "token" and column not in token_columns: raise Exception(f"{key} is token: add \"token\" to the users_access of users.{column}")
+        if value == "token" and column not in token_columns: raise Exception(f"{key} is token: add \"{column}\" to config_users_token_column")
     api_mode_allowed = ("redis", "inmemory")
     api_keys_allowed = ("id", "is_active", "auth", "is_connection_param", "user_check_role", "user_check_permission", "user_check_deactivated", "user_check_deleted", "cache", "rate_limit", "api_cache_sec", "api_ratelimiting_times_sec", "is_log_api", "webhook_verify", "ip_allow", "token_verify")
     def flag_check(value, key):
@@ -231,7 +240,7 @@ def func_check_api_config(*, app: FastAPI) -> None:
             permission_val = cfg["user_check_permission"]
             if not isinstance(permission_val, dict) or set(permission_val) != {"mode"}: raise Exception(f"{path} invalid user_check_permission: expected {{\"mode\": \"token\"}} or {{\"mode\": \"realtime\"}}")
             if permission_val["mode"] not in ("token", "realtime"): raise Exception(f"{path} invalid user_check_permission mode: {permission_val['mode']}, allowed: token, realtime")
-            if permission_val["mode"] == "token" and "permissions" not in token_columns: raise Exception(f"{path} user_check_permission: add \"token\" to the users_access of users.permissions")
+            if permission_val["mode"] == "token" and "permissions" not in token_columns: raise Exception(f"{path} user_check_permission: add \"permissions\" to config_users_token_column")
         for key in ("user_check_deactivated", "user_check_deleted"):
             u_val = cfg.get(key)
             if u_val:
@@ -330,8 +339,8 @@ def func_check_config_extend_alias(*, config_module, config_extend_module) -> No
 def func_check_config_extend_keeps_atom(*, config_module, config_extend_module) -> None:
     """Stop startup when config_extend.py defines config_api, config_postgres_schema_master or config_users_role_label without Atom's entries.
 
-    config_api: Atom's routes. config_postgres_schema_master: Atom's parts (extension, table, control, sql) and, inside each, Atom's extensions,
-    tables, switches and SQL entries; one of Atom's tables may live in another database's config_postgres_schema_<name> instead (log_api in the database for logs). config_users_role_label: Atom's role codes. Values and labels may change and anything may be added.
+    config_api: Atom's routes. config_postgres_schema_master: Atom's parts (table, sql, control) and, inside each, Atom's
+    tables, SQL entries, switches and control.extension names; one of Atom's tables may live in another database's config_postgres_schema_<name> instead (log_api in the database for logs). config_users_role_label: Atom's role codes. Values and labels may change and anything may be added.
     What counts as Atom's is read from config.py on every start, so new entries there are covered without changing this check.
     """
     if config_module is None or config_extend_module is None: return
@@ -347,6 +356,7 @@ def func_check_config_extend_keeps_atom(*, config_module, config_extend_module) 
             elsewhere = {table for key, schema in vars(config_extend_module).items() if key.startswith("config_postgres_schema_") and key != name and isinstance(schema, dict) for table in schema.get("table") or {}}
             dropped = missing(atom, extended, "")
             dropped += [item for part, value in atom.items() if isinstance(extended, dict) and part in extended for item in missing(value, extended[part], f"{part}.") if not (part == "table" and item.removeprefix("table.") in elsewhere)]
+            if isinstance(extended, dict) and isinstance(extended.get("control"), dict) and "extension" in extended["control"]: dropped += missing((atom.get("control") or {}).get("extension"), extended["control"]["extension"], "control.extension.")
             label = "entries"
         elif name == "config_users_role_label":
             dropped, label = missing(atom, extended, ""), "codes"

@@ -80,6 +80,9 @@ config_postgres_schema_master = {
 "table": {
 **base_config_postgres_schema_master["table"],
 },
+"control": {
+**base_config_postgres_schema_master["control"],
+},
 }
 
 config_api = {

@@ -23,7 +23,13 @@ class AdminGuardTests(unittest.TestCase):
         self.assertEqual(sorted(routes - reads - ADMIN_WRITES), [])
 
     def test_audit_columns_are_atoms(self):
-        self.assertEqual(config.config_column_audit_blocked, ["created_at", "created_by_id", "updated_at", "updated_by_id", "deleted_at", "deleted_by_id"])
+        from function.object import AUDIT_COLUMNS
+        self.assertEqual(list(AUDIT_COLUMNS), ["created_at", "created_by_id", "updated_at", "updated_by_id", "deleted_at", "deleted_by_id"])
+        self.assertFalse(hasattr(config, "config_column_audit_blocked"))
+        for table, spec in config.config_postgres_schema_master["table"].items():    # every Atom table's created_at is filled by the database
+            for col in spec["column"]:
+                if col["name"] == "created_at":
+                    with self.subTest(table=table): self.assertEqual(col.get("default"), "now()")
 
     def test_write_runner_takes_one_insert_update_or_delete(self):
         for sql in ("UPDATE t SET a = 1 WHERE id = 2", "insert into t (a) values (1)", "DELETE FROM t WHERE id = 3;", "update t set note = 'drop table x; truncate' where id = 3"):

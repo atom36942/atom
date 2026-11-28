@@ -89,11 +89,22 @@ async def func_user_delete(*, client_postgres: asyncpg.Pool | None, user_id: int
     if int(user_id) == 1: raise func_api_error(message="root user cannot be deleted", status_code=403)
     try: result = await client_postgres.execute("DELETE FROM users WHERE id=$1;", user_id)
     except asyncpg.exceptions.RaiseError as error:
-        # the database's own guard: users has row_lock ["delete"] in config_postgres_schema_master
-        if "not allowed on users" in str(error): raise func_api_error(message="users delete blocked in the database: remove \"delete\" from row_lock of users in config_postgres_schema_master", status_code=403) from None
+        # the database's own guard: users is in control.row_delete_disabled of config_postgres_schema_master
+        if "not allowed on users" in str(error): raise func_api_error(message="users hard delete blocked in the database: users is in control.row_delete_disabled of config_postgres_schema_master (soft delete with mode=soft instead)", status_code=403) from None
         raise
     if result == "DELETE 0": raise func_api_error(message="user not found", status_code=404)
     return "user deleted"
+
+async def func_user_soft_delete(*, client_postgres: asyncpg.Pool | None, user_id: int, actor_id: int, mode: str = "soft") -> str:
+    """Soft delete (mode soft: deleted_at = now(), deleted_by_id = actor_id) or restore (mode restore: deleted_at = NULL) one user; never the root user. Atom fills both columns, never a request;
+    the users delete log (config_is_users_delete_log) records it, and the users-delete worker later cleans the user's rows."""
+    if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
+    if int(user_id) == 1: raise func_api_error(message="root user cannot be deleted", status_code=403)
+    if mode == "soft": result = await client_postgres.execute("UPDATE users SET deleted_at = now(), deleted_by_id = $2, updated_by_id = $2 WHERE id = $1 AND deleted_at IS NULL;", user_id, actor_id)
+    elif mode == "restore": result = await client_postgres.execute("UPDATE users SET deleted_at = NULL, deleted_by_id = NULL, updated_by_id = $2 WHERE id = $1 AND deleted_at IS NOT NULL;", user_id, actor_id)
+    else: raise ValueError(f"func_user_soft_delete: mode {mode!r}; soft or restore")
+    if result == "UPDATE 0": raise func_api_error(message="user not found" + (" or already deleted" if mode == "soft" else " or not deleted"), status_code=404)
+    return "user soft deleted" if mode == "soft" else "user restored"
 
 async def func_user_password_set(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, config_column_regex: dict, role: int, email: str | None, mobile: str | None, otp: int, password: str, config_otp_expiry_sec: int, config_otp_static: int = None, config_otp_max_attempt: int = 5) -> str:
     """Forgot password, and an invited user's first password: the code sent to the email or mobile (/public/otp-send-email or -mobile) proves the person owns it, then the user of that email or mobile and role gets the new password (password rules, hashed, logged in log_users_password).

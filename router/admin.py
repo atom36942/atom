@@ -75,11 +75,10 @@ async def func_api_admin_object_create(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "mode", "type": "str", "allowed": ["now", "buffer"], "default": "now"}])
     app_state.func_check_table_not_users(table=oq["table"])
-    app_state.func_check_table_access(app_state=app_state, connection=request.state.connection, table=oq["table"], group="admin", action="create")
     obj_list = await app_state.func_extract_request_object_list(request=request)
     app_state.func_check_batch_limit(app_state=app_state, items=obj_list)
+    app_state.func_object_access(app_state=app_state, connection=request.state.connection, table=oq["table"], group="admin", action="create", obj_list=obj_list)
     app_state.func_check_table_column_exists(app_state=app_state, cache_postgres_schema=request.state.cache_postgres_schema, table=oq["table"], column="created_by_id", purpose="ownership tracking")
-    app_state.func_check_audit_columns(app_state=app_state, obj_list=obj_list)
     obj_list = app_state.func_attach_user_audit_fields(request=request, obj_list=obj_list, field="created_by_id")
     return {"status": 1, "message": await app_state.func_postgres_create(client_postgres=request.state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, buffer_postgres=app_state.buffer_postgres_create, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="reject", config_column_regex=app_state.func_column_regex(app_state=app_state, table=oq["table"], connection=request.state.connection), buffer_limit=app_state.func_buffer_limit(app_state=app_state, table=oq["table"], connection=request.state.connection), mode=oq["mode"], table=oq["table"], obj_list=obj_list, connection=request.state.connection)}
 
@@ -87,32 +86,32 @@ async def func_api_admin_object_create(*, request: Request):
 async def func_api_admin_object_read(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "limit", "type": "int", "default": app_state.config_sql_read_limit_default}, {"name": "after", "type": "str"}, {"name": "page", "type": "int", "minimum": 1}, {"name": "order", "type": "str", "default": "id desc"}, {"name": "column", "type": "str", "default": "*"}, {"name": "relation", "type": "list", "default": []}, {"name": "filter", "type": "list", "default": []}, {"name": "group_column", "type": "str"}, {"name": "group_values", "type": "list"}])
-    app_state.func_check_table_access(app_state=app_state, connection=request.state.connection, table=oq["table"], relation=oq["relation"], group="admin", action="read")
-    res = await app_state.func_postgres_read(config_page_offset_max=app_state.config_page_offset_max, client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=oq["filter"], limit=oq["limit"], order=oq["order"], column=oq["column"], relation=oq["relation"], config_column_read_blocked=app_state.config_column_read_blocked, after=oq.get("after"), page=oq.get("page"), group_column=oq.get("group_column"), group_values=oq.get("group_values"))
+    blocked = app_state.func_object_access(app_state=app_state, connection=request.state.connection, table=oq["table"], relation=oq["relation"], group="admin", action="read")
+    res = await app_state.func_postgres_read(config_page_offset_max=app_state.config_page_offset_max, client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=oq["filter"], limit=oq["limit"], order=oq["order"], column=oq["column"], relation=oq["relation"], config_column_read_blocked=blocked, after=oq.get("after"), page=oq.get("page"), group_column=oq.get("group_column"), group_values=oq.get("group_values"))
     return {"status": 1, "message": res}
 
 @router.get("/admin/object-read-export")
 async def func_api_admin_object_read_export(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "order", "type": "str", "default": "id desc"}, {"name": "column", "type": "str", "default": "*"}, {"name": "filter", "type": "list", "default": []}, {"name": "connection", "type": "str"}, {"name": "limit", "type": "int"}], strict=True, strict_types=True, reject_unknown=True)
-    app_state.func_check_table_access(app_state=app_state, connection=request.state.connection, table=oq["table"], group="admin", action="read")
-    generator = await app_state.func_postgres_read_export(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_export_limit=app_state.config_export_limit, table=oq["table"], filter=oq["filter"], order=oq["order"], column=oq["column"], config_column_read_blocked=app_state.config_column_read_blocked, limit=oq.get("limit"))
+    blocked = app_state.func_object_access(app_state=app_state, connection=request.state.connection, table=oq["table"], group="admin", action="read")
+    generator = await app_state.func_postgres_read_export(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_export_limit=app_state.config_export_limit, table=oq["table"], filter=oq["filter"], order=oq["order"], column=oq["column"], config_column_read_blocked=blocked, limit=oq.get("limit"))
     return app_state.func_csv_response(content=generator, filename=f'{oq["table"]}.csv')
 
 @router.get("/admin/table-column-groupby")
 async def func_api_admin_table_column_groupby(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "col", "type": "list", "required": True}, {"name": "agg", "type": "str", "allowed": ["count", "sum", "avg", "min", "max"], "default": "count"}, {"name": "agg_col", "type": "str", "default": "*"}, {"name": "limit", "type": "int", "default": 1000}, {"name": "after", "type": "str"}, {"name": "page", "type": "int", "minimum": 1}, {"name": "order", "type": "str", "default": "count desc"}, {"name": "filter", "type": "list", "default": []}])
-    app_state.func_check_table_access(app_state=app_state, connection=request.state.connection, table=oq["table"], group="admin", action="read")
-    res = await app_state.func_postgres_table_column_groupby_read(app_state=app_state, client_postgres=request.state.client_postgres, cache_postgres_schema=request.state.cache_postgres_schema, table=oq["table"], col=oq["col"], limit=oq["limit"], after=oq.get("after"), page=oq.get("page"), agg=oq["agg"], agg_col=oq["agg_col"], order=oq["order"], filter=oq["filter"])
+    blocked = app_state.func_object_access(app_state=app_state, connection=request.state.connection, table=oq["table"], group="admin", action="read")
+    res = await app_state.func_postgres_table_column_groupby_read(app_state=app_state, client_postgres=request.state.client_postgres, cache_postgres_schema=request.state.cache_postgres_schema, table=oq["table"], col=oq["col"], limit=oq["limit"], after=oq.get("after"), page=oq.get("page"), agg=oq["agg"], agg_col=oq["agg_col"], order=oq["order"], filter=oq["filter"], config_column_read_blocked=blocked)
     return {"status": 1, "message": res}
 
 @router.get("/admin/table-column-distinct")
 async def func_api_admin_table_column_distinct(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "col", "type": "str", "required": True}, {"name": "limit", "type": "int", "default": 1000}, {"name": "after", "type": "str"}, {"name": "page", "type": "int", "minimum": 1}, {"name": "order", "type": "str", "allowed": ["item asc", "item desc", "asc", "desc"], "default": "item asc"}, {"name": "filter", "type": "list", "default": []}])
-    app_state.func_check_table_access(app_state=app_state, connection=request.state.connection, table=oq["table"], group="admin", action="read")
-    res = await app_state.func_postgres_table_column_distinct_read(app_state=app_state, client_postgres=request.state.client_postgres, cache_postgres_schema=request.state.cache_postgres_schema, table=oq["table"], col=oq["col"], limit=oq["limit"], after=oq.get("after"), page=oq.get("page"), order=oq["order"], filter=oq["filter"])
+    blocked = app_state.func_object_access(app_state=app_state, connection=request.state.connection, table=oq["table"], group="admin", action="read")
+    res = await app_state.func_postgres_table_column_distinct_read(app_state=app_state, client_postgres=request.state.client_postgres, cache_postgres_schema=request.state.cache_postgres_schema, table=oq["table"], col=oq["col"], limit=oq["limit"], after=oq.get("after"), page=oq.get("page"), order=oq["order"], filter=oq["filter"], config_column_read_blocked=blocked)
     return {"status": 1, "message": res}
 
 @router.put("/admin/object-update")
@@ -120,11 +119,10 @@ async def func_api_admin_object_update(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}])
     app_state.func_check_table_not_users(table=oq["table"])
-    app_state.func_check_table_access(app_state=app_state, connection=request.state.connection, table=oq["table"], group="admin", action="update")
     obj_list = await app_state.func_extract_request_object_list(request=request)
     app_state.func_check_batch_limit(app_state=app_state, items=obj_list)
+    app_state.func_object_access(app_state=app_state, connection=request.state.connection, table=oq["table"], group="admin", action="update", obj_list=obj_list)
     app_state.func_check_table_column_exists(app_state=app_state, cache_postgres_schema=request.state.cache_postgres_schema, table=oq["table"], column="updated_by_id", purpose="update tracking")
-    app_state.func_check_audit_columns(app_state=app_state, obj_list=obj_list)
     obj_list = app_state.func_attach_user_audit_fields(request=request, obj_list=obj_list, field="updated_by_id")
     created_by_id = None
     result = await app_state.func_postgres_update(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, table=oq["table"], obj_list=obj_list, created_by_id=created_by_id, client_postgres_conn=None, config_column_regex=app_state.func_column_regex(app_state=app_state, table=oq["table"], connection=request.state.connection))
@@ -134,7 +132,7 @@ async def func_api_admin_object_update(*, request: Request):
 async def func_api_admin_user_create(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "role", "type": "int", "required": True}, {"name": "username", "type": "str", "required": True}, {"name": "password", "type": "str", "required": True}], strict_types=True)    # other users columns pass through to func_user_create, which refuses blocked ones
-    user_id = await app_state.func_user_create(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_column_regex=app_state.func_column_regex(app_state=app_state, table="users"), role=ob["role"], username=ob["username"], password=ob["password"], created_by_id=request.state.user["id"], columns={k: v for k, v in ob.items() if k not in ("role", "username", "password")}, columns_blocked=[*app_state.cache_users_access["my_update_blocked"], *app_state.cache_users_access["update_alone"], *app_state.cache_users_access["update_blocked"]])    # set later through /admin/user-update
+    user_id = await app_state.func_user_create(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_column_regex=app_state.func_column_regex(app_state=app_state, table="users"), role=ob["role"], username=ob["username"], password=ob["password"], created_by_id=request.state.user["id"], columns={k: v for k, v in ob.items() if k not in ("role", "username", "password")}, columns_blocked=[*app_state.func_object_write_blocked(app_state=app_state, table="users", group="my"), *app_state.cache_users_access["update_alone"], *app_state.func_object_write_blocked(app_state=app_state, table="users", group="admin")])    # set later through /admin/user-update
     return {"status": 1, "message": {"id": user_id}}
 
 @router.put("/admin/user-update")
@@ -143,23 +141,28 @@ async def func_api_admin_user_update(*, request: Request):
     # one user ({id, otp, ...columns}) or several ({"obj_list": [...]}); every field is checked against the users table
     obj_list = await app_state.func_extract_request_object_list(request=request)
     app_state.func_check_batch_limit(app_state=app_state, items=obj_list)
-    ids = await app_state.func_user_update(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_column_regex=app_state.func_column_regex(app_state=app_state, table="users"), obj_list=obj_list, updated_by_id=request.state.user["id"], is_otp_required=app_state.config_is_otp_require_users_update, config_column_single_update=app_state.cache_users_access["update_alone"], config_column_users_blocked=app_state.cache_users_access["update_blocked"], config_column_users_my_blocked=app_state.cache_users_access["my_update_blocked"], config_otp_expiry_sec=app_state.config_otp_expiry_sec, config_otp_static=app_state.config_otp_static, config_otp_max_attempt=app_state.config_otp_max_attempt, config_permission_label=app_state.cache_int_mapping["master"]["users"]["permissions"])
+    ids = await app_state.func_user_update(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_column_regex=app_state.func_column_regex(app_state=app_state, table="users"), obj_list=obj_list, updated_by_id=request.state.user["id"], is_otp_required=app_state.config_is_otp_require_users_update, config_column_single_update=app_state.cache_users_access["update_alone"], config_column_users_blocked=app_state.func_object_write_blocked(app_state=app_state, table="users", group="admin"), config_column_users_my_blocked=app_state.func_object_write_blocked(app_state=app_state, table="users", group="my"), config_otp_expiry_sec=app_state.config_otp_expiry_sec, config_otp_static=app_state.config_otp_static, config_otp_max_attempt=app_state.config_otp_max_attempt, config_permission_label=app_state.cache_int_mapping["master"]["users"]["permissions"])
     return {"status": 1, "message": "user updated" if len(ids) == 1 else f"{len(ids)} users updated"}
 
 @router.delete("/admin/user-delete")
 async def func_api_admin_user_delete(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "id", "type": "int", "required": True}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "id", "type": "int", "required": True}, {"name": "mode", "type": "str", "allowed": ["hard", "soft", "restore"], "default": "hard"}])
+    if oq["mode"] in ("soft", "restore"): return {"status": 1, "message": await app_state.func_user_soft_delete(client_postgres=request.state.client_postgres, user_id=oq["id"], actor_id=request.state.user["id"], mode=oq["mode"])}
     return {"status": 1, "message": await app_state.func_user_delete(client_postgres=request.state.client_postgres, user_id=oq["id"], config_is_user_delete=app_state.config_is_user_delete)}
 
 @router.post("/admin/object-delete")
 async def func_api_admin_object_delete(*, request: Request):
     app_state = request.app.state
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "mode", "type": "str", "allowed": ["hard", "soft", "restore"], "default": "hard"}])
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "ids", "type": "list:int", "required": True}])
     table, ids = ob["table"], ob["ids"]
     app_state.func_check_table_not_users(table=table)
-    app_state.func_check_table_access(app_state=app_state, connection=request.state.connection, table=table, group="admin", action="delete")
+    app_state.func_object_access(app_state=app_state, connection=request.state.connection, table=table, group="admin", action="delete")
     app_state.func_check_batch_limit(app_state=app_state, items=ids)
+    if oq["mode"] in ("soft", "restore"):    # deleted_at and deleted_by_id: Atom fills both (now(), the admin), never the request
+        changed = await app_state.func_object_soft_delete(client_postgres=request.state.client_postgres, cache_postgres_schema=request.state.cache_postgres_schema, table=table, ids=ids, user_id=request.state.user["id"], mode=oq["mode"])
+        return {"status": 1, "message": f"{changed} ids {'soft deleted' if oq['mode'] == 'soft' else 'restored'}"}
     deleted_count = await app_state.func_postgres_delete(client_postgres=request.state.client_postgres, client_postgres_conn=None, cache_postgres_schema=request.state.cache_postgres_schema, table=table, ids=ids, created_by_id=None)
     return {"status": 1, "message": f"{deleted_count} ids deleted"}
 
@@ -167,7 +170,7 @@ async def func_api_admin_object_delete(*, request: Request):
 async def func_api_admin_postgres_import(*, request: Request):
     app_state = request.app.state
     of = await app_state.func_request_param_read(request=request, mode="form", param_specs=[{"name": "mode", "type": "str", "required": True, "allowed": ["create", "update", "delete"]}, {"name": "table", "type": "str", "required": True}, {"name": "file", "type": "file", "required": True}])
-    app_state.func_check_table_access(app_state=app_state, connection=request.state.connection, table=of["table"], group="admin", action=of["mode"])
+    app_state.func_object_access(app_state=app_state, connection=request.state.connection, table=of["table"], group="admin", action="delete" if of["mode"] == "delete" else "read")    # table open to admin; each CSV chunk's columns are checked in func_postgres_import
     res = await app_state.func_postgres_import(app_state=app_state, mode=of["mode"], table=of["table"], file=of["file"][-1], client_postgres=request.state.client_postgres, cache_postgres_schema=request.state.cache_postgres_schema, created_by_id=request.state.user["id"], connection=request.state.connection)
     return {"status": 1, "message": res}
 

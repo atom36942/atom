@@ -12,7 +12,7 @@ Atom stores and searches vectors. Your code or worker makes them, with an AI mod
 
 ```python
 # config_extend.py, in the table's columns
-{"name": "embedding", "datatype": "vector(768)", "index": "hnsw(embedding)"},
+{"name": "embedding", "datatype": "vector(768)", "index": ["hnsw(embedding)"]},
 ```
 
 - The size is the model's output (Gemini `gemini-embedding-001` with `output_dimensionality=768`, OpenAI `text-embedding-3-small`: 1536).

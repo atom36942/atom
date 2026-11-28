@@ -82,7 +82,9 @@ async def func_lifespan(app: FastAPI):
         cache_postgres_table_rule = app.state.func_postgres_table_rule_dict(schemas=postgres_schemas)
         cache_int_mapping = app.state.func_postgres_int_mapping(schemas=postgres_schemas, config_users_role_label=app.state.config_users_role_label, config_api=app.state.config_api)
         cache_column_regex = app.state.func_postgres_column_regex_dict(schemas=postgres_schemas)
-        cache_users_access = app.state.func_postgres_users_access(config_postgres_schema=postgres_schemas.get("master") or {})
+        cache_users_access = app.state.func_postgres_users_access(config_users_token_column=app.state.config_users_token_column, config_users_private_read_column=app.state.config_users_private_read_column, config_users_update_alone_column=app.state.config_users_update_alone_column)
+        cache_ownership_column = app.state.func_postgres_ownership_column_dict(rules=cache_postgres_table_rule)    # /my ownership_column choices per action (each table checks its own); flat names so the OpenAPI spec reads them as the dropdown
+        cache_ownership_column_read, cache_ownership_column_update, cache_ownership_column_delete = cache_ownership_column["read"], cache_ownership_column["update"], cache_ownership_column["delete"]
         cache_log_api_database = app.state.func_postgres_log_database(schemas=postgres_schemas) if app.state.config_is_log_api else None
         if not app.state.config_is_read_only:
             root_user_password_hash = client_password_hasher.hash(str(app.state.config_root_user_password)) if app.state.config_root_user_password and app.state.config_is_postgres_schema_init else None
@@ -90,7 +92,7 @@ async def func_lifespan(app: FastAPI):
                 if not (client_postgres := client_postgres_dict.get(name)): continue
                 if not app.state.config_is_postgres_schema_init: await app.state.func_postgres_schema_check(app_state=app.state, client_postgres=client_postgres, config_postgres_schema=schema, name=name)
                 else:
-                    async with app.state.func_postgres_advisory_lock(client_postgres=client_postgres, lock_id=3): await app.state.func_postgres_schema_init(app_state=app.state, client_postgres=client_postgres, config_postgres_schema=schema, lock_timeout_sec=app.state.config_postgres_lock_timeout_sec, root_user_password_hash=root_user_password_hash)
+                    async with app.state.func_postgres_advisory_lock(client_postgres=client_postgres, lock_id=3): await app.state.func_postgres_schema_init(app_state=app.state, client_postgres=client_postgres, config_postgres_schema=schema, database=name, lock_timeout_sec=app.state.config_postgres_lock_timeout_sec, root_user_password_hash=root_user_password_hash)
         # postgres master
         postgres_master = client_postgres_dict.get("master")
         postgres_master_schema = await app.state.func_postgres_schema_read(client_postgres=postgres_master) if postgres_master else {}
@@ -99,7 +101,7 @@ async def func_lifespan(app: FastAPI):
         client_postgres_log_api = client_postgres_dict.get(cache_log_api_database) if cache_log_api_database else None
         # cache schema
         cache_postgres_schema_dict = {name: postgres_master_schema if name == "master" else await app.state.func_postgres_schema_read(client_postgres=pool) for name, pool in client_postgres_dict.items()}
-        if postgres_master and not app.state.config_is_read_only and "permissions" in postgres_master_schema.get("users", {}): await app.state.func_root_user_permissions_sync(client_postgres=postgres_master, config_api=app.state.config_api)    # root holds every /admin route id
+        if postgres_master and not app.state.config_is_read_only and app.state.config_is_root_user and "permissions" in postgres_master_schema.get("users", {}): await app.state.func_root_user_permissions_sync(client_postgres=postgres_master, config_api=app.state.config_api)    # root holds every /admin route id
         cache_clickhouse_schema_dict = {name: await app.state.func_clickhouse_schema_read(client_clickhouse=client) for name, client in client_clickhouse_dict.items()}
         # func calls
         app.state.func_app_state_add(app=app, data_dict=locals(), prefixes=("client_", "cache_", "buffer_"))

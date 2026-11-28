@@ -13,24 +13,51 @@ def func_postgres_schema_dict(*, values: dict) -> dict:
     return dict(sorted(found.items(), key=lambda item: item[0] != "master"))
 
 TABLE_ACCESS = {"public": ("create", "read"), "private": ("read",), "my": ("create", "read", "update", "delete", "delete_all")}    # who calls (the route prefix) -> what they may do
-TABLE_KEYS = ("column", *TABLE_ACCESS, "row_lock", "row_delete_max", "buffer_limit", "retention_day")
-USERS_ACCESS = ("token", "private_read", "update_alone", "my_update_blocked", "update_blocked")    # what the user routes do with a users column
+CONTROL_ACCESS = {f"{group}_{action}": (group, action) for group, actions in TABLE_ACCESS.items() for action in actions}    # control key -> (group, action): public_create, ..., my_delete_all
+CONTROL_SWITCHES = {"is_updated_at_set": True, "is_protected_delete_disabled": True, "is_truncate_disabled": True}    # control switch -> its default
+CONTROL_TABLE_LISTS = (*CONTROL_ACCESS, "row_update_disabled", "row_delete_disabled")    # control keys that list tables of the schema
+CONTROL_TABLE_NUMBERS = {"row_delete_max": (1, None), "buffer_limit": (10, 5000), "retention_day": (1, 36500)}    # control keys {table: number} -> (lowest, highest)
+CONTROL_KEYS = ("extension", *CONTROL_SWITCHES, *CONTROL_TABLE_LISTS, *CONTROL_TABLE_NUMBERS)
+COLUMN_GROUPS = ("my", "public", "private", "admin")    # the route groups read_blocked / write_blocked may list
+OWNERSHIP_ACTIONS = ("read", "update", "delete")    # the /my actions a column's ownership may list (created_by_id is always the owner)
+COLUMN_KEYS = ("name", "datatype", "identity", "is_primary_key", "default", "generated", "old_name", "is_not_null", "unique", "index", "check", "allowed_values", "regex", "regex_message", "int_mapping", "read_blocked", "write_blocked", "ownership")
+COLUMN_KEYS_REMOVED = {"is_primary": "is_primary_key", "is_mandatory": "is_not_null", "old": "old_name", "in": "allowed_values (a list)", "is_private_read_blocked": "read_blocked: [\"private\"]", "is_read_only": "write_blocked: [\"my\", \"public\", \"private\", \"admin\"]",
+                       "users_access": "write_blocked: [\"my\"] for my_update_blocked; config_users_token_column, config_users_private_read_column, config_users_update_alone_column in config.py for token, private_read, update_alone"}
+CONTROL_KEYS_REMOVED = {"is_truncate_table": "is_truncate_disabled (True = TRUNCATE blocked)", "is_root_user_create": "config_is_root_user in config.py", "is_root_user_delete_disabled": "config_is_root_user in config.py", "is_log_users_password": "config_is_users_password_log in config.py", "is_log_users_delete": "config_is_users_delete_log in config.py", "is_totp_clear": "config_is_totp_clear in config.py (# totp)"}
+TABLE_KEYS_MOVED = {"public": "public_create / public_read", "private": "private_read", "my": "my_create, my_read, my_update, my_delete, my_delete_all", "row_lock": "row_update_disabled / row_delete_disabled", "row_delete_max": "row_delete_max: {table: number}", "buffer_limit": "buffer_limit: {table: number}", "retention_day": "retention_day: {table: days}"}
+ATOM_UPDATED_TABLES = ("users", "otp", "script_run", "queue_job")    # Atom updates their rows itself, so row_update_disabled may not list them
 TABLE_BUFFER_LIMIT = 100
 
 def func_postgres_schema_columns(*, config_postgres_schema: dict) -> dict:
-    """{table: its column list} of one schema (each table is {"column": [...], ...rules})."""
+    """{table: its column list} of one schema (each table is {"column": [...]})."""
     return {name: spec.get("column") if isinstance(spec, dict) else spec for name, spec in ((config_postgres_schema or {}).get("table") or {}).items()}
 
 def func_postgres_table_rule_dict(*, schemas: dict) -> dict:
-    """{database: {table: rules}} from every config_postgres_schema_<name>: a table's keys except column, plus private_read_blocked (its columns marked is_private_read_blocked). A table not listed has no rules: every object route refuses it."""
+    """{database: {table: rules}} from every config_postgres_schema_<name>, for Atom's table routes: public / private / my (the actions its control access lists give the table),
+    row_delete_max, buffer_limit, retention_day (its control numbers), row_update_disabled / row_delete_disabled (bool), and from its columns read_blocked and write_blocked ({group: [columns]}) and ownership ({action: [columns]}, created_by_id first when the table has it).
+    Every table of a schema has rules (the /admin routes reach it); a table of no schema has none, so every table route refuses it."""
     rules = {}
     for name, schema in schemas.items():
-        for table, spec in ((schema or {}).get("table") or {}).items():
-            if not isinstance(spec, dict): continue
-            rule = {key: value for key, value in spec.items() if key != "column"}
-            rule["private_read_blocked"] = [col["name"] for col in spec.get("column") or [] if col.get("is_private_read_blocked") is True]
+        control = (schema or {}).get("control") or {}
+        for table, columns in func_postgres_schema_columns(config_postgres_schema=schema).items():
+            columns = [col for col in columns or [] if isinstance(col, dict)]
+            rule = {group: [action for key, (g, action) in CONTROL_ACCESS.items() if g == group and table in (control.get(key) or [])] for group in TABLE_ACCESS}
+            rule.update({key: (control.get(key) or {})[table] for key in CONTROL_TABLE_NUMBERS if table in (control.get(key) or {})})
+            rule.update({key: table in (control.get(key) or []) for key in ("row_update_disabled", "row_delete_disabled")})
+            for key in ("read_blocked", "write_blocked"): rule[key] = {group: [col["name"] for col in columns if group in (col.get(key) or [])] for group in COLUMN_GROUPS}
+            has_owner = any(col.get("name") == "created_by_id" for col in columns)
+            rule["ownership"] = {action: (["created_by_id"] if has_owner else []) + [col["name"] for col in columns if action in (col.get("ownership") or []) and col["name"] != "created_by_id"] for action in OWNERSHIP_ACTIONS}
             rules.setdefault(name, {})[table] = rule
     return rules
+
+def func_postgres_ownership_column_dict(*, rules: dict) -> dict:
+    """{action: [columns]}: every column any table of any schema accepts as owner for a /my action (created_by_id first), for the ownership_column parameter's allowed values; each table's own list is checked per request."""
+    found = {action: ["created_by_id"] for action in OWNERSHIP_ACTIONS}
+    for tables in rules.values():
+        for rule in tables.values():
+            for action, columns in (rule.get("ownership") or {}).items():
+                found[action] += [column for column in columns if column not in found[action]]
+    return found
 
 def func_postgres_log_database(*, schemas: dict) -> str | None:
     """The database whose schema has the log_api table (API logs go there), or None."""
@@ -48,14 +75,12 @@ def func_postgres_int_mapping(*, schemas: dict, config_users_role_label: dict = 
     users["permissions"] = {cfg["id"]: path for path, cfg in sorted((config_api or {}).items(), key=lambda item: item[1].get("id", 0) if isinstance(item[1], dict) else 0) if isinstance(cfg, dict) and cfg.get("user_check_permission") and isinstance(cfg.get("id"), int)}
     return mapping
 
-def func_postgres_users_access(*, config_postgres_schema: dict) -> dict:
-    """{value: [users columns]} from each users column's users_access (token, private_read, update_alone, my_update_blocked, update_blocked); id, the primary column, is always in token and private_read."""
-    columns = func_postgres_schema_columns(config_postgres_schema=config_postgres_schema or {}).get("users") or []
-    access = {value: (["id"] if value in ("token", "private_read") and any(col.get("name") == "id" for col in columns) else []) for value in USERS_ACCESS}
-    for col in columns:
-        for value in col.get("users_access") or []:
-            if col["name"] not in access[value]: access[value].append(col["name"])
-    return access
+def func_postgres_users_access(*, config_users_token_column: list = None, config_users_private_read_column: list = None, config_users_update_alone_column: list = None) -> dict:
+    """{token, private_read, update_alone: [master.users columns]} from the flat settings config_users_token_column, config_users_private_read_column, config_users_update_alone_column; id is always first in token and private_read."""
+    def listed(columns, with_id):
+        names = [str(column) for column in columns or []]
+        return (["id"] if with_id else []) + [column for column in dict.fromkeys(names) if not (with_id and column == "id")]
+    return {"token": listed(config_users_token_column, True), "private_read": listed(config_users_private_read_column, True), "update_alone": listed(config_users_update_alone_column, False)}
 
 def func_postgres_column_regex_dict(*, schemas: dict) -> dict:
     """{database: {table: {column: [pattern, message]}}}: each column's regex and regex_message (default "<column>: invalid format"), the format the API checks on create and update."""
@@ -67,45 +92,68 @@ def func_postgres_column_regex_dict(*, schemas: dict) -> dict:
     return rules
 
 def func_postgres_schema_table_validate(*, table_name: str, spec: Any) -> None:
-    """One table's own keys: column (required), who may do what through Atom's object routes (public, private, my: lists of actions; closed unless listed; /admin routes reach every table of the schema, each through its route's permission id), row_lock, row_delete_max, buffer_limit, retention_day."""
+    """One table: {"column": [...]}, nothing else (who may use it and its row rules are lists in control)."""
     if not isinstance(spec, dict): raise Exception(f"{table_name} must be a dict with a column list: {{\"column\": [...]}} (Atom 23.0.0)")
     if moved := [key for key in ("admin", "users_delete_skip") if key in spec]: raise Exception(f"{table_name}.{moved[0]} removed in Atom 24.0.0: " + ("the /admin object routes reach every table of the schema (each route's permission id decides who); delete it" if moved[0] == "admin" else "the users-delete worker always skips users and log_users_delete; delete it"))
-    if unknown := sorted(set(spec) - set(TABLE_KEYS)): raise Exception(f"{table_name}: unknown key {', '.join(unknown)}; allowed: {', '.join(TABLE_KEYS)}")
+    if moved := [key for key in spec if key in TABLE_KEYS_MOVED]: raise Exception(f"{table_name}.{moved[0]} moved in Atom 24.0.0 to the schema's control: {TABLE_KEYS_MOVED[moved[0]]} (lists of tables); delete it from the table")
+    if unknown := sorted(set(spec) - {"column"}): raise Exception(f"{table_name}: unknown key {', '.join(unknown)}; a table has only column")
     if not isinstance(spec.get("column"), list) or not spec["column"]: raise Exception(f"{table_name} needs a list of columns in column")
-    for group, actions in TABLE_ACCESS.items():
-        if group not in spec: continue
-        value = spec[group]
-        if not isinstance(value, list) or not all(isinstance(action, str) for action in value): raise Exception(f"{table_name}.{group} must be a list of actions from {', '.join(actions)}")
-        if wrong := [action for action in value if action not in actions]: raise Exception(f"{table_name}.{group}: {', '.join(wrong)} is not an action of /{group} routes; allowed: {', '.join(actions)}")
-        if len(set(value)) != len(value): raise Exception(f"{table_name}.{group} lists an action twice")
-    row_lock = spec.get("row_lock", [])
-    if not isinstance(row_lock, list) or not set(row_lock) <= {"update", "delete"} or len(set(row_lock)) != len(row_lock): raise Exception(f"{table_name}.row_lock must be a list of update and/or delete")
-    for key, low, high in (("row_delete_max", 1, None), ("buffer_limit", 10, 5000), ("retention_day", 1, 36500)):
-        if key in spec and (isinstance(spec[key], bool) or not isinstance(spec[key], int) or spec[key] < low or (high and spec[key] > high)): raise Exception(f"{table_name}.{key} must be an integer from {low}" + (f" to {high}" if high else " up"))
-    names = {col.get("name") for col in spec["column"] if isinstance(col, dict)}
-    if "retention_day" in spec and "created_at" not in names: raise Exception(f"{table_name}.retention_day needs a created_at column (rows older than the days are deleted)")
-    if table_name == "users" and (writes := [f"{group} {action}" for group in TABLE_ACCESS for action in spec.get(group, []) if action != "read"]): raise Exception(f"users: {', '.join(writes)} not allowed; users rows are written only through /my/user-* and /admin/user-*")
+    return
+
+def func_postgres_schema_control_validate(*, config_postgres_schema: dict) -> None:
+    """The schema's control: extension (names), switches (bool), access and row lists (tables of this schema), numbers ({table: integer} in range), and the combinations that would break at runtime."""
+    control = config_postgres_schema.get("control") or {}
+    if not isinstance(control, dict): raise Exception("control must be a dict")
+    if removed := [key for key in control if key in CONTROL_KEYS_REMOVED]: raise Exception(f"control.{removed[0]} removed in Atom 24.0.0: use {CONTROL_KEYS_REMOVED[removed[0]]}")
+    if moved := [key for key in control if key.startswith(("table_row_", "table_delete_", "disable_table_", "is_enable_", "is_disable_"))]: raise Exception(f"control.{moved[0]} removed: use row_update_disabled / row_delete_disabled / row_delete_max or is_truncate_disabled")
+    if unknown := sorted(set(control) - set(CONTROL_KEYS)): raise Exception(f"control: unknown key {', '.join(unknown)}; allowed: {', '.join(CONTROL_KEYS)}")
+    if (extensions := control.get("extension")) is not None and (not isinstance(extensions, list) or not all(isinstance(name, str) and name for name in extensions)): raise Exception("control.extension must be a list of extension names")
+    for key in CONTROL_SWITCHES:
+        if key in control and not isinstance(control[key], bool): raise Exception(f"control.{key} must be True or False")
+    tables = func_postgres_schema_columns(config_postgres_schema=config_postgres_schema)
+    def unknown_tables(names): return [name for name in names if name not in tables]
+    for key in CONTROL_TABLE_LISTS:
+        if key not in control: continue
+        value = control[key]
+        if not isinstance(value, list) or not all(isinstance(name, str) for name in value) or len(set(value)) != len(value): raise Exception(f"control.{key} must be a list of table names, each once")
+        if wrong := unknown_tables(value): raise Exception(f"control.{key}: {', '.join(wrong)} is not a table of this schema")
+    for key, (low, high) in CONTROL_TABLE_NUMBERS.items():
+        if key not in control: continue
+        value = control[key]
+        if not isinstance(value, dict): raise Exception(f"control.{key} must be {{table: number}}")
+        if wrong := unknown_tables(value): raise Exception(f"control.{key}: {', '.join(wrong)} is not a table of this schema")
+        for table, number in value.items():
+            if isinstance(number, bool) or not isinstance(number, int) or number < low or (high and number > high): raise Exception(f"control.{key}.{table} must be an integer from {low}" + (f" to {high}" if high else " up"))
+    if writes := [f"{key}" for key in CONTROL_ACCESS if CONTROL_ACCESS[key][1] != "read" and "users" in (control.get(key) or [])]: raise Exception(f"control.{writes[0]}: users not allowed; users rows are written only through /my/user-* and /admin/user-*")
+    if wrong := [table for table in control.get("row_update_disabled") or [] if table in ATOM_UPDATED_TABLES]: raise Exception(f"control.row_update_disabled: {wrong[0]} not allowed; Atom updates its rows itself")
+    for table in control.get("retention_day") or {}:
+        if table == "users": raise Exception("control.retention_day: users not allowed; it would delete users by age")
+        if table in (control.get("row_delete_disabled") or []): raise Exception(f"control.retention_day: {table} is in row_delete_disabled, so cleanup could never delete its rows")
+        if table in (control.get("row_delete_max") or {}): raise Exception(f"control.retention_day: {table} is in row_delete_max; cleanup deletes in batches that would trip it")
+        if "created_at" not in {col.get("name") for col in tables[table] or [] if isinstance(col, dict)}: raise Exception(f"control.retention_day: {table} needs a created_at column (rows older than the days are deleted)")
     return
 
 def func_postgres_schema_config_validate(*, config_postgres_schema: dict) -> None:
-    """Validate configured tables, columns, indexes, and unique constraints before database changes."""
+    """Validate configured tables, columns, indexes, unique keys and control before database changes."""
     if not config_postgres_schema: raise Exception("schema missing: a dict with a table part")
     if "table" not in config_postgres_schema: raise Exception("table part missing")
-    bool_control_keys = ("is_updated_at_set", "is_protected_delete_disabled", "is_truncate_table", "is_log_users_password", "is_log_users_delete", "is_root_user_create", "is_root_user_delete_disabled")
-    for key in bool_control_keys:
-        if key in config_postgres_schema.get("control", {}) and not isinstance(config_postgres_schema["control"][key], bool):
-            raise Exception(f"control.{key} must be bool")
-    if moved := [key for key in config_postgres_schema.get("control", {}) if key.startswith(("table_row_", "table_delete_", "disable_table_"))]: raise Exception(f"control.{moved[0]} removed in Atom 23.0.0: set row_lock ([\"update\", \"delete\"]) and row_delete_max on the table itself")
+    if "extension" in config_postgres_schema: raise Exception("extension moved in Atom 24.0.0: put the list in control: \"control\": {\"extension\": [...], ...}")
+    if unknown := sorted(set(config_postgres_schema) - {"table", "control", "sql"}): raise Exception(f"schema: unknown part {', '.join(unknown)}; a schema has table, control and sql")
     for table_name, spec in config_postgres_schema["table"].items(): func_postgres_schema_table_validate(table_name=table_name, spec=spec)
+    func_postgres_schema_control_validate(config_postgres_schema=config_postgres_schema)
     tables = func_postgres_schema_columns(config_postgres_schema=config_postgres_schema)
     reserved = {"all", "analyze", "and", "any", "as", "asc", "asymmetric", "authorization", "binary", "both", "case", "cast", "check", "collate", "collation", "column", "concurrently", "constraint", "create", "cross", "current_catalog", "current_date", "current_role", "current_schema", "current_time", "current_timestamp", "current_user", "default", "deferrable", "desc", "distinct", "do", "else", "end", "except", "false", "fetch", "for", "foreign", "freeze", "from", "full", "grant", "group", "having", "ilike", "in", "initially", "inner", "intersect", "into", "is", "isnull", "join", "lateral", "leading", "left", "like", "limit", "localtime", "localtimestamp", "natural", "not", "notnull", "null", "offset", "on", "only", "or", "order", "outer", "overlaps", "placing", "primary", "references", "returning", "right", "select", "session_user", "similar", "some", "symmetric", "table", "tablesample", "then", "to", "trailing", "true", "union", "unique", "user", "using", "variadic", "verbose", "when", "where", "window", "with"}
     integer_datatypes = {"bigint", "integer", "smallint", "int", "bigserial", "serial", "smallserial", "bigint generated always as identity", "bigint generated by default as identity"}
     for table_name, column_configs in tables.items():
-        for col in column_configs:    # id is optional; a key may span several columns (is_primary on each), or a table may have none
-            if col.get("is_primary") is True and (extra := sorted(set(col) - {"name", "datatype", "identity", "is_primary"})):
-                raise Exception(f"{table_name}.{col.get('name')} is a primary column: it takes only name, datatype, identity and is_primary (not {', '.join(extra)})")
-            if col.get("identity") is not None and (col.get("identity") not in ("always", "by_default") or col.get("is_primary") is not True or col.get("datatype") not in integer_datatypes):
-                raise Exception(f"{table_name}.{col.get('name')}: identity ('always' or 'by_default') only on an integer primary column")
+        for col in column_configs:
+            if not isinstance(col, dict): raise Exception(f"{table_name}: each column is a dict, got {col!r}")
+            if removed := [key for key in col if key in COLUMN_KEYS_REMOVED]: raise Exception(f"{table_name}.{col.get('name')}: {removed[0]} removed in Atom 24.0.0: use {COLUMN_KEYS_REMOVED[removed[0]]}")
+            if unknown := sorted(set(col) - set(COLUMN_KEYS)): raise Exception(f"{table_name}.{col.get('name')}: unknown key {', '.join(unknown)}; allowed: {', '.join(COLUMN_KEYS)}")
+        for col in column_configs:    # id is optional; a key may span several columns (is_primary_key on each), or a table may have none
+            if col.get("is_primary_key") is True and (extra := sorted(set(col) - {"name", "datatype", "identity", "is_primary_key"})):
+                raise Exception(f"{table_name}.{col.get('name')} is a primary key column: it takes only name, datatype, identity and is_primary_key (not {', '.join(extra)})")
+            if col.get("identity") is not None and (col.get("identity") not in ("always", "by_default") or col.get("is_primary_key") is not True or col.get("datatype") not in integer_datatypes):
+                raise Exception(f"{table_name}.{col.get('name')}: identity ('always' or 'by_default') only on an integer primary key column")
             if col.get("name") == "id" and col.get("datatype") not in integer_datatypes:
                 raise Exception(f"{table_name}.id must be an integer column (Atom's routes find rows by it)")
         column_names = set()
@@ -119,23 +167,28 @@ def func_postgres_schema_config_validate(*, config_postgres_schema: dict) -> Non
             name, dtype = col.get("name"), col.get("datatype")
             if not name or not dtype:
                 raise Exception(f"Missing mandatory key 'name' or 'datatype' in {table_name} column: {col}")
-            for key in ("is_primary", "is_mandatory", "is_private_read_blocked"):
+            for key in ("is_primary_key", "is_not_null"):
                 if key in col and not isinstance(col[key], bool):
-                    raise Exception(f"{table_name}.{name} {key} must be bool")
-            if "users_access" in col:    # what the user routes do with a users column
-                access = col["users_access"]
-                if table_name != "users": raise Exception(f"{table_name}.{name}: users_access is only for users columns")
-                if not isinstance(access, list) or not access or any(v not in USERS_ACCESS for v in access) or len(set(access)) != len(access): raise Exception(f"{table_name}.{name}: users_access must be a list of {', '.join(USERS_ACCESS)}")
+                    raise Exception(f"{table_name}.{name} {key} must be True or False")
+            for key in ("read_blocked", "write_blocked"):    # the route groups that may not read / write the column through Atom's table routes
+                if key in col and (not isinstance(col[key], list) or not col[key] or any(group not in COLUMN_GROUPS for group in col[key]) or len(set(col[key])) != len(col[key])): raise Exception(f"{table_name}.{name}: {key} must be a list of {', '.join(COLUMN_GROUPS)} (each once; leave it out for none)")
+            if "ownership" in col:    # the /my actions that may find a user's rows by this column (created_by_id always may)
+                if name == "created_by_id": raise Exception(f"{table_name}.created_by_id: no ownership key; created_by_id is always the owner")
+                if not isinstance(col["ownership"], list) or not col["ownership"] or any(action not in OWNERSHIP_ACTIONS for action in col["ownership"]) or len(set(col["ownership"])) != len(col["ownership"]): raise Exception(f"{table_name}.{name}: ownership must be a list of {', '.join(OWNERSHIP_ACTIONS)} (each once)")
+            if "allowed_values" in col:    # a CHECK: the column holds only these values
+                values = col["allowed_values"]
+                if not isinstance(values, list) or not values or len(set(values)) != len(values) or not (all(isinstance(v, int) and not isinstance(v, bool) for v in values) or all(isinstance(v, str) for v in values)): raise Exception(f"{table_name}.{name}: allowed_values must be a list of integers or of texts, each once")
             if "int_mapping" in col:    # labels only (served by /info): never changes the database
                 labels = col["int_mapping"]
                 if dtype.lower().removesuffix("[]") not in integer_datatypes: raise Exception(f"{table_name}.{name}: int_mapping only on an integer column (or an integer array)")
                 if not isinstance(labels, dict) or not labels or not all((code is None or (isinstance(code, int) and not isinstance(code, bool))) and isinstance(label, str) and label for code, label in labels.items()): raise Exception(f"{table_name}.{name}: int_mapping must be {{code: \"label\"}} with integer codes (None for no value)")
-                if "in" in col and set(col["in"]) != {code for code in labels if code is not None}: raise Exception(f"{table_name}.{name}: in {tuple(col['in'])} and int_mapping codes {tuple(code for code in labels if code is not None)} must be the same")
+                if "allowed_values" in col and set(col["allowed_values"]) != {code for code in labels if code is not None}: raise Exception(f"{table_name}.{name}: allowed_values {col['allowed_values']} and int_mapping codes {[code for code in labels if code is not None]} must be the same")
             if name.lower() in reserved:
                 raise Exception(f"Column name '{name}' in table '{table_name}' is a PostgreSQL reserved keyword. Please rename it.")
             if "generated" in col:
                 if not isinstance(col["generated"], str) or not col["generated"].strip(): raise Exception(f"{table_name}.{name} generated must be the SQL expression of the column")
-                if mixed := [key for key in ("default", "is_mandatory", "in", "regex", "check", "unique", "old") if key in col]: raise Exception(f"{table_name}.{name} is generated: Postgres fills it, so it takes no {', '.join(mixed)}")
+                if mixed := [key for key in ("default", "is_not_null", "allowed_values", "regex", "check", "unique", "old_name") if key in col]: raise Exception(f"{table_name}.{name} is generated: Postgres fills it, so it takes no {', '.join(mixed)}")
+            if "old_name" in col and (not isinstance(col["old_name"], str) or not col["old_name"]): raise Exception(f"{table_name}.{name}: old_name must be the column's previous name")
             if "regex_message" in col and (not col.get("regex") or not isinstance(col["regex_message"], str) or not col["regex_message"]): raise Exception(f"{table_name}.{name}: regex_message is the error for its regex: a text, and the column needs regex")
             if "regex" in col:
                 if not isinstance(col["regex"], str) or not col["regex"]: raise Exception(f"{table_name}.{name}: regex must be a pattern")
@@ -144,8 +197,10 @@ def func_postgres_schema_config_validate(*, config_postgres_schema: dict) -> Non
                 except re.error as error: raise Exception(f"{table_name}.{name}: invalid regex: {error}") from None
             if "regex" in col and "[]" in dtype.lower():
                 raise Exception(f"Regex constraint is not supported for array column {table_name}.{name}. Remove 'regex' key to resolve.")
-            if col.get("index"):
-                for index_group in (x.strip() for x in col["index"].split("|")):
+            if "index" in col:
+                if not isinstance(col["index"], list) or not col["index"] or not all(isinstance(item, str) and item.strip() for item in col["index"]): raise Exception(f"{table_name}.{name}: index must be a list of index texts, e.g. [\"btree(created_at)\", \"gin(tags)\"]")
+                for index_group in (x.strip() for x in col["index"]):
+                    if "|" in index_group: raise Exception(f"{table_name}.{name}: index is a list in Atom 24.0.0: one text per index, no |")
                     if "(" in index_group and index_group.endswith(")"):
                         index_type, cols_str = index_group[:-1].split("(", 1)
                         index_type = index_type.strip().lower()
@@ -171,23 +226,23 @@ def func_postgres_schema_config_validate(*, config_postgres_schema: dict) -> Non
                         if any(x in dtype.lower() for x in ("geography", "geometry")) and index_type != "gist":
                             raise Exception(f"Spatial column {table_name}.{name} must use 'gist' index if indexed.")
                     else:
-                        raise Exception(f"Invalid index syntax '{index_group}' in {table_name}.{name}. Expected 'col(type)' or 'col1,col2(type)'.")
+                        raise Exception(f"Invalid index syntax '{index_group}' in {table_name}.{name}. Expected 'type(col)' or 'type(col1,col2)'.")
         for col in column_configs:
-            if col.get("unique"):
-                for group in col["unique"].split("|"):
-                    for u_col in (x.strip() for x in group.split(",") if x.strip()):
+            if "unique" in col:
+                if not isinstance(col["unique"], list) or not col["unique"] or not all(isinstance(group, list) and group and all(isinstance(c, str) and c for c in group) for group in col["unique"]): raise Exception(f"{table_name}.{col['name']}: unique must be a list of column lists, e.g. [[\"email\", \"role\"]] or [[\"code\"]]")
+                for group in col["unique"]:
+                    for u_col in group:
                         if u_col not in column_names:
                             raise Exception(f"Unique constraint in {table_name} references non-existent column '{u_col}'. Defined columns: {list(column_names)}")
     return
 
-def func_postgres_schema_context_build(*, config_postgres_schema: dict) -> dict:
-    """Build compatible control switches and the managed-object catalog."""
-    control = config_postgres_schema.get("control", {})
-    def get_enable_control_switch(key: str, default: bool = True, legacy_disable_keys: tuple = ()) -> bool:
-        if key in control: return control.get(key)
-        for legacy_key in legacy_disable_keys:
-            if legacy_key in control: return not control.get(legacy_key)
-        return default
+def func_postgres_schema_users_setting(*, app_state: Any) -> dict:
+    """The flat users setup switches read from app_state (config_is_root_user, config_is_users_password_log, config_is_users_delete_log, config_is_totp_clear); one not set is on."""
+    return {key: getattr(app_state, key, True) for key in ("config_is_root_user", "config_is_users_password_log", "config_is_users_delete_log", "config_is_totp_clear")}
+
+def func_postgres_schema_context_build(*, config_postgres_schema: dict, users_setting: dict = None) -> dict:
+    """The switches and row guards of one schema's control, the managed-object catalog, and the users setup switches (users_setting: config_is_root_user, config_is_users_password_log, config_is_users_delete_log, config_is_totp_clear; all on when not given)."""
+    control = config_postgres_schema.get("control") or {}
     catalog = {"idx": set(), "uni": set(), "chk": set(), "tg": set()}
     def register_sql_catalog(sql_config: Any) -> None:
         if not isinstance(sql_config, dict): return
@@ -200,8 +255,10 @@ def func_postgres_schema_context_build(*, config_postgres_schema: dict) -> dict:
             elif isinstance(val, dict): register_sql_catalog(val)
         return
     register_sql_catalog(config_postgres_schema.get("sql", {}))
-    specs = {name: spec for name, spec in (config_postgres_schema.get("table") or {}).items() if isinstance(spec, dict)}
-    return {"catalog": catalog, "tables": set(config_postgres_schema.get("table") or {}), "is_truncate_table": get_enable_control_switch("is_truncate_table", True, ("is_enable_truncate_disable", "is_disable_truncate")), "is_root_user_delete_disabled": control.get("is_root_user_delete_disabled", control.get("is_enable_users_protect_root", True)), "is_root_user_create": control.get("is_root_user_create", True), "is_log_users_password": control.get("is_log_users_password", True), "is_log_users_delete": control.get("is_log_users_delete", True), "is_protected_delete_disabled": control.get("is_protected_delete_disabled", True), "is_updated_at_set": control.get("is_updated_at_set", True), "bulk_blocked": [[name, spec["row_delete_max"]] for name, spec in specs.items() if spec.get("row_delete_max")], "update_blocked": [name for name, spec in specs.items() if "update" in spec.get("row_lock", [])], "table_blocked": [name for name, spec in specs.items() if "delete" in spec.get("row_lock", [])]}
+    users = {"config_is_root_user": True, "config_is_users_password_log": True, "config_is_users_delete_log": True, "config_is_totp_clear": True, **(users_setting or {})}
+    return {"catalog": catalog, "tables": set(config_postgres_schema.get("table") or {}), **{key: control.get(key, default) for key, default in CONTROL_SWITCHES.items()},
+            "is_root_user": bool(users["config_is_root_user"]), "is_users_password_log": bool(users["config_is_users_password_log"]), "is_users_delete_log": bool(users["config_is_users_delete_log"]), "is_totp_clear": bool(users["config_is_totp_clear"]),
+            "bulk_blocked": [[name, number] for name, number in (control.get("row_delete_max") or {}).items()], "update_blocked": list(control.get("row_update_disabled") or []), "table_blocked": list(control.get("row_delete_disabled") or [])}
 
 def func_postgres_schema_hash(value: Any) -> str:
     """Return the stable short hash used in managed PostgreSQL object names."""
@@ -266,7 +323,7 @@ async def func_postgres_schema_tables_sync(*, conn: asyncpg.Connection, tables: 
     existing_tables = {r[0] for r in await conn.fetch("SELECT c.relname FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p') AND c.relname = ANY($1::text[])", names)}
     for table_name in names:
         if table_name in existing_tables: continue
-        primary_cols = [col for col in tables[table_name] if col.get("is_primary") is True]    # created with the table: one key over all of them; none, a table without a key
+        primary_cols = [col for col in tables[table_name] if col.get("is_primary_key") is True]    # created with the table: one key over all of them; none, a table without a key
         definitions = [f'"{col["name"]}" {col["datatype"]}' + (f" GENERATED {col['identity'].upper().replace('_', ' ')} AS IDENTITY" if col.get("identity") else "") for col in primary_cols]
         if primary_cols: definitions.append(f"PRIMARY KEY ({', '.join(chr(34) + col['name'] + chr(34) for col in primary_cols)})")
         await conn.execute(f'CREATE TABLE IF NOT EXISTS "{table_name}" ({", ".join(definitions)});')
@@ -283,7 +340,7 @@ async def func_postgres_schema_tables_sync(*, conn: asyncpg.Connection, tables: 
         table_changed = False
         renamed_cols = {}
         for col_cfg in column_configs:
-            if col_cfg.get("is_primary") is True:
+            if col_cfg.get("is_primary_key") is True:
                 continue
             col_name = col_cfg["name"]
             col_type = col_cfg["datatype"]
@@ -301,7 +358,7 @@ async def func_postgres_schema_tables_sync(*, conn: asyncpg.Connection, tables: 
                 table_changed = True
                 continue
             if col_name not in current_cols:
-                old_name = col_cfg.get("old") if col_cfg.get("old") not in (None, "") else None
+                old_name = col_cfg.get("old_name") or None
                 if old_name and old_name in current_cols:
                     await conn.execute(f'ALTER TABLE "{table_name}" RENAME COLUMN "{old_name}" TO "{col_name}"')
                     current_cols[col_name] = current_cols.pop(old_name)
@@ -310,10 +367,10 @@ async def func_postgres_schema_tables_sync(*, conn: asyncpg.Connection, tables: 
                     table_changed = True
                 else:
                     default_val = f"""DEFAULT {col_cfg["default"]}""" if func_postgres_schema_col_setting_enabled(col_cfg, "default") else ""
-                    mandatory_val = "NOT NULL" if col_cfg.get("is_mandatory") is True else ""
+                    mandatory_val = "NOT NULL" if col_cfg.get("is_not_null") is True else ""
                     await conn.execute(f'ALTER TABLE "{table_name}" ADD COLUMN "{col_name}" {col_type} {default_val} {mandatory_val}')
                     current_cols[col_name] = col_type.split("(")[0].lower()
-                    current_notnulls[col_name] = col_cfg.get("is_mandatory") is True
+                    current_notnulls[col_name] = col_cfg.get("is_not_null") is True
                     table_changed = True
             else:
                 # one name per type: Postgres reports full names (format_type), config may use either, and a mismatch would rewrite the table on every start
@@ -325,7 +382,7 @@ async def func_postgres_schema_tables_sync(*, conn: asyncpg.Connection, tables: 
                 if current_type != target_type:
                     await conn.execute(f'ALTER TABLE "{table_name}" ALTER COLUMN "{col_name}" TYPE {col_type} USING "{col_name}"::{col_type}')
                     table_changed = True
-                target_notnull = col_cfg.get("is_mandatory") is True
+                target_notnull = col_cfg.get("is_not_null") is True
                 if current_notnulls[col_name] != target_notnull:
                     if target_notnull:
                         await conn.execute(f'ALTER TABLE "{table_name}" ALTER COLUMN "{col_name}" SET NOT NULL')
@@ -342,12 +399,12 @@ async def func_postgres_schema_tables_sync(*, conn: asyncpg.Connection, tables: 
                     await conn.execute(f'ALTER TABLE "{table_name}" ALTER COLUMN "{col_name}" DROP DEFAULT')
                     table_changed = True
         for col_cfg in column_configs:
-            if col_cfg.get("is_primary") is True:
+            if col_cfg.get("is_primary_key") is True:
                 continue
             col_name = col_cfg["name"]
             col_type = col_cfg["datatype"]
             if col_cfg.get("index"):
-                for index_group in (x.strip() for x in col_cfg["index"].split("|")):
+                for index_group in (x.strip() for x in col_cfg["index"]):
                     if "(" in index_group and index_group.endswith(")"):
                         index_type, cols_str = index_group[:-1].split("(", 1)
                         index_type = index_type.strip().lower()
@@ -363,18 +420,19 @@ async def func_postgres_schema_tables_sync(*, conn: asyncpg.Connection, tables: 
                                 cols_quoted = ", ".join(f'"{column}"' + (f" {order}" if order else "") for column, order in (func_postgres_schema_index_column(token=c) for c in index_cols))
                                 await conn.execute(f'CREATE INDEX IF NOT EXISTS "{idx_name}" ON "{table_name}" USING {access_method}({cols_quoted});')
                             table_changed = True
-            if func_postgres_schema_col_setting_enabled(col_cfg, "in"):
-                chk_name = f"check_{table_name}_{col_name}_in_{func_postgres_schema_hash(col_cfg['in'])}"
+            if col_cfg.get("allowed_values"):    # named by the hash of the values as a tuple, so the name stays as it was when the key was in (a tuple)
+                allowed = tuple(col_cfg["allowed_values"])
+                chk_name = f"check_{table_name}_{col_name}_in_{func_postgres_schema_hash(allowed)}"
                 catalog["chk"].add(chk_name)
                 if chk_name not in existing_meta:
                     old_col_name = renamed_cols.get(col_name, col_name)
-                    old_chk_name = f"check_{table_name}_{old_col_name}_in_{func_postgres_schema_hash(col_cfg['in'])}"
+                    old_chk_name = f"check_{table_name}_{old_col_name}_in_{func_postgres_schema_hash(allowed)}"
                     if old_chk_name in existing_meta and old_chk_name != chk_name:
                         await conn.execute(f'ALTER TABLE "{table_name}" RENAME CONSTRAINT "{old_chk_name}" TO "{chk_name}"')
                         existing_meta.remove(old_chk_name)
                         existing_meta.add(chk_name)
                     else:
-                        await conn.execute(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{chk_name}" CHECK ("{col_name}" IN {col_cfg["in"]});')
+                        await conn.execute(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{chk_name}" CHECK ("{col_name}" IN ({", ".join(str(v) if isinstance(v, int) else "'" + v.replace("'", "''") + "'" for v in allowed)}));')
                         table_changed = True
             if func_postgres_schema_col_setting_enabled(col_cfg, "regex") and (table_name, col_name) != ("users", "password"):    # the stored password is its hash: the API checks the typed one
                 regex_name = f"check_{table_name}_{col_name}_regex_{func_postgres_schema_hash(col_cfg['regex'])}"
@@ -403,8 +461,8 @@ async def func_postgres_schema_tables_sync(*, conn: asyncpg.Connection, tables: 
                         await conn.execute(f'ALTER TABLE "{table_name}" ADD CONSTRAINT "{vld_name}" CHECK ({col_cfg["check"]});')
                         table_changed = True
             if col_cfg.get("unique"):
-                for group in col_cfg["unique"].split("|"):
-                    unique_cols = [x.strip() for x in group.split(",")]
+                for group in col_cfg["unique"]:
+                    unique_cols = [x.strip() for x in group]
                     uni_name = f"""unique_{table_name}_{"_".join(unique_cols)}"""
                     catalog["uni"].add(uni_name)
                     if uni_name not in existing_meta:
@@ -443,12 +501,12 @@ async def func_postgres_schema_trigger_set(*, conn: asyncpg.Connection, existing
     existing[(table, name)] = f"CREATE TRIGGER {name} {definition}"
 
 async def func_postgres_schema_users_init(*, conn: asyncpg.Connection, db_tables: dict, catalog: dict, context: dict, root_user_password_hash: str = None) -> None:
-    """Initialize root-user protection, root credentials and user audit triggers (root's permissions: func_root_user_permissions_sync, at every start)."""
-    is_root_user_delete_disabled = context["is_root_user_delete_disabled"]
-    is_root_user_create = context["is_root_user_create"]
-    is_log_users_password = context["is_log_users_password"]
-    is_log_users_delete = context["is_log_users_delete"]
-    users_cols = db_tables.get("users", []) if "users" in context.get("tables", {"users"}) else []    # only the database whose schema has users
+    """Initialize root-user protection, root credentials, user audit triggers and the two-factor clear trigger (config_is_totp_clear) (root's permissions: func_root_user_permissions_sync, at every start)."""
+    is_root_user = context.get("is_root_user", True)    # config_is_root_user: create admin (id 1, role 1) and guard it from delete
+    is_root_user_delete_disabled = is_root_user_create = is_root_user
+    is_log_users_password = context.get("is_users_password_log", True)
+    is_log_users_delete = context.get("is_users_delete_log", True)
+    users_cols = db_tables.get("users", []) if context.get("database", "master") == "master" and "users" in context.get("tables", {"users"}) else []    # login users live in master only: a users table in another database is a plain table
     existing = context["triggers"] if "triggers" in context else await func_postgres_schema_triggers_read(conn=conn)
     if users_cols:
         is_log_password = is_log_users_password and "password" in users_cols and "log_users_password" in db_tables
@@ -460,7 +518,7 @@ async def func_postgres_schema_users_init(*, conn: asyncpg.Connection, db_tables
             await func_postgres_schema_trigger_set(conn=conn, existing=existing, table="users", name="trigger_protect_root_users", definition="BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_protect_root_users()")
         if is_root_user_create and all(c in users_cols for c in ("username", "password", "role", "deleted_at", "deactivated_at")):
             if not root_user_password_hash:
-                raise Exception("config_root_user_password must be set in env when is_root_user_create is enabled")
+                raise Exception("config_root_user_password must be set in .env when config_is_root_user is on")
             await conn.execute("INSERT INTO users (username, password, role) VALUES ('admin', $1, 1) ON CONFLICT (username, role) DO UPDATE SET username = 'admin', password = EXCLUDED.password, role = 1, deleted_at = NULL, deactivated_at = NULL;", root_user_password_hash)
             await conn.execute("UPDATE users SET username = 'admin', password = $1, role = 1, deleted_at = NULL, deactivated_at = NULL WHERE id = 1;", root_user_password_hash)
         if is_log_password:
@@ -469,11 +527,15 @@ async def func_postgres_schema_users_init(*, conn: asyncpg.Connection, db_tables
         if is_log_delete:
             catalog["tg"].add("trigger_log_users_delete")
             await func_postgres_schema_trigger_set(conn=conn, existing=existing, table="users", name="trigger_log_users_delete", definition="AFTER DELETE OR UPDATE OF deleted_at ON users FOR EACH ROW EXECUTE FUNCTION func_log_users_delete()")
+        if context.get("is_totp_clear", True) and all(c in users_cols for c in ("totp_enabled_at", "totp_secret", "totp_last_step", "totp_recovery")):    # two-factor turned off: its secret, last step and recovery codes go with it
+            await conn.execute("CREATE OR REPLACE FUNCTION users_totp_clear() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.totp_enabled_at IS NULL AND OLD.totp_enabled_at IS NOT NULL THEN NEW.totp_secret = NULL; NEW.totp_last_step = NULL; NEW.totp_recovery = NULL; END IF; RETURN NEW; END $$;")
+            catalog["tg"].add("users_totp_clear")
+            await func_postgres_schema_trigger_set(conn=conn, existing=existing, table="users", name="users_totp_clear", definition="BEFORE UPDATE OF totp_enabled_at ON users FOR EACH ROW EXECUTE FUNCTION users_totp_clear()")
     return
 
 async def func_postgres_schema_triggers_sync(*, conn: asyncpg.Connection, db_tables: dict, catalog: dict, context: dict) -> None:
     """Synchronize generic and table-specific protection/update triggers."""
-    is_truncate_table = context["is_truncate_table"]
+    is_truncate_disabled = context.get("is_truncate_disabled", True)
     is_protected_delete_disabled = context["is_protected_delete_disabled"]
     is_updated_at_set = context["is_updated_at_set"]
     bulk_blocked = context["bulk_blocked"]
@@ -484,7 +546,7 @@ async def func_postgres_schema_triggers_sync(*, conn: asyncpg.Connection, db_tab
     managed = context.get("tables")
     for table, cols in db_tables.items():
         if table == "spatial_ref_sys" or (managed is not None and table not in managed): continue    # only the tables of this database's schema
-        if not is_truncate_table:
+        if is_truncate_disabled:
             trunc_tg_name = f"trigger_truncate_disable_{table}"
             catalog["tg"].add(trunc_tg_name)
             await func_postgres_schema_trigger_set(conn=conn, existing=existing, table=table, name=trunc_tg_name, definition=f"BEFORE TRUNCATE ON {table} FOR EACH STATEMENT EXECUTE FUNCTION func_delete_disable_table()")
@@ -574,7 +636,7 @@ async def func_postgres_schema_tables_init(*, app_state: State, client_postgres:
 async def func_postgres_schema_steps(*, app_state: State, conn: Any, config_postgres_schema: dict, context: dict, root_user_password_hash: str = None, lock_timeout_sec: int = 10) -> None:
     """The schema steps, in order, on one connection: startup runs them for real, func_postgres_schema_plan only records their statements."""
     # extensions outside the transaction: each is optional, and one skipped must not abort the rest
-    await app_state.func_postgres_schema_extensions_init(conn=conn, extensions=config_postgres_schema.get("extension") or [])
+    await app_state.func_postgres_schema_extensions_init(conn=conn, extensions=(config_postgres_schema.get("control") or {}).get("extension") or [])
     # one transaction: other sessions see the old schema or the new one, never a table without its triggers
     async with conn.transaction():
         await func_postgres_schema_lock_timeout(conn=conn, lock_timeout_sec=lock_timeout_sec)
@@ -588,10 +650,10 @@ async def func_postgres_schema_steps(*, app_state: State, conn: Any, config_post
     await app_state.func_postgres_schema_sql_execute(conn=conn, sql_config=config_postgres_schema.get("sql", {}))
     return
 
-async def func_postgres_schema_init(*, app_state: State, client_postgres: asyncpg.Pool | None, config_postgres_schema: dict, root_user_password_hash: str = None, lock_timeout_sec: int = 10) -> str:
-    """Initialize PostgreSQL schema by composing focused helpers registered on app.state."""
+async def func_postgres_schema_init(*, app_state: State, client_postgres: asyncpg.Pool | None, config_postgres_schema: dict, root_user_password_hash: str = None, lock_timeout_sec: int = 10, database: str = "master") -> str:
+    """Initialize PostgreSQL schema by composing focused helpers registered on app.state; database: its name (the users setup runs on master only)."""
     app_state.func_postgres_schema_config_validate(config_postgres_schema=config_postgres_schema)
-    context = app_state.func_postgres_schema_context_build(config_postgres_schema=config_postgres_schema)
+    context = {**app_state.func_postgres_schema_context_build(config_postgres_schema=config_postgres_schema, users_setting=func_postgres_schema_users_setting(app_state=app_state)), "database": database}
     try:
         async with client_postgres.acquire() as conn: await func_postgres_schema_steps(app_state=app_state, conn=conn, config_postgres_schema=config_postgres_schema, context=context, root_user_password_hash=root_user_password_hash, lock_timeout_sec=lock_timeout_sec)
     except asyncpg.exceptions.LockNotAvailableError as e: raise func_postgres_schema_lock_error(error=e, lock_timeout_sec=lock_timeout_sec) from None
@@ -599,7 +661,7 @@ async def func_postgres_schema_init(*, app_state: State, client_postgres: asyncp
 
 async def func_postgres_schema_check(*, app_state: State, client_postgres: asyncpg.Pool, config_postgres_schema: dict, name: str = "master") -> str:
     """Startup with config_is_postgres_schema_init off: compare the database with config_postgres_schema, change nothing, and stop when they differ, so the app never runs against a schema its code does not expect."""
-    changes = [step["sql"] for step in await app_state.func_postgres_schema_plan(app_state=app_state, client_postgres=client_postgres, config_postgres_schema=config_postgres_schema) if not step["is_routine"]]
+    changes = [step["sql"] for step in await app_state.func_postgres_schema_plan(app_state=app_state, client_postgres=client_postgres, config_postgres_schema=config_postgres_schema, database=name) if not step["is_routine"]]
     if changes:
         preview = "; ".join(" ".join(sql.split()).rstrip(";")[:120] for sql in changes[:3]) + ("; …" if len(changes) > 3 else "")
         raise Exception(f"schema check: database {name} differs from config_postgres_schema_{name} ({len(changes)} changes) and config_is_postgres_schema_init is off, so nothing was changed. See them: venv/bin/python -m script.postgres_schema_plan; run them: venv/bin/python -m script.postgres_schema_plan --apply ({preview})")
@@ -609,7 +671,7 @@ SCHEMA_RISKS = ((r"ALTER COLUMN .* TYPE ", "rewrites the table, which stays lock
                 (r"^\s*CREATE (UNIQUE )?INDEX (?!CONCURRENTLY)", "blocks writes to the table while the index builds"), (r"\bDROP (TABLE|COLUMN)\b", "removes data"), (r"GENERATED ALWAYS AS .* STORED", "computes the column for every row while the table is locked"))
 SCHEMA_ROUTINE = (r"^\s*CREATE EXTENSION", r"^\s*CREATE OR REPLACE FUNCTION", r"^\s*DO \$\$", r"^\s*INSERT INTO users \(username, password, role\)", r"^\s*UPDATE users SET username = 'admin'")    # run on every start, whether anything changed or not
 
-async def func_postgres_schema_plan(*, app_state: State, client_postgres: asyncpg.Pool, config_postgres_schema: dict) -> list:
+async def func_postgres_schema_plan(*, app_state: State, client_postgres: asyncpg.Pool, config_postgres_schema: dict, database: str = "master") -> list:
     """The statements startup would run to match config_postgres_schema, without running them: [{"sql", "risk", "table", "rows", "is_routine"}] (is_routine: runs on every start, whether anything changed or not). Catalog reads go to the database; every statement that would change it is recorded instead. Steps after a new table read the database as it is now, so a plan for a fresh database is incomplete."""
     class Recorder:
         def __init__(self, conn): self.conn, self.statements = conn, []
@@ -619,7 +681,7 @@ async def func_postgres_schema_plan(*, app_state: State, client_postgres: asyncp
         async def execute(self, sql, *args, **kwargs): self.statements.append(sql)
         def transaction(self): return contextlib.nullcontext()
     app_state.func_postgres_schema_config_validate(config_postgres_schema=config_postgres_schema)
-    context = app_state.func_postgres_schema_context_build(config_postgres_schema=config_postgres_schema)
+    context = {**app_state.func_postgres_schema_context_build(config_postgres_schema=config_postgres_schema, users_setting=func_postgres_schema_users_setting(app_state=app_state)), "database": database}
     async with client_postgres.acquire() as conn:
         recorder = Recorder(conn)
         await func_postgres_schema_steps(app_state=app_state, conn=recorder, config_postgres_schema=config_postgres_schema, context=context, root_user_password_hash="(plan)", lock_timeout_sec=0)    # noqa: S106 - a placeholder: the hash is a bound value, never part of the recorded SQL

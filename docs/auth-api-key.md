@@ -18,14 +18,14 @@ Machine-to-machine authentication for scripts, scheduled jobs and other companie
 | Create | `POST /my/api-key-create {"name": "Warehouse push", "scopes": ["/shipment/event-create"], "expire_days": 365}` → `{"id", "key", "key_prefix", ...}`. The key is shown only here. At most `config_api_key_max` keys per user (`20`) |
 | Allow a route | `"api_key"` in its `config_api` `auth` list: `["api_key"]` for machines only, `["jwt", "api_key"]` for people and machines (a project sets it in `config_extend.py`). No Atom route allows keys by default |
 | Call | `Authorization: Bearer atk_...` on any allowed route |
-| List | `GET /my/object-read?table=api_key` (own keys; `/admin/object-read` for all): name, prefix, scopes, expiry; `key_hash` is in `config_column_read_blocked`, so never returned |
+| List | `GET /my/object-read?table=api_key` (own keys; `/admin/object-read` for all): name, prefix, scopes, expiry; `key_hash` is `read_blocked` for every group, so never returned |
 | Revoke | `POST /my/object-delete {"table": "api_key", "ids": [3]}` (own keys); `POST /admin/object-delete` (any key). A hard delete of the key row only; the service account is untouched |
 
 How a request is checked (middleware, right after the JWT step):
 ```
 Bearer atk_... → sha256 → api_key JOIN users (cached per worker for config_api_key_cache_sec, 60 s)
 → unknown or expired key, deleted or deactivated owner: 401
-→ request.state.user = the owner's users_access token columns + _token_type "api_key", _api_key_id, _api_key_scopes
+→ request.state.user = the owner's config_users_token_column columns + _token_type "api_key", _api_key_id, _api_key_scopes
 → route whose auth lacks api_key: 401 · key with scopes not listing this path: 403
 → role, permission, rate-limit and the other checks run as for a JWT
 ```
@@ -50,6 +50,6 @@ A warehouse system (WMS) pushes shipment events into the app.
 Prefer a project route like this for an outside system over opening a generic route: it is a fixed contract (its own fields and checks, unchanged when the app changes) and reaches one table only. Scopes limit paths, not tables, so a key allowed on `/my/object-create` can create rows in every table that route accepts. Generic routes suit your own scripts (`/my/object-read` for a report).
 
 - **One owner:** a key acts as the user who created it (`created_by_id`), with that user's role, permissions and row ownership. Use one service account per system: the integration outlives any person, and its rows and `log_api` entries (`/my/api-usage`) show which system made them.
-- **Only one route of its own:** creating needs the server to make and hash the key, so it has `/my/api-key-create`; reading and revoking use the generic routes. `api_key`'s `my` lists only `read` and `delete` (no generic create) and its `row_lock` has `update`, so the database refuses every `UPDATE`: a key is never edited, only revoked and created again.
+- **Only one route of its own:** creating needs the server to make and hash the key, so it has `/my/api-key-create`; reading and revoking use the generic routes. `api_key` is only in `control.my_read` and `my_delete` (no generic create) and in `row_update_disabled`, so the database refuses every `UPDATE`: a key is never edited, only revoked and created again.
 - **Revocation delay:** a resolved key is cached per worker, so a revoked key stops within `config_api_key_cache_sec` (60 s; `0` for at once). Deactivating or deleting the service account stops all its keys the same way; a deleted user's keys are removed with their other rows.
 - **Machine or person:** a route that must tell them apart reads `request.state.user["_token_type"] == "api_key"`. `/my/token-refresh` and the message socket never accept a key.

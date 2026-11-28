@@ -28,7 +28,7 @@ Set `config_totp_encryption_key` in `.env` (32 characters or more, e.g. `python3
 | `totp_last_step` | The last 30-second step used, so a code works once |
 | `totp_recovery` | The recovery codes' hashes |
 
-`totp_secret` and `totp_recovery` are in `config_column_read_blocked` (never returned); `totp_secret`, `totp_last_step` and `totp_recovery` are `update_blocked` (`users_access`); `totp_enabled_at` only an admin may change, and only to `null`. Clearing `totp_enabled_at`, by any path, clears the other three (trigger `users_totp_clear`).
+`totp_secret` and `totp_recovery` are `read_blocked` for every group (never returned); `totp_secret`, `totp_last_step` and `totp_recovery` are `write_blocked` for every group; `totp_enabled_at` is `write_blocked` for `my` (only an admin may change it, and only to `null`). Clearing `totp_enabled_at`, by any path, clears the other three (trigger `users_totp_clear`, setting `config_is_totp_clear`).
 
 ## Flow
 | Step | Request → response |

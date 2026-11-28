@@ -9,7 +9,7 @@ from function import func_postgres_schema_extensions_init
 from function import func_postgres_vector_text
 from function import func_postgres_where_build
 
-ID = {"name": "id", "datatype": "bigint", "identity": "always", "is_primary": True}
+ID = {"name": "id", "datatype": "bigint", "identity": "always", "is_primary_key": True}
 SCHEMA = {"doc": {"id": {"datatype": "bigint"}, "title": {"datatype": "text"}, "embedding": {"datatype": "vector(3)"}}}
 
 
@@ -30,9 +30,9 @@ class VectorValueTests(unittest.TestCase):
 
 class VectorSchemaTests(unittest.TestCase):
     def test_a_vector_column_takes_only_an_hnsw_index(self):
-        column = {"name": "embedding", "datatype": "vector(3)", "index": "hnsw(embedding)"}
+        column = {"name": "embedding", "datatype": "vector(3)", "index": ["hnsw(embedding)"]}
         func_postgres_schema_config_validate(config_postgres_schema={"table": {"doc": {"column": [ID, column]}}})
-        for bad in ({**column, "index": "btree(embedding)"}, {"name": "title", "datatype": "text", "index": "hnsw(title)"}):
+        for bad in ({**column, "index": ["btree(embedding)"]}, {"name": "title", "datatype": "text", "index": ["hnsw(title)"]}):
             with self.subTest(bad=bad), self.assertRaisesRegex(Exception, "hnsw"): func_postgres_schema_config_validate(config_postgres_schema={"table": {"doc": {"column": [ID, bad]}}})
 
     def test_every_extension_is_optional(self):

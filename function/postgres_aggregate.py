@@ -19,7 +19,7 @@ async def func_postgres_table_column_groupby_read(*, app_state: State, client_po
     if table not in cache_postgres_schema: raise Exception(f"table '{table}' not found")
     cols = [col] if isinstance(col, str) else list(col or [])
     if not cols: raise Exception("at least one column must be specified")
-    blocked = getattr(app_state, "config_column_read_blocked", None) if config_column_read_blocked is None else config_column_read_blocked
+    blocked = ["password"] if config_column_read_blocked is None else config_column_read_blocked    # Atom's routes pass the table's read_blocked for their group (func_object_access)
     blocked_cols = set(blocked or []) | {"password"}
     for c in cols:
         if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(c)): raise Exception(f"invalid identifier: {c}")
@@ -74,7 +74,7 @@ async def func_postgres_table_column_distinct_read(*, app_state: State, client_p
     if limit < 1: raise Exception("query limit must be greater than 0")
     if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
     if table not in cache_postgres_schema: raise Exception(f"table '{table}' not found")
-    blocked = getattr(app_state, "config_column_read_blocked", None) if config_column_read_blocked is None else config_column_read_blocked
+    blocked = ["password"] if config_column_read_blocked is None else config_column_read_blocked    # Atom's routes pass the table's read_blocked for their group (func_object_access)
     blocked_cols = set(blocked or []) | {"password"}
     if col in blocked_cols: raise Exception(f"reading column '{col}' is blocked")
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(col)): raise Exception(f"invalid identifier: {col}")

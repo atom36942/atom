@@ -66,7 +66,7 @@ class SchemaInitTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_an_index_column_keeps_its_sort_order(self):
         config = config_postgres_schema_master()
-        config["table"]["sorted_item"] = {"column": [{"name": "id", "datatype": "bigint", "identity": "always", "is_primary": True}, {"name": "score", "datatype": "numeric", "index": "btree(score desc nulls last,id)|btree(score,id)"}]}
+        config["table"]["sorted_item"] = {"column": [{"name": "id", "datatype": "bigint", "identity": "always", "is_primary_key": True}, {"name": "score", "datatype": "numeric", "index": ["btree(score desc nulls last,id)", "btree(score,id)"]}]}
         await func_postgres_schema_init(app_state=SimpleNamespace(**{name: getattr(function, name) for name in function.__all__}), client_postgres=self.pool, config_postgres_schema=config, root_user_password_hash=PASSWORD_HASH)
         definitions = {r["indexname"]: r["indexdef"] for r in await self.pool.fetch("SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'sorted_item'")}
         self.assertIn("(score DESC NULLS LAST, id)", definitions["idx_sorted_item_score_desc_nulls_last_id_btree"])
