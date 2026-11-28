@@ -4,6 +4,13 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [25.2.0] - 2026-11-28
+
+- **My profile is the whole account.** Login details is gone from the account menu (now My profile, Sync, Settings, Logout). My profile shows the user in four cards, each with its own header: Account (ID, Created), Login details (Username, Password), Access (Role, Permissions) and Profile. The password and the Profile columns change from the pencil in their card's header (Update password, Edit profile, each its own dialog, returning to My profile); there is no Edit button at the bottom. The dialog is at most 640px high and scrolls inside.
+- **A × in every editable text field of a dialog,** shown while it has text, in the theme's text colour (`inputClears`); password fields keep their eye.
+- **Dark dialog headers:** on the dark theme a dialog header is a raised dark surface with the text colour (`--dlg-head-*` tokens), the blue kept for actions; the light theme keeps the blue header.
+- The Permissions dialog is at most 520px high and scrolls inside; the account menu is narrower with even padding; Edit profile's fields share one width.
+
 ## [25.1.0] - 2026-11-28
 
 - **One rule for `?connection=`:** every route that takes a `table` accepts it and checks that database's `control` lists (`/my/object-create`, `-update`, `-delete`, `-delete-all` and `/public/object-create` now too: a write reaches a database only when its schema lists the table in that group's write list); every other route is checked only by its login, role or permission id. `/admin/postgres-query-runner-write` takes `?connection=` like the other Postgres tools (id 86, one `INSERT`, `UPDATE` or `DELETE`). A project that had flagged these routes in `config_extend.py` may drop that entry.

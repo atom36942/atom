@@ -89,31 +89,32 @@ class PageStandardTests(unittest.TestCase):
         self.assertNotIn('"1 (admin)"', ACCOUNT)
 
     def test_the_account_words(self):
-        for words in ('title: "My profile"', 'title: "Login details"', 'title: "Update password"', "6–120 characters, no spaces.</p>", '"Use 6–120 characters, no spaces"', '"Passwords don\'t match"',
+        for words in ('title: "My profile"', 'title: "Edit profile"', 'title: "Update password"', 'profileGroup("Login details", [["Username", usernameCell(u)], ["Password"', "6–120 characters, no spaces.</p>", '"Use 6–120 characters, no spaces"', '"Passwords don\'t match"',
                       'toast("Password updated")', 'title: "Logout?"', "Are you sure you want to logout?", '"Never synced"} (auto sync every 3 hours)`', '"Everything is up to date."',
                       '"Sync failed. Please try again."', '"Renewing login…"', '"Loading your profile…"', '"Loading settings…"', '"Downloading data…"', '"/my/user-update"', "const initials = name =>"):
             with self.subTest(words=words): self.assertIn(words, ACCOUNT)
         self.assertNotIn("Logged out", ACCOUNT)    # logout shows no message
+        self.assertNotIn(">Login details</button>", block("analytics", "account header")[0], "Login details is a card in My profile, not a menu item")
         header = block("analytics", "account header")[0]
-        for label in (">My profile</button>", ">Login details</button>", ">Logout</button>", ">Sync</button>", ">Log in</button>"):
+        for label in (">My profile</button>", ">Logout</button>", ">Sync</button>", ">Log in</button>"):
             with self.subTest(label=label): self.assertIn(label, header)
 
 
     def test_the_login_and_account_flow_of_the_projects_pages(self):
         # the login page (intro and card; only the card where no login is needed), the role fixed when the page has one, Sync in the account menu,
-        # My profile and Login details sharing no field, the role as "1 (Admin)", a blocked account told in its own dialog
+        # My profile as four cards (Account, Login details, Access, Profile; the password and Profile each changed from their card's pencil), a × in every editable dialog field, the role as "1 (Admin)", a blocked account told in its own dialog
         dialogs, header = block("analytics", "dialogs")[0], block("analytics", "account header")[0]
         for part in ('id="loginPage"', 'id="loginIntro"', 'id="loginFeatures"', 'class="login-btn" id="loginBtn">Login</button>', 'id="blockedDialog"', 'id="blockedOk">OK</button>', 'id="permissionsDialog"'):
             with self.subTest(part=part): self.assertIn(part, dialogs)
         self.assertNotIn("loginDialog", dialogs)
-        # Login details' Permissions: a ✓ that lists ID and Name in its own dialog, a ✗ when there are none
+        # My profile's Permissions (Access card): a ✓ that lists ID and Name in its own dialog, a ✗ when there are none
         account = block("analytics", "account")[0]
         for part in ('["Permissions", permissionsCell(u)]', 'class="permissions-open"', 'class="permissions-none"', "int_mapping?.master?.users?.permissions"):
             with self.subTest(part=part): self.assertIn(part, account)
         self.assertIn('class="account-item" id="syncBtn"', header)
         self.assertNotIn("sync-btn", header)
         for part in ('el("loginPage").classList.toggle("card-only", !full)', 'el("loginRoleField").hidden = PAGE.role != null', '`For role ${PAGE.role} accounts`',
-                     'kv([["Created", createdCell(u.created_at)], ...PROFILE.map(', '["job_title", "Job title", 120], ["email_secondary", "Email", 254], ["mobile_secondary", "Mobile", 20]', 'kv([["Username", usernameCell(u)], ["Password"',
+                     'profileGroup("Account", [["ID", idCell(u)], ["Created", createdCell(u.created_at)]])', 'profileGroup("Access", [["Role", roleText(u.role)], ["Permissions", permissionsCell(u)]])', 'id="profileEdit" aria-label="Edit profile"', 'inputClears(el("atomBody"))', '["job_title", "Job title", 120], ["email_secondary", "Email", 254], ["mobile_secondary", "Mobile", 20]', 
                      'if (value !== (u[key] ?? null)) changes[key] = value', 'api("/my/user-update", { method: "PUT", body: JSON.stringify(changes) })',
                      '`${role} (${label})`', '"Account deactivated"', '"Account deleted"', "`${PAGE.title} access is unavailable.`"):
             with self.subTest(part=part): self.assertIn(part, ACCOUNT)
@@ -149,7 +150,8 @@ class PageThemeTests(unittest.TestCase):
         self.assertIn("setPreference('theme', next)", pgweb)
 
     def test_dialog_header_and_actions_stand_apart_from_the_body(self):
-        self.assertRegex(LOOK, r"\.dlg-head\{[^}]*background:var\(--brand\)")    # a filled header, like the projects' pages
+        self.assertRegex(LOOK, r"\.dlg-head\{[^}]*background:var\(--dlg-head-bg\)")    # a filled header: a raised dark surface on dark, the brand blue on light
+        self.assertRegex(LOOK, r':root\[data-theme="light"\]\{[^}]*--dlg-head-bg:var\(--brand\);--dlg-head-ink:#fff')
         self.assertRegex(LOOK, r"\.dlg-body\{padding:18px")
         self.assertRegex(LOOK, r"\.dlg-actions\{[^}]*background:var\(--panel\)")
 
