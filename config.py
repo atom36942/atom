@@ -464,7 +464,7 @@ config_postgres_schema_master = {
 "row_delete_disabled": ["users", "config", "log_users_password", "log_users_delete"],
 "row_delete_max": {"users": 100},
 "buffer_limit": {"log_api": 1000},
-"retention_day": {"otp": 1, "log_api": 7, "script_run": 90},
+"retention_day": {"otp": 1, "log_api": 7, "script_run": 90, "queue_job": 30},
 },
 "sql":{},
 }

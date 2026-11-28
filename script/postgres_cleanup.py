@@ -2,8 +2,8 @@
 
 # command: venv/bin/python -m script.postgres_cleanup
 
-# info: Deletes rows older than their table's days in control.retention_day of config_postgres_schema_<name> (otp 1, log_api 7 and script_run 90 days by default; a table without it is kept), in every database; runs on config_schedule_script_postgres_cleanup (every hour by default).
-# - step: <database>.<table>, deletes that table's old rows (script_run keeps a run still going)
+# info: Deletes rows older than their table's days in control.retention_day of config_postgres_schema_<name> (otp 1, log_api 7, script_run 90 and failed queue_job rows 30 days by default; a table without it is kept), in every database; runs on config_schedule_script_postgres_cleanup (every hour by default).
+# - step: <database>.<table>, deletes that table's old rows (script_run keeps a run still going, queue_job a job still waiting)
 
 # import
 import asyncio

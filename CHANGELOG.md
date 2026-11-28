@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [29.1.0] - 2026-11-28
+
+- **Failed queue jobs age out:** `queue_job` joins Atom's `control.retention_day` with 30 days, so `script/postgres_cleanup.py` deletes failed jobs (`status` 2: webhook deliveries or a project's jobs that ran out of retries) 30 days after they were queued; a job still waiting is never deleted, whatever its age. A project that keeps them longer sets its own number in `retention_day`.
+
 ## [29.0.0] - 2026-11-28
 
 **Upgrade (projects must change):** `?queue=postgres` is gone from `/my/object-create` and `/my/object-update`, and so is `script.consumer_postgres`. A single create or update queued on Postgres wrote a job row, then the row, then deleted the job: write it in the request instead (drop `queue=postgres`). The other `?queue=` values (`redis`, `rabbitmq`, `kafka`, `celery`) are unchanged. A project that doesn't send `queue=postgres` changes nothing.

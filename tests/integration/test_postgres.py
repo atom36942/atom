@@ -292,6 +292,7 @@ class PostgresIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await self.pool.execute("INSERT INTO otp (otp, created_at) VALUES (111111, $1), (222222, now())", datetime.now(UTC) - timedelta(days=2))
         old = datetime.now(UTC) - timedelta(days=100)
         await self.pool.execute("INSERT INTO script_run (script, started_by, status, created_at) VALUES ('job', 'manual', 2, $1), ('job', 'manual', 1, $1), ('job', 'manual', 2, now())", old)    # old done, old still running, new done
+        await self.pool.execute("INSERT INTO queue_job (channel, payload, status, created_at) VALUES ('cleanup_test', '{\"n\": 1}', 2, $1), ('cleanup_test', '{\"n\": 2}', 1, $1), ('cleanup_test', '{\"n\": 3}', 2, now())", old)    # old failed, old still waiting, new failed
         cwd = os.getcwd()
         with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"config_postgres_url_master": self.url}):
             os.chdir(folder)
@@ -300,8 +301,9 @@ class PostgresIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(code, 0)
         self.assertEqual(await self.pool.fetchval("SELECT count(*) FROM otp"), 1)
         row = await self.pool.fetchrow("SELECT started_by, status, step, message FROM script_run WHERE script = 'postgres_cleanup'")
-        self.assertEqual(dict(row), {"started_by": "schedule", "status": 2, "step": "master.script_run", "message": "deleted rows: master.otp 1, master.log_api 0, master.script_run 1"})
+        self.assertEqual(dict(row), {"started_by": "schedule", "status": 2, "step": "master.queue_job", "message": "deleted rows: master.otp 1, master.log_api 0, master.script_run 1, master.queue_job 1"})
         self.assertEqual([r["status"] for r in await self.pool.fetch("SELECT status FROM script_run WHERE script = 'job' ORDER BY id")], [1, 2])    # the old finished run is gone; a run still going is kept
+        self.assertEqual([(r["payload"], r["status"]) for r in await self.pool.fetch("SELECT payload::text, status FROM queue_job WHERE channel = 'cleanup_test' ORDER BY id")], [('{"n": 2}', 1), ('{"n": 3}', 2)])    # the old failed job is gone; a job still waiting is kept, whatever its age
 
     async def test_otp_success_consumes_code_and_wrong_guesses_are_capped(self):
         code = func_otp_generate(client_postgres=self.pool, config_otp_length=6)

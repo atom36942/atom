@@ -34,6 +34,19 @@ class CleanupTests(unittest.IsolatedAsyncioTestCase):
                 await func_app_tasks_stop(app_state=state)
                 self.assertTrue(all(task.cancelled() for task in tasks))
 
+class RetentionCleanupTests(unittest.IsolatedAsyncioTestCase):
+    async def test_queue_job_keeps_waiting_jobs_and_ages_out_failed_ones(self):
+        """queue_job status 1 is a job still waiting: only failed jobs (status 2) are deleted by age, like script_run keeps a run still going."""
+        import config
+        from function.background import func_table_retention_cleanup
+        self.assertEqual(config.config_postgres_schema_master["control"]["retention_day"]["queue_job"], 30)
+        for table, keep in (("queue_job", True), ("script_run", True), ("log_api", False)):
+            with self.subTest(table=table):
+                conn = SimpleNamespace(execute=AsyncMock(return_value="DELETE 0"))
+                await func_table_retention_cleanup(conn=conn, table=table, cutoff=None, timeout_sec=1)
+                self.assertEqual("AND status <> 1" in conn.execute.await_args.args[0], keep)
+
+
 class RetentionConfigTests(unittest.TestCase):
     def state(self, retention):
         return SimpleNamespace(config_query_runner_read_limit=10, config_export_limit=10,
