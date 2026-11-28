@@ -185,9 +185,9 @@ async def func_blob_containers_read(*, client_s3: Any, client_azure_blob: Any, s
         return output
     raise Exception(f"service {service} not supported")
 
-async def func_blob_container_ops(*, client_s3: Any, client_s3_resource: Any, client_azure_blob: Any, config_aws_s3_region_name: str, service: str, container: str, mode: str) -> Any:
+async def func_blob_container_ops(*, client_s3: Any, client_azure_blob: Any, config_aws_s3_region_name: str, service: str, container: str, mode: str) -> Any:
     """Creates, makes public, empties, or deletes S3 buckets or Azure Blob containers."""
-    if (service == "s3" and ((mode == "empty" and not client_s3_resource) or (mode != "empty" and not client_s3))) or (service == "azure" and not client_azure_blob):
+    if (service == "s3" and not client_s3) or (service == "azure" and not client_azure_blob):
         raise func_api_error(message="blob client not initialized", status_code=500)
     res = None
     if service == "s3":
@@ -197,7 +197,13 @@ async def func_blob_container_ops(*, client_s3: Any, client_s3_resource: Any, cl
             await client_s3.put_public_access_block(Bucket=container, PublicAccessBlockConfiguration={"BlockPublicAcls": False, "IgnorePublicAcls": False, "BlockPublicPolicy": False, "RestrictPublicBuckets": False})
             res = await client_s3.put_bucket_policy(Bucket=container, Policy="""{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}""".replace("bucket_name", container))
         elif mode == "empty":
-            res = await asyncio.to_thread(lambda: client_s3_resource.Bucket(container).objects.all().delete())
+            deleted_count = 0
+            async for page in client_s3.get_paginator("list_objects_v2").paginate(Bucket=container):    # up to 1000 keys a page, delete_objects' own limit
+                if not (keys := [{"Key": item["Key"]} for item in page.get("Contents", [])]): continue
+                response = await client_s3.delete_objects(Bucket=container, Delete={"Objects": keys, "Quiet": True})
+                if response.get("Errors"): raise Exception(f"S3 delete failed: {response['Errors'][:3]}")
+                deleted_count += len(keys)
+            res = {"service": service, "mode": mode, "container": container, "deleted_count": deleted_count}
         elif mode == "delete":
             res = await client_s3.delete_bucket(Bucket=container)
     elif service == "azure":

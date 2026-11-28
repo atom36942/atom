@@ -190,7 +190,7 @@ async def func_api_admin_blob_container_read(*, request: Request):
 async def func_api_admin_blob_container_ops(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_blob_services}, {"name": "container", "type": "str", "required": True}, {"name": "mode", "type": "str", "required": True, "allowed": ["create", "public", "empty", "delete"]}])
-    res = await app_state.func_blob_container_ops(client_s3=app_state.client_s3, client_s3_resource=app_state.client_s3_resource, client_azure_blob=app_state.client_azure_blob, config_aws_s3_region_name=app_state.config_aws_s3_region_name, service=oq["service"], container=oq["container"], mode=oq["mode"])
+    res = await app_state.func_blob_container_ops(client_s3=app_state.client_s3, client_azure_blob=app_state.client_azure_blob, config_aws_s3_region_name=app_state.config_aws_s3_region_name, service=oq["service"], container=oq["container"], mode=oq["mode"])
     return {"status": 1, "message": res}
 
 @router.post("/admin/blob-delete-url")

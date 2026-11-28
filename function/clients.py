@@ -139,32 +139,30 @@ async def func_client_clickhouse(*, dsn: str):
     import clickhouse_connect
     return await clickhouse_connect.get_async_client(dsn=dsn)
 
-async def func_client_s3(*, region_name: str, aws_access_key_id: str, aws_secret_access_key: str):
-    """Initialize AWS S3 async botocore client session."""
+async def func_client_aws(*, service: str, region_name: str, aws_access_key_id: str, aws_secret_access_key: str):
+    """Open one async AWS client (aiobotocore) for service (s3, sns, ses); None without a region. Close it with func_client_aws_close."""
     if not region_name: return None
     import aiobotocore.session
-    s3_context = aiobotocore.session.get_session().create_client("s3", region_name=region_name, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
-    s3_client = await s3_context.__aenter__()
-    s3_client._context = s3_context
-    return s3_client
+    context = aiobotocore.session.get_session().create_client(service, region_name=region_name, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+    client = await context.__aenter__()
+    client._context = context
+    return client
 
-def func_client_s3_resource(*, region_name: str, aws_access_key_id: str, aws_secret_access_key: str):
-    """Initialize AWS S3 boto3 resource."""
-    if not region_name: return None
-    import boto3
-    return boto3.resource("s3", region_name=region_name, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+async def func_client_aws_close(*, client) -> None:
+    """Close an AWS client opened by func_client_aws."""
+    await client._context.__aexit__(None, None, None)
 
-def func_client_sns(*, region_name: str, aws_access_key_id: str, aws_secret_access_key: str):
-    """Initialize AWS SNS boto3 client."""
-    if not region_name: return None
-    import boto3
-    return boto3.client("sns", region_name=region_name, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+async def func_client_s3(*, region_name: str, aws_access_key_id: str, aws_secret_access_key: str):
+    """Initialize the async AWS S3 client."""
+    return await func_client_aws(service="s3", region_name=region_name, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
 
-def func_client_ses(*, region_name: str, aws_access_key_id: str, aws_secret_access_key: str):
-    """Initialize AWS SES boto3 client."""
-    if not region_name: return None
-    import boto3
-    return boto3.client("ses", region_name=region_name, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+async def func_client_sns(*, region_name: str, aws_access_key_id: str, aws_secret_access_key: str):
+    """Initialize the async AWS SNS client."""
+    return await func_client_aws(service="sns", region_name=region_name, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+
+async def func_client_ses(*, region_name: str, aws_access_key_id: str, aws_secret_access_key: str):
+    """Initialize the async AWS SES client."""
+    return await func_client_aws(service="ses", region_name=region_name, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
 
 def func_client_openai(*, api_key: str):
     """Initialize the async OpenAI client (await its calls)."""
@@ -217,15 +215,15 @@ async def func_client_sftp(*, host: str, port: int, username: str, password: str
     return await asyncssh.connect(host=host, port=int(port), username=username, password=password, known_hosts=known_hosts)
 
 def func_client_azure_email(*, connection_string: str):
-    """Initialize Azure EmailClient."""
+    """Initialize the async Azure EmailClient."""
     if not connection_string: return None
-    from azure.communication.email import EmailClient
+    from azure.communication.email.aio import EmailClient
     return EmailClient.from_connection_string(connection_string)
 
 def func_client_azure_sms(*, connection_string: str):
-    """Initialize Azure SmsClient."""
+    """Initialize the async Azure SmsClient."""
     if not connection_string: return None
-    from azure.communication.sms import SmsClient
+    from azure.communication.sms.aio import SmsClient
     return SmsClient.from_connection_string(connection_string)
 
 def func_client_azure_blob(*, account_name: str, account_key: str):
@@ -255,7 +253,7 @@ async def func_gemini_close(*, client) -> None:
     client.close()
 
 def func_client_sync_close(*, client) -> None:
-    """Close a client whose close() is optional and sync (boto3, Celery, Azure email and SMS)."""
+    """Close a client whose close() is optional and sync (Celery)."""
     if hasattr(client, "close"): client.close()
 
 def func_client_registry(*, app_state: State) -> dict:
@@ -278,10 +276,9 @@ def func_client_registry(*, app_state: State) -> dict:
         "client_mssql_dict": (lambda: func_client_dict_open(url_dict=s.config_mssql_url_dict, client_open=lambda name, url: func_client_mssql(dsn=url, **func_client_pool_size(app_state=s, db="mssql", name=name), recycle_sec=s.config_mssql_pool_recycle_sec), client_close=lambda c: func_mssql_close(client=c)), lambda d: func_client_dict_close(clients=d, client_close=lambda c: func_mssql_close(client=c))),
         "client_clickhouse_dict": (lambda: func_client_dict_open(url_dict=s.config_clickhouse_url_dict, client_open=lambda name, url: func_client_clickhouse(dsn=url), client_close=lambda c: c.close()), lambda d: func_client_dict_close(clients=d, client_close=lambda c: c.close())),
         "client_mongodb": (lambda: func_client_mongodb(url=s.config_mongodb_url), lambda c: c.close()),
-        "client_s3": (lambda: func_client_s3(region_name=s.config_aws_s3_region_name, **aws), lambda c: c._context.__aexit__(None, None, None)),
-        "client_s3_resource": (lambda: func_client_s3_resource(region_name=s.config_aws_s3_region_name, **aws), lambda c: c.meta.client.close()),
-        "client_sns": (lambda: func_client_sns(region_name=s.config_aws_sns_region_name, **aws), lambda c: func_client_sync_close(client=c)),
-        "client_ses": (lambda: func_client_ses(region_name=s.config_aws_ses_region_name, **aws), lambda c: func_client_sync_close(client=c)),
+        "client_s3": (lambda: func_client_s3(region_name=s.config_aws_s3_region_name, **aws), lambda c: func_client_aws_close(client=c)),
+        "client_sns": (lambda: func_client_sns(region_name=s.config_aws_sns_region_name, **aws), lambda c: func_client_aws_close(client=c)),
+        "client_ses": (lambda: func_client_ses(region_name=s.config_aws_ses_region_name, **aws), lambda c: func_client_aws_close(client=c)),
         "client_openai": (lambda: func_client_openai(api_key=s.config_openai_key), lambda c: c.close()),
         "client_gemini": (lambda: func_client_gemini(api_key=s.config_gemini_key), lambda c: func_gemini_close(client=c)),
         "client_anthropic": (lambda: func_client_anthropic(api_key=s.config_anthropic_key), lambda c: c.close()),
@@ -289,8 +286,8 @@ def func_client_registry(*, app_state: State) -> dict:
         "client_kafka_producer": (lambda: func_client_kafka(url=s.config_kafka_url, username=s.config_kafka_username, password=s.config_kafka_password), lambda c: c.stop()),
         "client_rabbitmq_producer": (rabbitmq_open, lambda c: func_rabbitmq_close(connection=rabbitmq.get("connection"), channel=c)),
         "client_sftp": (lambda: func_client_sftp(host=s.config_sftp_host, port=s.config_sftp_port, username=s.config_sftp_username, password=s.config_sftp_password, known_hosts_path=s.config_sftp_known_hosts_path, is_host_verify=s.config_sftp_is_host_verify), lambda c: func_sftp_close(client=c)),
-        "client_azure_email": (lambda: func_client_azure_email(connection_string=s.config_azure_email_connection_string), lambda c: func_client_sync_close(client=c)),
-        "client_azure_sms": (lambda: func_client_azure_sms(connection_string=s.config_azure_sms_connection_string), lambda c: func_client_sync_close(client=c)),
+        "client_azure_email": (lambda: func_client_azure_email(connection_string=s.config_azure_email_connection_string), lambda c: c.close()),
+        "client_azure_sms": (lambda: func_client_azure_sms(connection_string=s.config_azure_sms_connection_string), lambda c: c.close()),
         "client_azure_blob": (lambda: func_client_azure_blob(account_name=s.config_azure_account_name, account_key=s.config_azure_account_key), lambda c: c.close()),
     }
 

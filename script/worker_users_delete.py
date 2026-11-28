@@ -9,7 +9,6 @@ import asyncio
 import os
 import urllib.parse
 import asyncpg
-import boto3
 from azure.core.exceptions import ResourceNotFoundError
 from dotenv import load_dotenv
 from config import config_retention_day_user_soft_deleted
@@ -17,6 +16,8 @@ from function import func_client_postgres
 from function import func_config_read
 from function import func_postgres_table_rule_dict
 from function import func_client_azure_blob
+from function import func_client_aws_close
+from function import func_client_s3
 
 # config
 load_dotenv(os.environ.get("ATOM_ENV_FILE", ".env"))
@@ -41,9 +42,9 @@ def ident_quote(*, name: str) -> str:
 def retry_delay_sec(*, retry_count: int) -> int:
     return WORKER_RETRY_DELAY_SEC[min(max(retry_count, 0), len(WORKER_RETRY_DELAY_SEC) - 1)]
 
-def storage_client_open(*, aws_region: str, aws_key_id: str, aws_secret: str, azure_name: str, azure_key: str) -> dict:
+async def storage_client_open(*, aws_region: str, aws_key_id: str, aws_secret: str, azure_name: str, azure_key: str) -> dict:
     clients = {"s3": None, "azure": None}
-    if aws_region: clients["s3"] = boto3.client("s3", region_name=aws_region, aws_access_key_id=aws_key_id, aws_secret_access_key=aws_secret)
+    if aws_region: clients["s3"] = await func_client_s3(region_name=aws_region, aws_access_key_id=aws_key_id, aws_secret_access_key=aws_secret)
     if azure_name and azure_key: clients["azure"] = func_client_azure_blob(account_name=azure_name, account_key=azure_key)
     return clients
 
@@ -122,7 +123,7 @@ async def blob_storage_delete(*, rows: list, clients: dict) -> None:
             raise Exception(f"unsupported blob service: {service}")
     for bucket, keys in s3_batches.items():
         for i in range(0, len(keys), 1000):
-            response = await asyncio.to_thread(clients["s3"].delete_objects, Bucket=bucket, Delete={"Objects": keys[i:i+1000], "Quiet": True})
+            response = await clients["s3"].delete_objects(Bucket=bucket, Delete={"Objects": keys[i:i+1000], "Quiet": True})
             if response.get("Errors"): raise Exception(f"S3 blob delete failed: {response['Errors'][:3]}")
     for i in range(0, len(azure_tasks), BLOB_PURGE_AZURE_CONCURRENCY):
         for result in await asyncio.gather(*azure_tasks[i:i+BLOB_PURGE_AZURE_CONCURRENCY], return_exceptions=True):
@@ -165,7 +166,7 @@ async def worker_run_once(*, pool, clients: dict, table_include: set, ownership_
 
 async def worker_loop(*, postgres_url, storage, table_include, ownership_column, retention_day):
     pool = await func_client_postgres(dsn=postgres_url, min_size=1, max_size=5)
-    clients = storage_client_open(**storage)
+    clients = await storage_client_open(**storage)
     try:
         idle_count = 0
         while True:
@@ -178,6 +179,7 @@ async def worker_loop(*, postgres_url, storage, table_include, ownership_column,
             await asyncio.sleep(POLL_INTERVAL_SEC)
     finally:
         if clients["azure"]: await clients["azure"].close()
+        if clients["s3"]: await func_client_aws_close(client=clients["s3"])
         await pool.close()
 
 def main():

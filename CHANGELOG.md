@@ -4,6 +4,17 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [28.0.0] - 2026-11-28
+
+**Upgrade (projects must change):** the AWS and Azure messaging clients are async, and `boto3` is gone.
+- `app_state.client_ses`, `client_sns` and `client_s3` are aiobotocore clients, and `client_azure_email` / `client_azure_sms` are the Azure `.aio` clients: a project that calls one adds `await` (`await app_state.client_ses.send_email(...)`; Azure email: `await (await client.begin_send(message)).result()`), never `asyncio.to_thread`.
+- `client_s3_resource` and `func_client_s3_resource` are removed; `func_blob_container_ops` no longer takes `client_s3_resource`, and emptying a bucket answers `deleted_count`. The package `boto3` is removed: a project that imports it adds it under `# extend`.
+- A project that uses none of these changes nothing.
+
+**What changed:**
+- **OTP and email never wait for a thread:** SES, SNS, Azure email and Azure SMS are awaited on async clients, so a burst of logins no longer queues behind the few worker threads. Every service call in Atom is now async except Celery `send_task` (no async client), which still runs in a thread.
+- `func_client_aws(service=...)` opens any async AWS client and `func_client_aws_close` closes it; `script.worker_users_delete` deletes S3 files through it.
+
 ## [27.0.0] - 2026-11-28
 
 **Upgrade (projects must change):** `app_state.client_openai` is the async OpenAI client (`AsyncOpenAI`): a project that calls it adds `await` (`await app_state.client_openai.responses.create(...)`). A project that doesn't use it changes nothing.
