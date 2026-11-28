@@ -695,7 +695,7 @@ Use the read-only URL as `config_postgres_url_master`, rather than configuring o
 
 Atom supports connecting to multiple PostgreSQL connection pools or read-replicas configured via environment variables (`config_postgres_url_<name>`).
 
-Routes flagged `"is_connection_param": True` in `config_api` accept the optional **`?connection=<name>`** query parameter (reads such as `/public/object-read`, `/my/object-read`, `/admin/object-read`, the Postgres read runners, and the admin writes `/admin/object-create`, `-update`, `-delete` and `/admin/postgres-import`).
+Routes flagged `"is_connection_param": True` in `config_api` accept the optional **`?connection=<name>`** query parameter (one rule: every route that takes a `table`, reads and writes, under `/public`, `/private`, `/my` and `/admin`, checked against that database's `control` lists; and the Postgres tools, the write runner included, checked by permission id).
 
 **How it works:** the middleware picks the pool once per request and sets it on `request.state`; routes just use it:
 

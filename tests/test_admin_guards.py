@@ -1,4 +1,5 @@
 """Admin routes need their permission id (root holds every one); admin writes check the permission and deactivation live and are rate limited, audit columns are Atom's, the write runner takes one INSERT, UPDATE or DELETE (with a WHERE)."""
+import re
 import unittest
 import config
 from function.query_runners import func_postgres_write_sql_check
@@ -21,6 +22,19 @@ class AdminGuardTests(unittest.TestCase):
         reads = {"monitor", "object-read", "object-read-export", "postgres-info", "postgres-schema", "postgres-slow-queries", "postgres-query-runner-read", "postgres-query-runner-read-export", "postgres-query-ai", "mssql-query-runner-read", "mssql-query-runner-read-export", "clickhouse-query-runner-read", "clickhouse-query-runner-read-export", "clickhouse-query-ai", "table-column-groupby", "table-column-distinct", "blob-container-read", "blob-preview-urls", "sync"}
         routes = {path.removeprefix("/admin/") for path in config.config_api if path.startswith("/admin/")}
         self.assertEqual(sorted(routes - reads - ADMIN_WRITES), [])
+
+    def test_every_table_route_and_postgres_tool_takes_connection(self):
+        # one rule: a route with a table checks that database's control lists, so it may run on any database; the Postgres tools are gated by their permission id
+        routes = []
+        for name in ("my", "public", "private", "admin"):
+            path = None
+            with open(f"router/{name}.py") as file: lines = file.readlines()
+            for line in lines:
+                if (match := re.match(r'@router\.\w+\("([^"]+)"', line)): path = match.group(1)
+                if "func_object_access(" in line and path: routes.append(path); path = None
+        routes = sorted({*routes, *[path for path in config.config_api if path.startswith("/admin/postgres-")]})
+        self.assertGreaterEqual(len(routes), 30)
+        self.assertEqual([path for path in routes if not config.config_api[path].get("is_connection_param")], [])
 
     def test_audit_columns_are_atoms(self):
         from function.object import AUDIT_COLUMNS

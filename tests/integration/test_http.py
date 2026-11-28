@@ -149,7 +149,7 @@ class HttpIntegrationTests(unittest.TestCase):
         self.assertEqual((response.status_code, response.json()["message"]), (404, "connection 'nope' not found"))
 
     def test_postgres_on_unflagged_route_is_400(self):
-        response = self.client.post("/my/object-create", params={"connection": "reports", "table": "test"}, json={"title": "x"}, headers=self.auth())
+        response = self.client.get("/my/profile", params={"connection": "reports"}, headers=self.auth())
         self.assertEqual((response.status_code, response.json()["message"]), (400, "connection not allowed on this route"))
 
     def test_openapi_lists_postgres_only_on_flagged_routes(self):
@@ -157,7 +157,8 @@ class HttpIntegrationTests(unittest.TestCase):
         names = lambda path, method: [p["name"] for p in paths[path][method]["parameters"]]
         self.assertIn("connection", names("/admin/object-read", "get"))
         self.assertIn("connection", names("/admin/postgres-import", "post"))
-        self.assertNotIn("connection", names("/my/object-create", "post"))
+        self.assertIn("connection", names("/my/object-create", "post"))    # every route with a table
+        self.assertNotIn("connection", names("/my/profile", "get"))
 
     def test_malformed_filter_is_400(self):
         response = self.client.get("/my/object-read", params={"table": "test", "filter": json.dumps(["title"])}, headers=self.auth())

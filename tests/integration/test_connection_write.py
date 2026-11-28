@@ -65,9 +65,11 @@ class ConnectionWriteIntegrationTests(unittest.TestCase):
         self.assertEqual(self.count(self.other_url, "SELECT count(*) AS n FROM reading"), 1)
         self.assertEqual(state.buffer_postgres_create, {})
 
-    def test_routes_without_the_flag_refuse_connection(self):
+    def test_table_routes_take_connection_and_check_that_database_while_others_refuse_it(self):
         response = self.client.post("/my/object-create", params={"table": "note", "connection": "telemetry"}, json={"title": "x"}, headers=self.user)
-        self.assertEqual((response.status_code, response.json()["message"]), (400, "connection not allowed on this route"))
+        self.assertEqual((response.status_code, response.json()["message"]), (403, "my create not allowed for table: note (add \"note\" to control.my_create in config_postgres_schema_telemetry)"))
+        response = self.client.get("/my/profile", params={"connection": "telemetry"}, headers=self.user)
+        self.assertEqual((response.status_code, response.json()["message"]), (400, "connection not allowed on this route"), "users live in master")
 
     def test_ip_allow_and_token_verify_on_a_route(self):
         state, path = self.app.state, "/public/object-create"

@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [25.1.0] - 2026-11-28
+
+- **One rule for `?connection=`:** every route that takes a `table` accepts it and checks that database's `control` lists (`/my/object-create`, `-update`, `-delete`, `-delete-all` and `/public/object-create` now too: a write reaches a database only when its schema lists the table in that group's write list); every other route is checked only by its login, role or permission id. `/admin/postgres-query-runner-write` takes `?connection=` like the other Postgres tools (id 86, one `INSERT`, `UPDATE` or `DELETE`). A project that had flagged these routes in `config_extend.py` may drop that entry.
+
 ## [25.0.0] - 2026-11-28
 
 **Upgrade (projects must change):** admin is explicit too, and a database without a schema is closed.
