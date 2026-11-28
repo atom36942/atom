@@ -53,6 +53,7 @@ Rules:
 - User id and role come only from `request.state.user`.
 - Rows only through `func_postgres_create/read/update/delete` (a route that takes the table from the request first calls `func_object_access`, the gate of Atom's table routes); hand-written SQL only for what they can't express, values bound as `$1`, Postgres only through asyncpg.
 - Reuse Atom's `func_*` helpers (search `function/` first); never edit `main.py` (project clients: `func_extend_client`; startup hook: `func_extend`).
+- Another service (AI, storage, email, any API): its vendor's official SDK through the SDK's async client, imported only when its settings are set; plain HTTP on `app_state.client_http` only for a service without a maintained SDK. Never a sync SDK call in async code (it blocks every request).
 - Users go through Atom's routes (`/admin/user-*`, `/my/user-*`): never a project user API ([auth.md](docs/auth.md)).
 - `users.permissions` holds only route ids; any other access (which rows a user sees: countries, companies) is its own admin-only `users` column read on each request ([auth-permission.md](docs/auth-permission.md)).
 - Scripts and other systems call the API with an API key (`Authorization: Bearer atk_...`, a service account's key, on routes whose `auth` has `"api_key"`), never a person's password or a shared login ([auth-api-key.md](docs/auth-api-key.md)).

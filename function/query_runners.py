@@ -134,8 +134,7 @@ async def func_postgres_query_ai(*, client_postgres: asyncpg.Pool | None, client
         json.dumps(prompt_schema, separators=(",", ":")),
     ])
     if ai == "gemini":
-        response = await asyncio.to_thread(
-            client_gemini.models.generate_content,
+        response = await client_gemini.aio.models.generate_content(
             model="gemini-2.5-flash",
             contents=prompt,
             config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=response_schema, temperature=0.1),
@@ -144,8 +143,7 @@ async def func_postgres_query_ai(*, client_postgres: asyncpg.Pool | None, client
     elif ai == "claude":
         data = await func_anthropic_json(client_anthropic=client_anthropic, content=prompt, schema=response_json_schema)
     else:
-        response = await asyncio.to_thread(
-            client_openai.responses.create,
+        response = await client_openai.responses.create(
             model="gpt-4.1-mini",
             input=prompt,
             text={"format": {"type": "json_schema", "name": "postgres_query_generator", "schema": response_json_schema, "strict": True}},
@@ -339,12 +337,12 @@ async def func_clickhouse_query_ai(*, client_clickhouse: Any, client_gemini: Any
         f"Schema: {json.dumps(schema, separators=(',', ':'))}",
     ])
     if ai == "gemini":
-        response = await asyncio.to_thread(client_gemini.models.generate_content, model="gemini-2.5-flash", contents=prompt, config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=response_schema, temperature=0.1))
+        response = await client_gemini.aio.models.generate_content(model="gemini-2.5-flash", contents=prompt, config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=response_schema, temperature=0.1))
         data = json.loads(response.text or "{}")
     elif ai == "claude":
         data = await func_anthropic_json(client_anthropic=client_anthropic, content=prompt, schema=response_json_schema)
     else:
-        response = await asyncio.to_thread(client_openai.responses.create, model="gpt-4.1-mini", input=prompt, text={"format": {"type": "json_schema", "name": "clickhouse_query_generator", "schema": response_json_schema, "strict": True}}, temperature=0.1)
+        response = await client_openai.responses.create(model="gpt-4.1-mini", input=prompt, text={"format": {"type": "json_schema", "name": "clickhouse_query_generator", "schema": response_json_schema, "strict": True}}, temperature=0.1)
         data = json.loads(response.output_text or "{}")
     if not data.get("sql"):
         message = str(data.get("message") or "").strip() or "Could not generate a safe ClickHouse query for the supplied schema."

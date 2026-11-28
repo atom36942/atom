@@ -167,13 +167,13 @@ def func_client_ses(*, region_name: str, aws_access_key_id: str, aws_secret_acce
     return boto3.client("ses", region_name=region_name, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
 
 def func_client_openai(*, api_key: str):
-    """Initialize OpenAI client."""
+    """Initialize the async OpenAI client (await its calls)."""
     if not api_key: return None
     import openai
-    return openai.OpenAI(api_key=api_key)
+    return openai.AsyncOpenAI(api_key=api_key)
 
 def func_client_gemini(*, api_key: str):
-    """Initialize Google Gemini client."""
+    """Initialize the Google Gemini client: in async code call client.aio (await client.aio.models.generate_content(...)), never the sync client.models, which blocks the event loop."""
     if not api_key: return None
     from google import genai
     return genai.Client(api_key=api_key)
@@ -249,8 +249,13 @@ async def func_sftp_close(*, client) -> None:
     client.close()
     await client.wait_closed()
 
+async def func_gemini_close(*, client) -> None:
+    """Close the Gemini client's async side, then its sync side."""
+    await client.aio.aclose()
+    client.close()
+
 def func_client_sync_close(*, client) -> None:
-    """Close a client whose close() is optional and sync (boto3, OpenAI, Gemini, Celery, Azure email and SMS)."""
+    """Close a client whose close() is optional and sync (boto3, Celery, Azure email and SMS)."""
     if hasattr(client, "close"): client.close()
 
 def func_client_registry(*, app_state: State) -> dict:
@@ -277,8 +282,8 @@ def func_client_registry(*, app_state: State) -> dict:
         "client_s3_resource": (lambda: func_client_s3_resource(region_name=s.config_aws_s3_region_name, **aws), lambda c: c.meta.client.close()),
         "client_sns": (lambda: func_client_sns(region_name=s.config_aws_sns_region_name, **aws), lambda c: func_client_sync_close(client=c)),
         "client_ses": (lambda: func_client_ses(region_name=s.config_aws_ses_region_name, **aws), lambda c: func_client_sync_close(client=c)),
-        "client_openai": (lambda: func_client_openai(api_key=s.config_openai_key), lambda c: func_client_sync_close(client=c)),
-        "client_gemini": (lambda: func_client_gemini(api_key=s.config_gemini_key), lambda c: func_client_sync_close(client=c)),
+        "client_openai": (lambda: func_client_openai(api_key=s.config_openai_key), lambda c: c.close()),
+        "client_gemini": (lambda: func_client_gemini(api_key=s.config_gemini_key), lambda c: func_gemini_close(client=c)),
         "client_anthropic": (lambda: func_client_anthropic(api_key=s.config_anthropic_key), lambda c: c.close()),
         "client_celery_producer": (lambda: func_client_celery(url=s.config_celery_url), lambda c: func_client_sync_close(client=c)),
         "client_kafka_producer": (lambda: func_client_kafka(url=s.config_kafka_url, username=s.config_kafka_username, password=s.config_kafka_password), lambda c: c.stop()),

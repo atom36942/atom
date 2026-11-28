@@ -4,6 +4,14 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [27.0.0] - 2026-11-28
+
+**Upgrade (projects must change):** `app_state.client_openai` is the async OpenAI client (`AsyncOpenAI`): a project that calls it adds `await` (`await app_state.client_openai.responses.create(...)`). A project that doesn't use it changes nothing.
+
+- **No AI call blocks a thread:** the admin AI query routes call OpenAI through `AsyncOpenAI` and Gemini through its async side (`await client_gemini.aio.models...`), in place of running the sync SDKs in a worker thread; Claude was already async. Shutdown closes both.
+- **Rule for other services:** the vendor's official SDK through its async client, imported only when its settings are set; plain HTTP on `client_http` only for a service without a maintained SDK ([AGENTS.md](AGENTS.md)). The vector example calls Gemini's async side.
+- **Dependencies:** the python group bumped (anthropic 2.12.0, clickhouse-connect 1.13.0, FastAPI 0.165.0, google-genai 3.6.1, OpenAI 3.57.0, pydantic 2.14.4, python-multipart 0.0.34, Ruff 0.17.6, coverage 7.17.4).
+
 ## [26.0.0] - 2026-11-28
 
 **Upgrade (projects must change):** Atom no longer has a Microsoft Graph or PostHog client.

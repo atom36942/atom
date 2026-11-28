@@ -36,4 +36,20 @@ class QueryAiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(res["rows"], [{"id": 2}])
         runner.assert_awaited_once()
 
+    async def test_gemini_and_openai_are_awaited_on_their_async_clients(self):
+        """No thread: Gemini through client.aio, OpenAI through AsyncOpenAI."""
+        import json
+        from types import SimpleNamespace
+        from unittest.mock import MagicMock
+        gemini = MagicMock()
+        gemini.aio.models.generate_content = AsyncMock(return_value=SimpleNamespace(text=json.dumps(AI)))
+        openai = MagicMock()
+        openai.responses.create = AsyncMock(return_value=SimpleNamespace(output_text=json.dumps(AI)))
+        for ai, client in (("gemini", gemini.aio.models.generate_content), ("openai", openai.responses.create)):
+            with self.subTest(ai=ai), patch.object(query_runners.asyncio, "to_thread", side_effect=AssertionError("thread used")):
+                res = await func_postgres_query_ai(client_postgres=object(), client_gemini=gemini, client_openai=openai, client_anthropic=None, cache_postgres_schema=PG_SCHEMA, config_query_runner_read_limit=100, ai=ai, question="ids")
+                self.assertEqual(res["sql"], "SELECT id FROM users\nLIMIT 10;")
+                client.assert_awaited()
+        gemini.models.generate_content.assert_not_called()
+
 if __name__ == "__main__": unittest.main()

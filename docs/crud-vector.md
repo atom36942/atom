@@ -24,7 +24,7 @@ Atom stores and searches vectors. Your code or worker makes them, with an AI mod
 Write a list of numbers like any value (`/my/object-create`, `/admin/object-update`, `func_postgres_update`). Rows still to fill: `filter=["embedding is null"]`.
 
 ```python
-vector = client_gemini.models.embed_content(model="gemini-embedding-001", contents=ticket["title"], config={"output_dimensionality": 768}).embeddings[0].values
+vector = (await client_gemini.aio.models.embed_content(model="gemini-embedding-001", contents=ticket["title"], config={"output_dimensionality": 768})).embeddings[0].values
 await func_postgres_update(..., table="ticket", obj_list=[{"id": ticket["id"], "embedding": vector}], ...)
 ```
 
