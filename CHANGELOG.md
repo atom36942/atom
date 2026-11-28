@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [25.3.0] - 2026-11-28
+
+- **`control` conflicts stop startup:** `my_update` / `admin_update` on a table in `row_update_disabled`; `my_delete`, `my_delete_all` / `admin_delete` on a table in `row_delete_disabled`; a `my_*` list on a table no user could own (no `created_by_id`, nor an `ownership` column for the action); `retention_day` on `config` (as on `users`) or on a table with `is_protected` while `is_protected_delete_disabled` is on. The cleanup itself also refuses `users` and `config`. Atom's own schema passes unchanged.
+
 ## [25.2.0] - 2026-11-28
 
 - **My profile is the whole account.** Login details is gone from the account menu (now My profile, Sync, Settings, Logout). My profile shows the user in four cards, each with its own header: Account (ID, Created), Login details (Username, Password), Access (Role, Permissions) and Profile. The password and the Profile columns change from the pencil in their card's header (Update password, Edit profile, each its own dialog, returning to My profile); there is no Edit button at the bottom. The dialog is at most 640px high and scrolls inside.
