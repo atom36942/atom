@@ -6,8 +6,7 @@ import config
 from function import func_check_postgres_schema
 from function import func_check_table_access
 from function import func_buffer_limit
-from function import func_check_connection_master
-from function import func_postgres_rule_database
+from function import func_postgres_control_table_check
 from function import func_postgres_schema_users_init
 from function import func_object_access
 from function import func_postgres_ownership_column_dict
@@ -46,7 +45,7 @@ class SchemaCheckTests(unittest.TestCase):
         for values, message in (({"config_postgres_schema_master": None}, "config_postgres_schema_master is required"),
                                 ({"config_postgres_schema_telemtry": {"table": {}}}, r"config_postgres_schema_telemtry: no database named telemtry \(config_postgres_url_telemtry is not set\)"),
                                 ({"config_postgres_schema_telemetry": {"table": {"reading": {"column": [{"name": "id", "datatype": "text"}]}}}}, "config_postgres_schema_telemetry: reading.id must be an integer column"),
-                                ({"config_postgres_schema_telemetry": {}}, "config_postgres_schema_telemetry: schema missing")):
+                                ({"config_postgres_schema_telemetry": []}, "config_postgres_schema_telemetry: schema missing")):
             with self.subTest(message=message), self.assertRaisesRegex(Exception, message): self.check(**values)
 
     def test_log_api_lives_in_one_schema_whose_database_gets_the_logs(self):
@@ -99,7 +98,7 @@ class TableRuleTests(unittest.TestCase):
     def test_control_keys_are_checked(self):
         self.validate(public_read=["task"], private_read=["task"], my_create=["task"], my_read=["task", "users"], my_update=["task"], my_delete=["task"], my_delete_all=["task"], row_update_disabled=["task"], row_delete_disabled=["task"], row_delete_max={"task": 100}, buffer_limit={"task": 500}, is_truncate_disabled=False)
         self.validate()    # nothing listed: every table closed to /public, /private and /my
-        for control, message in (({"public_read": ["tsk"]}, "control.public_read: tsk is not a table of this schema"), ({"my_read": "task"}, "control.my_read must be a list of table names"), ({"my_read": ["task", "task"]}, "each once"),
+        for control, message in (({"row_update_disabled": ["tsk"]}, "control.row_update_disabled: tsk is not in this schema's table part"), ({"my_read": "task"}, "control.my_read must be a list of table names"), ({"my_read": ["task", "task"]}, "each once"),
                                  ({"public_delete": ["task"]}, "control: unknown key public_delete"), ({"private_create": ["task"]}, "unknown key private_create"), ({"buffer_limit": {"task": 5}}, "control.buffer_limit.task must be an integer from 10 to 5000"),
                                  ({"retention_day": {"task": 0}}, "control.retention_day.task must be an integer from 1"), ({"row_delete_max": {"task": True}}, "row_delete_max.task must be an integer"), ({"buffer_limit": ["task"]}, "buffer_limit must be \\{table: number\\}"),
                                  ({"my_create": ["users"]}, "control.my_create: users not allowed"), ({"row_update_disabled": ["users"]}, "row_update_disabled: users not allowed; Atom updates its rows"),
@@ -139,11 +138,11 @@ class TableRuleTests(unittest.TestCase):
         self.assertEqual((context["tables"], context["bulk_blocked"], context["table_blocked"], context["update_blocked"], context["is_truncate_disabled"]), ({"task", "users"}, [["task", 50]], ["task"], ["task"], True))
 
     def test_routes_allow_only_what_control_lists(self):
-        state = SimpleNamespace(cache_postgres_table_rule=func_postgres_table_rule_dict(schemas={"master": {"table": {"task": {"column": self.COLUMNS}, "tag": {"column": self.COLUMNS}}, "control": {"my_read": ["task"], "my_update": ["task"], "my_create": ["tag"], "buffer_limit": {"task": 500}}}, "logs": {"table": {"event": {"column": self.COLUMNS}}}}))
+        state = SimpleNamespace(cache_postgres_table_rule=func_postgres_table_rule_dict(schemas={"master": {"table": {"task": {"column": self.COLUMNS}, "tag": {"column": self.COLUMNS}}, "control": {"my_read": ["task"], "my_update": ["task"], "my_create": ["tag"], "buffer_limit": {"task": 500}}}, "logs": {"table": {"event": {"column": self.COLUMNS}}, "control": {"admin_create": ["*"], "admin_read": ["*"], "admin_update": ["event"], "admin_delete": ["event"]}}}))
         func_check_table_access(app_state=state, table="task", group="my", action="read")
-        for action in ("create", "read", "update", "delete"): func_check_table_access(app_state=state, connection="logs", table="event", group="admin", action=action)    # admin: any table of the schema
+        for action in ("create", "read", "update", "delete"): func_check_table_access(app_state=state, connection="logs", table="event", group="admin", action=action)    # admin: what its admin_* lists give
         for kwargs, message in (({"table": "task", "group": "my", "action": "delete"}, r"my delete not allowed for table: task \(add \"task\" to control.my_delete in config_postgres_schema_master\)"),
-                                ({"table": "task", "group": "public", "action": "read"}, "public read not allowed for table: task"), ({"table": "other", "group": "admin", "action": "read"}, r"admin read not allowed for table: other \(not in config_postgres_schema_master\)"),
+                                ({"table": "task", "group": "public", "action": "read"}, "public read not allowed for table: task"), ({"table": "other", "group": "admin", "action": "read"}, r"admin read not allowed for table: other \(add \"other\" to control.admin_read in config_postgres_schema_master\)"),
                                 ({"table": "task", "group": "my", "action": "read", "relation": ["tags,tag,id,task_id"]}, "my read not allowed for table: tag"),
                                 ({"connection": "logs", "table": "task", "group": "my", "action": "read"}, "config_postgres_schema_logs")):
             with self.subTest(kwargs=kwargs), self.assertRaisesRegex(Exception, message) as raised: func_check_table_access(app_state=state, **kwargs)
@@ -202,18 +201,34 @@ class TableRuleTests(unittest.TestCase):
         self.assertEqual({table for table, rule in rules.items() if rule["public"]}, {"test"})
         self.assertEqual((rules["log_api"]["buffer_limit"], rules["log_api"]["retention_day"], rules["otp"]["retention_day"], rules["script_run"]["retention_day"]), (1000, 7, 1, 90))
         self.assertEqual(rules["script_run"]["read_blocked"]["private"], ["started_by", "host", "step", "message", "peak_memory_mb"])
-        self.assertEqual({table: rule["read_blocked"]["admin"] for table, rule in rules.items() if rule["read_blocked"]["admin"]}, {"users": ["password", "totp_secret", "totp_recovery"], "api_key": ["key_hash"], "webhook": ["secret"]})
+        self.assertEqual({table: rule["read_blocked"]["admin"] for table, rule in rules.items() if table != "*" and rule["read_blocked"]["admin"]}, {"users": ["password", "totp_secret", "totp_recovery"], "api_key": ["key_hash"], "webhook": ["secret"]})
         self.assertEqual((rules["message"]["ownership"]["delete"], rules["log_users_delete"]["ownership"]["read"]), (["created_by_id", "received_by_id"], ["created_by_id", "user_id"]))
 
-    def test_a_database_without_its_own_schema_follows_master(self):
-        state = SimpleNamespace(cache_postgres_table_rule=func_postgres_table_rule_dict(schemas={"master": {"table": {"task": {"column": self.COLUMNS}}, "control": {"my_read": ["task"], "buffer_limit": {"task": 500}}}, "logs": {"table": {"event": {"column": self.COLUMNS}}}, "warehouse": {"table": {}, "control": {}, "sql": {}}}))
-        with self.assertRaisesRegex(Exception, "config_postgres_schema_warehouse"): func_check_table_access(app_state=state, connection="warehouse", table="task", group="my", action="read")    # its own schema, even empty: closed, never master's
-        func_check_table_access(app_state=state, connection="replica1", table="task", group="my", action="read")    # replica1: only a config_postgres_url_replica1, so master's rules
-        self.assertEqual((func_postgres_rule_database(app_state=state, connection="replica1"), func_postgres_rule_database(app_state=state, connection="logs"), func_postgres_rule_database(app_state=state)), ("master", "logs", "master"))
-        self.assertEqual(func_buffer_limit(app_state=state, table="task", connection="replica1"), 500)
-        func_check_connection_master(app_state=state, connection="replica1")
-        with self.assertRaisesRegex(Exception, "users live in master") as raised: func_check_connection_master(app_state=state, connection="logs")
-        self.assertEqual(raised.exception.status_code, 400)
+    def test_every_group_is_closed_unless_listed_and_outside_tables_may_be_listed(self):
+        schemas = {"master": {"table": {"task": {"column": self.COLUMNS}}, "control": {"my_read": ["task"], "admin_read": ["*"], "admin_update": ["task"], "buffer_limit": {"task": 500}}},
+                   "crm": {"control": {"public_read": ["product"], "admin_create": ["lead"]}}, "warehouse": {"table": {}, "control": {}, "sql": {}}}
+        state = SimpleNamespace(cache_postgres_table_rule=func_postgres_table_rule_dict(schemas=schemas))
+        for kwargs in ({"table": "task", "group": "admin", "action": "read"}, {"table": "anything", "group": "admin", "action": "read"}, {"table": "task", "group": "admin", "action": "update"},
+                       {"connection": "crm", "table": "product", "group": "public", "action": "read"}, {"connection": "crm", "table": "lead", "group": "admin", "action": "create"}):
+            func_check_table_access(app_state=state, **kwargs)    # admin_read ["*"]: every table of master; crm's tables were made outside Atom
+        for kwargs, message in (({"table": "task", "group": "admin", "action": "delete"}, r"add \"task\" to control.admin_delete in config_postgres_schema_master"),
+                                ({"connection": "crm", "table": "lead", "group": "admin", "action": "read"}, "control.admin_read in config_postgres_schema_crm"),
+                                ({"connection": "warehouse", "table": "task", "group": "my", "action": "read"}, "config_postgres_schema_warehouse"),
+                                ({"connection": "replica1", "table": "task", "group": "admin", "action": "read"}, "database replica1 has no config_postgres_schema_replica1")):
+            with self.subTest(kwargs=kwargs), self.assertRaisesRegex(Exception, message) as raised: func_check_table_access(app_state=state, **kwargs)
+            self.assertEqual(raised.exception.status_code, 403)
+        self.assertEqual(func_buffer_limit(app_state=state, table="task", connection="replica1"), 100, "no schema: no rules, never master's")
+        self.assertFalse(state.cache_postgres_table_rule["crm"]["product"]["is_managed"])
+        func_postgres_control_table_check(schemas=schemas, cache_postgres_schema_dict={"master": {"task": {}}, "crm": {"product": {}, "lead": {}}, "warehouse": {}})
+        with self.assertRaisesRegex(Exception, r"config_postgres_schema_crm: control.admin_create: lead is not a table of database crm"):
+            func_postgres_control_table_check(schemas=schemas, cache_postgres_schema_dict={"master": {"task": {}}, "crm": {"product": {}}})
+
+    def test_wildcard_only_in_admin_lists_and_guards_only_on_managed_tables(self):
+        for control, message in (({"public_read": ["*"]}, r"allowed only as \[\"\*\"\] in admin_create, admin_read"), ({"admin_read": ["*", "task"]}, "allowed only as"),
+                                 ({"admin_update": ["users"]}, "users not allowed"), ({"row_update_disabled": ["outside"]}, "not in this schema's table part"),
+                                 ({"retention_day": {"outside": 5}}, "not in this schema's table part"), ({"public_read": ["bad name"]}, "is not a table name")):
+            with self.subTest(control=control), self.assertRaisesRegex(Exception, message): func_postgres_schema_config_validate(config_postgres_schema={"table": {"task": {"column": self.COLUMNS}}, "control": control})
+        func_postgres_schema_config_validate(config_postgres_schema={"control": {"private_read": ["outside"], "admin_read": ["*"]}})    # control only: a database Atom doesn't manage
 
 
 class RoutesNeedingIdTests(unittest.IsolatedAsyncioTestCase):

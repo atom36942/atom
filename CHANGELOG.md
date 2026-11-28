@@ -4,6 +4,19 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [25.0.0] - 2026-11-28
+
+**Upgrade (projects must change):** admin is explicit too, and a database without a schema is closed.
+- `control` has four admin lists, `admin_create`, `admin_read`, `admin_update`, `admin_delete`: the `/admin` object routes need the route's permission id **and** the table in that database's list. `["*"]` (every table of that database) is allowed only in these four. Atom's master lists are `["*"]`, so a project that extends `base_config_postgres_schema_master["control"]` changes nothing; a project may narrow them.
+- Every other database's schema lists its admin tables, e.g. `"admin_read": ["*"]`, `"admin_create": ["gps_point"]`: without them `/admin/object-*` on `?connection=<name>` answers 403 naming the list.
+- A database with only `config_postgres_url_<name>` and no `config_postgres_schema_<name>` (a read replica too) no longer follows master's rules: every table route refuses it (403). Give it a schema that lists what each group may read, e.g. `config_postgres_schema_replica1 = {"control": {"private_read": ["task"], "admin_read": ["*"]}}`. The query runners, pgweb and project code still reach it.
+- `/my/profile` and `/private/user-read` no longer take `?connection=`: users live in master. Mark-as-read runs on the database the rows were read from.
+
+**What changed:**
+- **One access pattern for every group:** 12 lists (`public_create`, `public_read`, `private_read`, `my_create`, `my_read`, `my_update`, `my_delete`, `my_delete_all`, `admin_*`), each a list of tables of that database; closed unless listed. They apply to Atom's table routes only (routes that take a `table`: object and table-column routes under `/public`, `/private`, `/my`, `/admin`, relation joins, CSV import), never to the SQL runners, pgweb, user routes or the project's own routes.
+- **Databases Atom doesn't manage:** a schema may be `control` only (`table` and `sql` optional), and access lists may name any table that exists in that database, made outside Atom; startup checks each named table exists there and stops naming a missing one. Atom never alters a table outside the `table` part, so `row_update_disabled`, `row_delete_disabled`, `row_delete_max`, `buffer_limit` and `retention_day` accept only tables of the `table` part. A table made outside Atom has no column rules: every column is visible to the groups it is opened to.
+- An empty schema (`{}` or `{"table": {}, "control": {}, "sql": {}}`) is a database that opens nothing.
+
 ## [24.0.1] - 2026-11-28
 
 - **Fix: a database whose schema has no tables yet followed master's rules.** Only a database with no `config_postgres_schema_<name>` at all (a read replica) follows master's; one with its own schema, even `{"table": {}, "control": {}, "sql": {}}`, is closed to every table route until its own `control` lists a table.

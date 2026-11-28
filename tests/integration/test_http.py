@@ -20,7 +20,7 @@ from tests.integration.support import requires_postgres
 
 LOG_API_ON_REPORTS = """from config import config_postgres_schema_master as base_config_postgres_schema_master
 config_postgres_schema_master = {**base_config_postgres_schema_master, "table": {k: v for k, v in base_config_postgres_schema_master["table"].items() if k != "log_api"}, "control": {k: ([t for t in v if t != "log_api"] if isinstance(v, list) and k != "extension" else {t: n for t, n in v.items() if t != "log_api"} if isinstance(v, dict) else v) for k, v in base_config_postgres_schema_master["control"].items()}}
-config_postgres_schema_reports = {"table": {"log_api": base_config_postgres_schema_master["table"]["log_api"], "report": {"column": [{"name": "id", "datatype": "bigint", "identity": "always", "is_primary_key": True}, {"name": "title", "datatype": "text"}]}}, "control": {"row_update_disabled": ["log_api"], "buffer_limit": {"log_api": 1000}, "retention_day": {"log_api": 7}}}
+config_postgres_schema_reports = {"table": {"log_api": base_config_postgres_schema_master["table"]["log_api"], "report": {"column": [{"name": "id", "datatype": "bigint", "identity": "always", "is_primary_key": True}, {"name": "title", "datatype": "text"}]}}, "control": {"admin_read": ["*"], "admin_create": ["report"], "row_update_disabled": ["log_api"], "buffer_limit": {"log_api": 1000}, "retention_day": {"log_api": 7}}}
 """    # API logs go to the reports database: log_api out of master's schema, into reports'; its report table admins may read
 
 
@@ -142,7 +142,7 @@ class HttpIntegrationTests(unittest.TestCase):
         self.assertEqual(read.status_code, 200, read.text)
         self.assertEqual([r["title"] for r in read.json()["message"]["obj_list"]], ["from reports"])
         master = self.client.get("/admin/object-read", params={"table": "report"}, headers=self.auth(self.admin_token))
-        self.assertEqual(master.status_code, 403, master.text)    # report is only in the reports database's schema
+        self.assertEqual((master.status_code, master.json()["message"]), (400, "table 'report' not found"), master.text)    # master's admin_read is ["*"], but report is only in the reports database
 
     def test_unknown_postgres_is_404(self):
         response = self.client.get("/admin/object-read", params={"connection": "nope", "table": "test"}, headers=self.auth(self.admin_token))

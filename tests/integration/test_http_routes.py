@@ -421,7 +421,7 @@ class HttpRouteTests(unittest.TestCase):
             return [str(w.message) for w in caught if "Unclosed file" in str(w.message)]
         upload = lambda table: self.client.post("/admin/postgres-import", data={"mode": "create", "table": table}, files={"file": ("rows.csv", b"title\nimported\n", "text/csv")}, headers=self.auth(self.admin))
         self.assertEqual(unclosed_files(lambda: self.assertEqual(upload("test").status_code, 200)), [])
-        self.assertEqual(unclosed_files(lambda: self.assertEqual(upload("missing_table").status_code, 403)), [])
+        self.assertEqual(unclosed_files(lambda: self.assertEqual(upload("missing_table").status_code, 400)), [])    # admin_create ["*"]: allowed, then table not found
         self.assertEqual(fetch(self.url, "SELECT count(*) AS n FROM test WHERE title = 'imported'"), [{"n": 1}])
 
     # background mode

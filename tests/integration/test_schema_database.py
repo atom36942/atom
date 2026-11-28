@@ -11,6 +11,7 @@ from tests.integration.support import requires_postgres
 
 TELEMETRY = {"table": {"reading": {"column": [{"name": "device", "datatype": "text", "is_primary_key": True}, {"name": "time", "datatype": "timestamptz", "is_primary_key": True},
                                    {"name": "value", "datatype": "float8"}, {"name": "note", "datatype": "text", "index": ["btree(note)"]}, {"name": "updated_by_id", "datatype": "bigint"}]}},
+             "control": {"admin_create": ["reading"], "admin_read": ["reading"], "admin_update": ["reading"], "admin_delete": ["reading"]},    # named, so vendor (made outside the schema) stays closed
              "sql": {"reading_seed": "INSERT INTO reading (device, time, value) VALUES ('a1', '2026-01-01T00:00:00Z', 1.5) ON CONFLICT DO NOTHING"}}
 
 

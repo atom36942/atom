@@ -530,7 +530,7 @@ config_postgres_url_master=postgresql://atom:pass@main-host:5432/atom
 config_postgres_url_external=postgresql://reader:pass@other-host:5432/other
 ```
 
-Atom opens a pool for each name in `app.state.client_postgres_dict` and caches its schema in `app.state.cache_postgres_schema_dict`. Custom code can use `app_state.client_postgres_dict["external"]` directly. Atom's table routes reach a table there (`?connection=external`) only when it is in that database's `config_postgres_schema_external` (in `config_extend.py`), and `/public`, `/private` and `/my` only as its `control` lists allow; login stays on master. Keep credentials in `.env`, use parameterized queries, and give the second database account only the permissions it needs. Step by step: [adding a database](database.md#adding-a-database-end-to-end).
+Atom opens a pool for each name in `app.state.client_postgres_dict` and caches its schema in `app.state.cache_postgres_schema_dict`. Custom code can use `app_state.client_postgres_dict["external"]` directly. Atom's table routes reach a table there (`?connection=external`) only as that database's `config_postgres_schema_external` (in `config_extend.py`) `control` lists allow, `/admin` included (`"admin_read": ["*"]`); without that schema every table route refuses it. For tables made outside Atom, a control-only schema is enough (`{"control": {"admin_read": ["*"]}}`). Login stays on master. Keep credentials in `.env`, use parameterized queries, and give the second database account only the permissions it needs. Step by step: [adding a database](database.md#adding-a-database-end-to-end).
 
 </details>
 
@@ -588,7 +588,7 @@ The prefixes represent data-access scope, not just route organization:
 
 - `/public/object-*` is anonymous and limited to the tables in its schema's `control.public_create` / `public_read` (closed unless listed; `/private` reads use `private_read`, `/my` the `my_*` lists).
 - `/my/object-*` requires a user and scopes rows through `ownership_column = authenticated_user.id`. Read, update, and delete each validate `ownership_column` against their own configured allowlist; create always stamps `created_by_id`.
-- `/admin/object-*` can operate on any row of any table in the schema, for users granted the route's id.
+- `/admin/object-*` can operate on any row of the tables in the schema's `admin_create` / `admin_read` / `admin_update` / `admin_delete` (Atom's master: `["*"]`, every table), for users granted the route's id.
 
 Use `/my` for normal user-owned product data and `/admin` only for trusted operations. Do not expose a table publicly merely to avoid ownership configuration; add an ownership column and use the authenticated tier instead.
 
@@ -695,7 +695,7 @@ Use the read-only URL as `config_postgres_url_master`, rather than configuring o
 
 Atom supports connecting to multiple PostgreSQL connection pools or read-replicas configured via environment variables (`config_postgres_url_<name>`).
 
-Routes flagged `"is_connection_param": True` in `config_api` accept the optional **`?connection=<name>`** query parameter (reads such as `/public/object-read`, `/my/object-read`, `/my/profile`, `/admin/object-read`, the Postgres read runners, and the admin writes `/admin/object-create`, `-update`, `-delete` and `/admin/postgres-import`).
+Routes flagged `"is_connection_param": True` in `config_api` accept the optional **`?connection=<name>`** query parameter (reads such as `/public/object-read`, `/my/object-read`, `/admin/object-read`, the Postgres read runners, and the admin writes `/admin/object-create`, `-update`, `-delete` and `/admin/postgres-import`).
 
 **How it works:** the middleware picks the pool once per request and sets it on `request.state`; routes just use it:
 
@@ -707,13 +707,13 @@ res = await app_state.func_postgres_read(client_postgres=request.state.client_po
 - `?connection=read_india` on a flagged route uses `client_postgres_dict["read_india"]`.
 - An unknown name returns `404 connection '<name>' not found`.
 - Routes without the flag reject `?connection=` with `400 connection not allowed on this route`; they always use master.
-- User, role and OTP checks always use master; `/my/profile` and `/private/user-read` take master or a replica of it (400 for a database with its own schema).
-- A replica needs only its `.env` line: a database without its own `config_postgres_schema_<name>` follows master's rules, and the writes a read makes (mark-as-read, `last_active_at`) go to master ([database.md](database.md#read-replicas-a-database-without-its-own-schema)).
+- User, role and OTP checks and the user routes (`/my/profile`, `/private/user-read` included) always use master and take no `connection`.
+- The table routes check that database's own `control`, never master's: a replica needs `config_postgres_schema_<name>` with the lists each group reads there (`{"control": {"public_read": ["product"], "admin_read": ["*"]}}`); without one, every table route answers 403. Mark-as-read is written to the database it read from ([database.md](database.md#read-replicas-and-other-databases-closed-until-their-schema-opens-them)).
 - `/my/api-usage` always reads the log database (the one whose schema has `log_api`).
 
 Example API calls:
 ```bash
-curl "http://localhost:8000/my/profile?connection=read" \
+curl "http://localhost:8000/my/object-read?connection=read&table=task" \
   -H "Authorization: Bearer <access-token>"
 ```
 ```bash

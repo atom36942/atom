@@ -31,7 +31,7 @@ A guideline, not a fixed recipe: adapt it to the feature.
    {"name": "speed", "datatype": "real"},
    ]},
    },
-   "control": {"extension": ["timescaledb", "postgis"], "buffer_limit": {"gps_point": 1000}},
+   "control": {"extension": ["timescaledb", "postgis"], "admin_create": ["gps_point"], "admin_read": ["*"], "buffer_limit": {"gps_point": 1000}},
    "sql": {"gps": [
    "SELECT create_hypertable('gps_point', by_range('time', INTERVAL '7 days'), if_not_exists => true)",
    "SELECT add_retention_policy('gps_point', INTERVAL '1 year', if_not_exists => true)",
@@ -40,7 +40,7 @@ A guideline, not a fixed recipe: adapt it to the feature.
    ```
    `gps_point` has no `id`: a point is device + time, and the key must include `time`. `lat`/`lng` as plain numbers compress far better than a geography column.
 
-   **Access.** Nothing is listed in `control`, so `/public`, `/private` and `/my` refuse both tables (403), and only users whose `master.users.permissions` hold an admin read route's id reach them (`GET /admin/object-read?connection=telematics&table=gps_point&order=time desc`; root holds every id). To let any logged-in user read the live table, add `"private_read": ["gps_point_latest"]` to this `control`. The feature's own routes need nothing there. `/admin/object-create` can write points by hand; `/my` and `/public` creates need a `created_by_id` column, so device points are written by the feature's code with `func_postgres_create` ([below](#points-from-a-device-webhook)).
+   **Access.** Only the admin lists name tables in `control`, so `/public`, `/private` and `/my` refuse both tables (403). An admin route needs both its id in `master.users.permissions` (root holds every id) and the table in this `control`: `"admin_read": ["*"]` opens every table of `telematics` to the admin reads (`GET /admin/object-read?connection=telematics&table=gps_point&order=time desc`), `"admin_create": ["gps_point"]` only `gps_point` to `/admin/object-create`; without a schema, every table route refuses the database. To let any logged-in user read the live table, add `"private_read": ["gps_point_latest"]` to this `control`. The feature's own routes need nothing there. `/admin/object-create` can write points by hand (`admin_create`); `/my` and `/public` creates need a `created_by_id` column, so device points are written by the feature's code with `func_postgres_create` ([below](#points-from-a-device-webhook)).
 
    **Retention.** `control.retention_day` deletes by a `created_at` column (startup refuses a table without one, such as `gps_point`); on a hypertable `add_retention_policy` (or a scheduled `drop_chunks`) in `sql` drops whole chunks, much faster.
 5. **Start Atom.** It applies the schema to that database (master first), then reads it into the schema cache. Before a deploy, `venv/bin/python -m script.postgres_schema_plan --db telematics` shows what the next start would change.

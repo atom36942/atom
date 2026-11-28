@@ -185,7 +185,7 @@ def main():
     storage = {"aws_region": config_aws_s3_region_name, "aws_key_id": config_aws_access_key_id, "aws_secret": config_aws_secret_access_key, "azure_name": config_azure_account_name, "azure_key": config_azure_account_key}
     master = func_config_read().get("config_postgres_schema_master") or {}
     table_include = set(master.get("table") or {}) - {"users", "log_users_delete"}    # the user's own row and its deletion log stay
-    ownership_column = {table: rule["ownership"]["delete"] for table, rule in func_postgres_table_rule_dict(schemas={"master": master}).get("master", {}).items()}
+    ownership_column = {table: rule["ownership"]["delete"] for table, rule in func_postgres_table_rule_dict(schemas={"master": master}).get("master", {}).items() if rule["is_managed"]}
     asyncio.run(worker_loop(postgres_url=postgres_url_master, storage=storage, table_include=table_include, ownership_column=ownership_column, retention_day=config_retention_day_user_soft_deleted))
 
 # main

@@ -82,7 +82,7 @@ def func_check_postgres_schema(*, app_state: State) -> None:
         except Exception as e: raise Exception(f"config_postgres_schema_{name}: {e}") from None
     if values.get("config_is_log_api", True):
         holders = [name for name, schema in schemas.items() if "log_api" in (schema.get("table") or {})]
-        if not holders: raise Exception("config_is_log_api is on but no config_postgres_schema_<name> has log_api: keep it in master, or move it to the database for logs with its control entries (my_read, row_update_disabled, buffer_limit, retention_day): docs/database.md, Storing Logs in an Isolated Database")
+        if not holders: raise Exception("config_is_log_api is on but no config_postgres_schema_<name> has log_api: keep it in master, or move it to the database for logs with its control entries (my_read, admin lists, row_update_disabled, buffer_limit, retention_day): docs/database.md, Storing Logs in an Isolated Database")
         if len(holders) > 1: raise Exception(f"log_api is in config_postgres_schema_{holders[0]} and config_postgres_schema_{holders[1]}: keep it in one (that database gets the API logs)")
     return
 
@@ -345,7 +345,7 @@ def func_check_config_extend_keeps_atom(*, config_module, config_extend_module) 
             dropped += [item for part, value in atom.items() if isinstance(extended, dict) and part in extended for item in missing(value, extended[part], f"{part}.") if not (part == "table" and item.removeprefix("table.") in elsewhere)]
             if isinstance(extended, dict) and isinstance(extended.get("control"), dict) and "extension" in extended["control"]: dropped += missing((atom.get("control") or {}).get("extension"), extended["control"]["extension"], "control.extension.")
             if isinstance(extended, dict) and isinstance(extended.get("control"), dict):    # access lists keep Atom's tables (a project adds its own with [*base_config_postgres_schema_master["control"]["my_read"], ...]), except a table moved to another database
-                for key in sorted(CONTROL_ACCESS):
+                for key in sorted(key for key, (group, _) in CONTROL_ACCESS.items() if group != "admin"):    # admin lists are the project's to narrow (Atom's are ["*"])
                     if key in extended["control"]: dropped += [item for item in missing((atom.get("control") or {}).get(key), extended["control"][key], f"control.{key}.") if item.removeprefix(f"control.{key}.") not in elsewhere]
             label = "entries"
         elif name == "config_users_role_label":

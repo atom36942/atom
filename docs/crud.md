@@ -15,7 +15,7 @@ Endpoints are split into **access tiers** (`/my/*`, `/public/*`, `/private/*`, `
 | **Private** | `/private/object-*` | Any logged-in user | All rows, read only. |
 | **Admin** | `/admin/object-*` | Root and users granted the route's id | Any row. |
 
-Each schema's `control` lists the tables each tier may use per action (`"public_read": ["task"]`, `"my_create": ["task"]`, ...); a table not listed is refused with 403, and so is a table in no schema ([control](config.md#control)). A `relation=` read needs the same tier's `read` on every joined table.
+Each schema's `control` lists the tables each tier may use per action (`"public_read": ["task"]`, `"my_create": ["task"]`, `"admin_read": ["*"]`, ...); a table not listed is refused with 403, `/admin` included, and so is every table of a database without a schema ([control](config.md#control)). `["*"]` (every table of the database) is allowed only in the admin lists. A `relation=` read needs the same tier's `read` on every joined table.
 
 ---
 
@@ -41,7 +41,7 @@ Create does not accept `ownership_column`; `/my/object-create` always stamps `cr
 
 The server validates that the requested ownership column is allowed for that operation and exists on the requested table. It then adds `<ownership_column> = current_user.id` to the SQL condition. A caller may choose the ownership relationship but cannot choose the user ID. Table permissions remain a separate authorization layer.
 
-For reads, table/relation permissions, blocked columns, filters, pagination, and `connection` selection still apply. Reading through `received_by_id` also marks fetched records as read when the table has `id` and `read_at` columns, on the database whose rules apply (master when the rows came from a read replica).
+For reads, table/relation permissions, blocked columns, filters, pagination, and `connection` selection still apply. Reading through `received_by_id` also marks fetched records as read when the table has `id` and `read_at` columns, on the database it read from (a read-only replica refuses it, so read messages from master).
 
 ---
 
@@ -90,7 +90,7 @@ Use `curl -G --data-urlencode` for query parameters containing spaces, JSON, com
 | `after` | `str` | none (first page) | The previous response's `after`: the next page (the default way). See [Paging](#paging). |
 | `page` | `int` | none | Optional jump to page N (OFFSET), within the first `config_page_offset_max` rows; not with `after`. See [Paging](#paging). |
 | `limit` | `int` | `config_sql_read_limit_default` (100) | Positive page size. Requests exceeding `config_sql_read_limit_max` (10,000) are rejected. |
-| `connection` | `str` | master | Configured database name, e.g. `read` for `config_postgres_url_read` (routes flagged `is_connection_param`; unknown name is 404). The table must be in that database's schema and `control`. |
+| `connection` | `str` | master | Configured database name, e.g. `read` for `config_postgres_url_read` (routes flagged `is_connection_param`; unknown name is 404). The table must be in that database's `control` for the tier (no fallback to master; a database without a schema is 403). |
 | `ownership_column` | `str` | `created_by_id` | `/my/object-read` only: `created_by_id` or a column of the table whose `ownership` lists `read`, matched to the logged-in user's ID. |
 | `group_column` + `group_values` | `str` + JSON list | none | The first page of each value instead of one list, in one statement (a board: a column per status): `group_column=status&group_values=[1,2,3]` returns `{"groups": {"1": {"obj_list", "after"}, ...}}`, every value present (empty ones too), at most 50 values; filters, `order`, `column` and `limit` apply to each value. A value's next page is a plain read with `filter` `status = 1` added and that value's `after`. Not with `after`, `page` or `relation`; not on array or JSON columns. An index on (`group_column`, the order columns) serves each value without a scan. |
 
@@ -279,7 +279,7 @@ curl -G "$BASE_URL/my/object-read" \
   --data-urlencode 'limit=20'
 ```
 
-`connection=read` requires a configured named database; omit it for master. Base reads and relations use the selected pool. For `received_by_id`, tables with `id` and `read_at` automatically schedule mark-as-read updates for the rows returned, on the database whose rules apply (master for a read replica). Include `id` in the projection for that update.
+`connection=read` requires a configured named database; omit it for master. Base reads and relations use the selected pool. For `received_by_id`, tables with `id` and `read_at` automatically schedule mark-as-read updates for the rows returned, on the database it read from. Include `id` in the projection for that update.
 
 ### All main parameters together
 
@@ -330,7 +330,7 @@ Each object-read route has a CSV export with the same access and rules, download
 | `/my/object-read-export` | token | the caller's rows (ownership condition from the token; accepts `ownership_column`) |
 | `/private/object-read-export` | token | tables in the private read policy |
 | `/public/object-read-export` | none | tables in the public read policy |
-| `/admin/object-read-export` | the route's id in `users.permissions` | any table of the schema |
+| `/admin/object-read-export` | the route's id in `users.permissions` | tables in `admin_read` (Atom's master: `["*"]`, every table) |
 
 They accept `table`, `filter`, `order`, `column`, and `connection` with the same meaning as the matching object-read route, plus an optional `limit` (rows wanted, 1 to `config_export_limit`; larger is a 400), and nothing else: no `after` or `relation`. Blocked columns such as `password` are never exported, including by admins.
 
@@ -388,7 +388,7 @@ Use these before writing a project route; most screens need nothing else.
 | Create, change, delete your own rows | `/my/object-create`, `/my/object-update`, `/my/object-delete` | `table`; update and delete only the caller's rows |
 | Selected users read, change or delete anyone's rows (a support team, a shared task list) | `/admin/object-create`, `-read`, `-read-export`, `-update`, `-delete` | `table`; the user holds that route's id in `users.permissions` |
 
-Pick the tier by who calls: `/my` (own rows), `/private` (any logged-in user, all rows), `/public` (no login), `/admin` (root and users granted the route's id, every table in the schema); for the other tiers the table must be in that tier's access list in `control`. Hide columns with `read_blocked` on the column. Write a project route only for joins, several different lists in one statement, computed filters or business checks.
+Pick the tier by who calls: `/my` (own rows), `/private` (any logged-in user, all rows), `/public` (no login), `/admin` (root and users granted the route's id); the table must be in that tier's access list in `control` (`admin_*` in Atom's master is `["*"]`, every table). Hide columns with `read_blocked` on the column. Write a project route only for joins, several different lists in one statement, computed filters or business checks.
 
 ---
 
@@ -423,7 +423,7 @@ The effective condition is `id = 135 AND assigned_to_id = current_user.id`. If o
 
 ### Anyone's rows, for selected users (the admin object routes)
 
-A user granted an admin object route's id may call it, whatever their role: 67 `/admin/object-read`, 65 `-create`, 66 `-update`, 72 `-delete`; nobody but root holds them until granted. The route works on every table in the schema of the database it runs on (`users` is never written through it); protected columns cannot change, `created_by_id`/`updated_by_id` is the caller, the batch limit applies. A grant is the whole route, every table ([auth-permission.md](auth-permission.md#admin-routes-one-id-each)).
+A user granted an admin object route's id may call it, whatever their role: 67 `/admin/object-read`, 65 `-create`, 66 `-update`, 72 `-delete`; nobody but root holds them until granted. The route works on the tables in `admin_read`, `admin_create`, `admin_update` or `admin_delete` of the database it runs on (Atom's master: `["*"]`, every table; `users` is never written through it); protected columns cannot change, `created_by_id`/`updated_by_id` is the caller, the batch limit applies. A grant is the whole route, every table its admin list opens ([auth-permission.md](auth-permission.md#admin-routes-one-id-each)).
 
 ```bash
 # grant a user update and delete of anyone's rows (an admin, PUT /admin/user-update)

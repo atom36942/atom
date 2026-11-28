@@ -2,7 +2,6 @@
 import asyncpg
 from starlette.datastructures import State
 from .middleware import func_api_error
-from .validation import func_postgres_rule_database
 
 # function
 AUDIT_COLUMNS = {    # never sent by a request: Atom or the database fills them, in every table that has them
@@ -16,13 +15,13 @@ AUDIT_COLUMNS = {    # never sent by a request: Atom or the database fills them,
 OBJECT_ACTIONS = {"read": "read", "create": "write", "update": "write", "delete": "delete", "delete_all": "delete"}    # action -> what the gate checks besides table access
 
 def func_object_rule(*, app_state: State, table: str, connection: str = None) -> dict:
-    """One table's rules from config_postgres_schema_<connection> (cache_postgres_table_rule; a connection without its own schema follows master's): access lists, read_blocked, write_blocked, ownership; {} when the table is in no schema."""
-    return ((getattr(app_state, "cache_postgres_table_rule", None) or {}).get(func_postgres_rule_database(app_state=app_state, connection=connection)) or {}).get(table) or {}
+    """One table's rules from config_postgres_schema_<connection> (cache_postgres_table_rule): access lists, read_blocked, write_blocked, ownership; {} when the schema doesn't name the table."""
+    return ((getattr(app_state, "cache_postgres_table_rule", None) or {}).get(connection or "master") or {}).get(table) or {}
 
 def func_object_access(*, app_state: State, connection: str = None, table: str, group: str, action: str, relation: list = None, ownership_column: str = None, obj_list: list = None) -> list:
     """The one gate of Atom's table routes (/public, /private, /my, /admin object and table-column routes, CSV import); a project route uses it only if it calls it.
     group: the route's prefix (my, public, private, admin). action: read, create, update, delete, delete_all.
-    Checks, in order: the table (and every table a read joins) is open to the group (control access lists; admin: any table of the schema), 403;
+    Checks, in order: the table (and every table a read joins) is open to the group (its control access list: public_*, private_read, my_*, admin_*), 403;
     for /my, ownership_column is created_by_id or a column of the table whose ownership lists the action, 403;
     for create / update, no row sends an audit column (AUDIT_COLUMNS) or a column whose write_blocked lists the group, 400.
     Returns the columns the group may not read for read (the read_blocked of the table, and of every joined table, for the group); [] otherwise."""

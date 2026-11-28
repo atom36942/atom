@@ -101,6 +101,7 @@ async def func_lifespan(app: FastAPI):
         client_postgres_log_api = client_postgres_dict.get(cache_log_api_database) if cache_log_api_database else None
         # cache schema
         cache_postgres_schema_dict = {name: postgres_master_schema if name == "master" else await app.state.func_postgres_schema_read(client_postgres=pool) for name, pool in client_postgres_dict.items()}
+        app.state.func_postgres_control_table_check(schemas=postgres_schemas, cache_postgres_schema_dict=cache_postgres_schema_dict)    # every table an access list names exists in its database
         if postgres_master and not app.state.config_is_read_only and app.state.config_is_root_user and "permissions" in postgres_master_schema.get("users", {}): await app.state.func_root_user_permissions_sync(client_postgres=postgres_master, config_api=app.state.config_api)    # root holds every /admin route id
         cache_clickhouse_schema_dict = {name: await app.state.func_clickhouse_schema_read(client_clickhouse=client) for name, client in client_clickhouse_dict.items()}
         # func calls

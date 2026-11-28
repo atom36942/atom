@@ -18,7 +18,6 @@ async def func_api_my_blob_preview_urls(*, request: Request):
 async def func_api_my_profile(*, request: Request):
     app_state = request.app.state
     user_id = request.state.user["id"]
-    app_state.func_check_connection_master(app_state=app_state, connection=request.state.connection)
     user = await app_state.func_user_read_single(client_postgres=request.state.client_postgres, user_id=user_id)
     last_active_at = user.get("last_active_at")    # read before any column is hidden from the response
     for column in app_state.func_object_read_blocked(app_state=app_state, table="users", group="my") or ["password"]: user.pop(column, None)
@@ -79,7 +78,7 @@ async def func_api_my_object_read(*, request: Request):
     res = await app_state.func_postgres_read(config_page_offset_max=app_state.config_page_offset_max, client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=filters, limit=oq["limit"], order=oq["order"], column=oq["column"], relation=oq["relation"], read_blocked=blocked, after=oq.get("after"), page=oq.get("page"), group_column=oq.get("group_column"), group_values=oq.get("group_values"))
     schema_cols = request.state.cache_postgres_schema.get(oq["table"], {})
     if oq["ownership_column"] == "received_by_id" and "id" in schema_cols and "read_at" in schema_cols:
-        app_state.func_postgres_mark_read(client_postgres=app_state.client_postgres_dict.get(app_state.func_postgres_rule_database(app_state=app_state, connection=request.state.connection)), table=oq["table"], ownership_column=oq["ownership_column"], user_id=request.state.user["id"], ids=[r.get("id") for r in (res["obj_list"] if "obj_list" in res else [row for group in res["groups"].values() for row in group["obj_list"]]) if isinstance(r, dict)])
+        app_state.func_postgres_mark_read(client_postgres=request.state.client_postgres, table=oq["table"], ownership_column=oq["ownership_column"], user_id=request.state.user["id"], ids=[r.get("id") for r in (res["obj_list"] if "obj_list" in res else [row for group in res["groups"].values() for row in group["obj_list"]]) if isinstance(r, dict)])
     return {"status": 1, "message": res}
 
 @router.get("/my/object-read-export")

@@ -17,34 +17,23 @@ async def func_regex_check(*, column_regex: dict, obj_list: list) -> None:
                     raise Exception(error_msg)
     return
 
-def func_postgres_rule_database(*, app_state: State, connection: str = None) -> str:
-    """The database whose config_postgres_schema_<name> rules apply to a connection: the connection itself when it has a schema, else master (a database added only by its config_postgres_url_<name>, such as a read replica of master, follows master's rules and is never changed by startup)."""
-    name = connection or "master"
-    return name if name in (getattr(app_state, "cache_postgres_table_rule", None) or {}) else "master"
-
-def func_check_connection_master(*, app_state: State, connection: str = None) -> None:
-    """Refuse a ?connection= that does not follow master's rules on a users route: users and auth live in master (or a read replica of it, a database without its own schema)."""
-    if (name := func_postgres_rule_database(app_state=app_state, connection=connection)) != "master": raise func_api_error(message=f"users live in master: connection {connection} has its own config_postgres_schema_{name} (use master or a read replica of it)", status_code=400)
-
 def func_column_regex(*, app_state: State, table: str, connection: str = None) -> dict:
     """The format rules of one table's columns, {column: [pattern, message]}: each column's regex and regex_message in config_postgres_schema_<connection> (users.password included, checked before it is hashed)."""
-    rules = getattr(app_state, "cache_column_regex", None) or {}
-    return (rules.get(connection or "master") or rules.get(func_postgres_rule_database(app_state=app_state, connection=connection)) or {}).get(table) or {}
+    return ((getattr(app_state, "cache_column_regex", None) or {}).get(connection or "master") or {}).get(table) or {}
 
 def func_role_allowed_values(*, roles: list) -> list | None:
     """The allowed values of a role parameter: None (any role) when roles is ["*"], else the list itself."""
     return None if "*" in (roles or []) else roles
 
 def func_check_table_access(*, app_state: State, connection: str = None, table: str, group: str, action: str, relation: list = None) -> None:
-    """Refuse a table (and every table a read joins through relation) not listed in control.<group>_<action> (public_create, private_read, my_update, ...) of config_postgres_schema_<connection>: a table is closed unless listed. group admin: any table of that schema (the /admin route's permission id decides who). 403."""
-    database = func_postgres_rule_database(app_state=app_state, connection=connection)
-    rules = (getattr(app_state, "cache_postgres_table_rule", None) or {}).get(database) or {}
+    """Refuse a table (and every table a read joins through relation) not listed in control.<group>_<action> (public_create, private_read, my_update, admin_read, ...) of config_postgres_schema_<connection>: a table is closed unless listed, for every group, admin included (["*"] in admin_read: every table of that database). A database without a schema is closed to every table route (403)."""
+    database = connection or "master"
+    rules = (getattr(app_state, "cache_postgres_table_rule", None) or {}).get(database)
     tables = [(table, action)] + [(parts[1], "read") for rel in relation or [] if len(parts := [p.strip() for p in rel.split(",", 4)]) >= 2]
     for name, needed in tables:
-        if group == "admin":
-            if name not in rules: raise func_api_error(message=f"admin {needed} not allowed for table: {name} (not in config_postgres_schema_{database})", status_code=403)
-            continue
-        if needed not in ((rules.get(name) or {}).get(group) or []): raise func_api_error(message=f"{group} {needed} not allowed for table: {name} (add \"{name}\" to control.{group}_{needed} in config_postgres_schema_{database})", status_code=403)
+        if rules is None: raise func_api_error(message=f"{group} {needed} not allowed for table: {name} (database {database} has no config_postgres_schema_{database}: add one whose control lists the tables to open)", status_code=403)
+        if needed in ((rules.get(name) or {}).get(group) or []) or needed in ((rules.get("*") or {}).get(group) or []): continue
+        raise func_api_error(message=f"{group} {needed} not allowed for table: {name} (add \"{name}\" to control.{group}_{needed} in config_postgres_schema_{database})", status_code=403)
 
 def func_check_table_column_exists(*, app_state: State = None, cache_postgres_schema: dict = None, table: str, column: str, purpose: str = None) -> None:
     """Validate that table schema contains specified column."""
@@ -58,7 +47,7 @@ def func_check_table_column_exists(*, app_state: State = None, cache_postgres_sc
 
 def func_buffer_limit(*, app_state: State, table: str, connection: str = None) -> int:
     """Rows a table's create buffer holds before it is written: the table's buffer_limit in config_postgres_schema_<connection>, else 100."""
-    rule = ((getattr(app_state, "cache_postgres_table_rule", None) or {}).get(func_postgres_rule_database(app_state=app_state, connection=connection)) or {}).get(table) or {}
+    rule = ((getattr(app_state, "cache_postgres_table_rule", None) or {}).get(connection or "master") or {}).get(table) or {}
     return rule.get("buffer_limit") or 100
 
 def func_check_table_not_users(*, table: str) -> None:

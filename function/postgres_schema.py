@@ -12,10 +12,12 @@ def func_postgres_schema_dict(*, values: dict) -> dict:
     found = {key.removeprefix("config_postgres_schema_"): value for key, value in values.items() if key.startswith("config_postgres_schema_")}
     return dict(sorted(found.items(), key=lambda item: item[0] != "master"))
 
-TABLE_ACCESS = {"public": ("create", "read"), "private": ("read",), "my": ("create", "read", "update", "delete", "delete_all")}    # who calls (the route prefix) -> what they may do
+TABLE_ACCESS = {"public": ("create", "read"), "private": ("read",), "my": ("create", "read", "update", "delete", "delete_all"), "admin": ("create", "read", "update", "delete")}    # who calls (the route prefix) -> what they may do
 CONTROL_ACCESS = {f"{group}_{action}": (group, action) for group, actions in TABLE_ACCESS.items() for action in actions}    # control key -> (group, action): public_create, ..., my_delete_all
 CONTROL_SWITCHES = {"is_updated_at_set": True, "is_protected_delete_disabled": True, "is_truncate_disabled": True}    # control switch -> its default
-CONTROL_TABLE_LISTS = (*CONTROL_ACCESS, "row_update_disabled", "row_delete_disabled")    # control keys that list tables of the schema
+CONTROL_ROW_LISTS = ("row_update_disabled", "row_delete_disabled")    # control keys that list tables of the schema's table part (database triggers: Atom manages those tables)
+CONTROL_TABLE_LISTS = (*CONTROL_ACCESS, *CONTROL_ROW_LISTS)
+CONTROL_WILDCARD = ("admin_create", "admin_read", "admin_update", "admin_delete")    # the only lists that may be ["*"] (every table of that database): admins already need the route's permission id; public, private and my name each table
 CONTROL_TABLE_NUMBERS = {"row_delete_max": (1, None), "buffer_limit": (10, 5000), "retention_day": (1, 36500)}    # control keys {table: number} -> (lowest, highest)
 CONTROL_KEYS = ("extension", *CONTROL_SWITCHES, *CONTROL_TABLE_LISTS, *CONTROL_TABLE_NUMBERS)
 COLUMN_GROUPS = ("my", "public", "private", "admin")    # the route groups read_blocked / write_blocked may list
@@ -33,23 +35,37 @@ def func_postgres_schema_columns(*, config_postgres_schema: dict) -> dict:
     return {name: spec.get("column") if isinstance(spec, dict) else spec for name, spec in ((config_postgres_schema or {}).get("table") or {}).items()}
 
 def func_postgres_table_rule_dict(*, schemas: dict) -> dict:
-    """{database: {table: rules}} from every config_postgres_schema_<name>, for Atom's table routes: public / private / my (the actions its control access lists give the table),
-    row_delete_max, buffer_limit, retention_day (its control numbers), row_update_disabled / row_delete_disabled (bool), and from its columns read_blocked and write_blocked ({group: [columns]}) and ownership ({action: [columns]}, created_by_id first when the table has it).
-    Every table of a schema has rules (the /admin routes reach it); a table of no schema has none, so every table route refuses it."""
+    """{database: {table: rules}} from every config_postgres_schema_<name>, for Atom's table routes: public / private / my / admin (the actions its control access lists give the table),
+    row_delete_max, buffer_limit, retention_day (its control numbers), row_update_disabled / row_delete_disabled (bool), and from its columns read_blocked and write_blocked ({group: [columns]}) and ownership ({action: [columns]}), is_managed (in the table part).
+    A table only named in an access list (made outside Atom) has no column rules. ["*"] in an admin list is kept as the entry "*" ({"admin": [its actions]}). A database without a schema has no entry: every table route refuses it."""
     rules = {}
     for name, schema in schemas.items():
         control = (schema or {}).get("control") or {}
-        rules.setdefault(name, {})    # every database with a schema has its own entry, even without tables yet: only a database with no schema follows master's rules
-        for table, columns in func_postgres_schema_columns(config_postgres_schema=schema).items():
-            columns = [col for col in columns or [] if isinstance(col, dict)]
+        managed = func_postgres_schema_columns(config_postgres_schema=schema)
+        named = [table for key in CONTROL_ACCESS for table in control.get(key) or [] if table != "*"]
+        rules.setdefault(name, {})    # every database with a schema has its own entry, even without tables yet
+        for table in [*managed, *[t for t in dict.fromkeys(named) if t not in managed]]:
+            columns = [col for col in managed.get(table) or [] if isinstance(col, dict)]
             rule = {group: [action for key, (g, action) in CONTROL_ACCESS.items() if g == group and table in (control.get(key) or [])] for group in TABLE_ACCESS}
             rule.update({key: (control.get(key) or {})[table] for key in CONTROL_TABLE_NUMBERS if table in (control.get(key) or {})})
-            rule.update({key: table in (control.get(key) or []) for key in ("row_update_disabled", "row_delete_disabled")})
+            rule.update({key: table in (control.get(key) or []) for key in CONTROL_ROW_LISTS})
             for key in ("read_blocked", "write_blocked"): rule[key] = {group: [col["name"] for col in columns if group in (col.get(key) or [])] for group in COLUMN_GROUPS}
-            has_owner = any(col.get("name") == "created_by_id" for col in columns)
+            has_owner = table not in managed or any(col.get("name") == "created_by_id" for col in columns)    # an outside table: created_by_id if it has one (the route checks the column)
             rule["ownership"] = {action: (["created_by_id"] if has_owner else []) + [col["name"] for col in columns if action in (col.get("ownership") or []) and col["name"] != "created_by_id"] for action in OWNERSHIP_ACTIONS}
-            rules.setdefault(name, {})[table] = rule
+            rule["is_managed"] = table in managed
+            rules[name][table] = rule
+        if wildcard := [CONTROL_ACCESS[key][1] for key in CONTROL_WILDCARD if "*" in (control.get(key) or [])]: rules[name]["*"] = {**{group: [] for group in TABLE_ACCESS}, "admin": wildcard, "read_blocked": {}, "write_blocked": {}, "ownership": {}, "is_managed": False}
     return rules
+
+def func_postgres_control_table_check(*, schemas: dict, cache_postgres_schema_dict: dict) -> None:
+    """Startup, once each database's tables are read: every table an access list names exists in that database (in the table part, or made outside Atom); a schema whose database has no config_postgres_url_<name> is skipped (startup refused it already)."""
+    for name, schema in schemas.items():
+        if name not in cache_postgres_schema_dict: continue
+        existing = cache_postgres_schema_dict.get(name) or {}
+        control = (schema or {}).get("control") or {}
+        for key in CONTROL_ACCESS:
+            if missing := [table for table in control.get(key) or [] if table != "*" and table not in existing]: raise Exception(f"config_postgres_schema_{name}: control.{key}: {', '.join(missing)} is not a table of database {name} (add it to the table part, or create it in that database)")
+    return
 
 def func_postgres_ownership_column_dict(*, rules: dict) -> dict:
     """{action: [columns]}: every column any table of any schema accepts as owner for a /my action (created_by_id first), for the ownership_column parameter's allowed values; each table's own list is checked per request."""
@@ -116,13 +132,15 @@ def func_postgres_schema_control_validate(*, config_postgres_schema: dict) -> No
     for key in CONTROL_TABLE_LISTS:
         if key not in control: continue
         value = control[key]
-        if not isinstance(value, list) or not all(isinstance(name, str) for name in value) or len(set(value)) != len(value): raise Exception(f"control.{key} must be a list of table names, each once")
-        if wrong := unknown_tables(value): raise Exception(f"control.{key}: {', '.join(wrong)} is not a table of this schema")
+        if not isinstance(value, list) or not all(isinstance(name, str) and name for name in value) or len(set(value)) != len(value): raise Exception(f"control.{key} must be a list of table names, each once")
+        if "*" in value and (key not in CONTROL_WILDCARD or value != ["*"]): raise Exception(f"control.{key}: \"*\" is allowed only as [\"*\"] in {', '.join(CONTROL_WILDCARD)} (name each table)")
+        if wrong := [name for name in value if name != "*" and not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name)]: raise Exception(f"control.{key}: {wrong[0]!r} is not a table name")
+        if key in CONTROL_ROW_LISTS and (wrong := unknown_tables(value)): raise Exception(f"control.{key}: {', '.join(wrong)} is not in this schema's table part (a database guard needs a table Atom manages)")
     for key, (low, high) in CONTROL_TABLE_NUMBERS.items():
         if key not in control: continue
         value = control[key]
         if not isinstance(value, dict): raise Exception(f"control.{key} must be {{table: number}}")
-        if wrong := unknown_tables(value): raise Exception(f"control.{key}: {', '.join(wrong)} is not a table of this schema")
+        if wrong := unknown_tables(value): raise Exception(f"control.{key}: {', '.join(wrong)} is not in this schema's table part (Atom manages only those)")
         for table, number in value.items():
             if isinstance(number, bool) or not isinstance(number, int) or number < low or (high and number > high): raise Exception(f"control.{key}.{table} must be an integer from {low}" + (f" to {high}" if high else " up"))
     if writes := [f"{key}" for key in CONTROL_ACCESS if CONTROL_ACCESS[key][1] != "read" and "users" in (control.get(key) or [])]: raise Exception(f"control.{writes[0]}: users not allowed; users rows are written only through /my/user-* and /admin/user-*")
@@ -136,11 +154,11 @@ def func_postgres_schema_control_validate(*, config_postgres_schema: dict) -> No
 
 def func_postgres_schema_config_validate(*, config_postgres_schema: dict) -> None:
     """Validate configured tables, columns, indexes, unique keys and control before database changes."""
-    if not config_postgres_schema: raise Exception("schema missing: a dict with a table part")
-    if "table" not in config_postgres_schema: raise Exception("table part missing")
+    if not isinstance(config_postgres_schema, dict): raise Exception("schema missing: a dict with table, control and sql (each optional)")
     if "extension" in config_postgres_schema: raise Exception("extension moved in Atom 24.0.0: put the list in control: \"control\": {\"extension\": [...], ...}")
     if unknown := sorted(set(config_postgres_schema) - {"table", "control", "sql"}): raise Exception(f"schema: unknown part {', '.join(unknown)}; a schema has table, control and sql")
-    for table_name, spec in config_postgres_schema["table"].items(): func_postgres_schema_table_validate(table_name=table_name, spec=spec)
+    if not isinstance(config_postgres_schema.get("table", {}), dict): raise Exception("table must be a dict {table: {\"column\": [...]}}")
+    for table_name, spec in (config_postgres_schema.get("table") or {}).items(): func_postgres_schema_table_validate(table_name=table_name, spec=spec)
     func_postgres_schema_control_validate(config_postgres_schema=config_postgres_schema)
     tables = func_postgres_schema_columns(config_postgres_schema=config_postgres_schema)
     reserved = {"all", "analyze", "and", "any", "as", "asc", "asymmetric", "authorization", "binary", "both", "case", "cast", "check", "collate", "collation", "column", "concurrently", "constraint", "create", "cross", "current_catalog", "current_date", "current_role", "current_schema", "current_time", "current_timestamp", "current_user", "default", "deferrable", "desc", "distinct", "do", "else", "end", "except", "false", "fetch", "for", "foreign", "freeze", "from", "full", "grant", "group", "having", "ilike", "in", "initially", "inner", "intersect", "into", "is", "isnull", "join", "lateral", "leading", "left", "like", "limit", "localtime", "localtimestamp", "natural", "not", "notnull", "null", "offset", "on", "only", "or", "order", "outer", "overlaps", "placing", "primary", "references", "returning", "right", "select", "session_user", "similar", "some", "symmetric", "table", "tablesample", "then", "to", "trailing", "true", "union", "unique", "user", "using", "variadic", "verbose", "when", "where", "window", "with"}
@@ -646,7 +664,7 @@ async def func_postgres_schema_steps(*, app_state: State, conn: Any, config_post
         context["triggers"] = await app_state.func_postgres_schema_triggers_read(conn=conn)
         await app_state.func_postgres_schema_users_init(conn=conn, db_tables=db_tables, catalog=context["catalog"], context=context, root_user_password_hash=root_user_password_hash)
         await app_state.func_postgres_schema_triggers_sync(conn=conn, db_tables=db_tables, catalog=context["catalog"], context=context)
-        await app_state.func_postgres_schema_cleanup(conn=conn, tables=config_postgres_schema["table"], catalog=context["catalog"])
+        await app_state.func_postgres_schema_cleanup(conn=conn, tables=config_postgres_schema.get("table") or {}, catalog=context["catalog"])
     # custom SQL last and outside the transaction, as before (it may hold statements such as CREATE INDEX CONCURRENTLY)
     await app_state.func_postgres_schema_sql_execute(conn=conn, sql_config=config_postgres_schema.get("sql", {}))
     return

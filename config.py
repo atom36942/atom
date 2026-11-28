@@ -463,6 +463,10 @@ config_postgres_schema_master = {
 "my_update": ["test", "test_comment", "blob", "message", "notification"],
 "my_delete": ["test", "test_comment", "blob", "message", "notification", "api_key"],
 "my_delete_all": ["test", "message", "notification"],
+"admin_create": ["*"],
+"admin_read": ["*"],
+"admin_update": ["*"],
+"admin_delete": ["*"],
 "row_update_disabled": ["log_api", "api_key", "log_users_password"],
 "row_delete_disabled": ["users", "config", "log_users_password", "log_users_delete"],
 "row_delete_max": {"users": 100},
@@ -496,7 +500,7 @@ config_api = {
 "/auth/login-oidc": {"id": 106, "auth": [], "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
 "/auth/login-totp": {"id": 102, "auth": [], "rate_limit": {"mode": "inmemory", "limit": 5, "window_sec": 60}},
 # my
-"/my/profile": {"id": 19, "auth": ["jwt"], "is_connection_param": True},
+"/my/profile": {"id": 19, "auth": ["jwt"]},
 "/my/ping": {"id": 20, "auth": ["jwt"]},
 "/my/token-refresh": {"id": 21, "auth": ["jwt"]},
 "/my/api-usage": {"id": 22, "auth": ["jwt"]},
@@ -540,7 +544,7 @@ config_api = {
 "/private/blob-upload-presigned": {"id": 53, "auth": ["jwt"]},
 "/private/object-read": {"id": 54, "auth": ["jwt"], "is_connection_param": True},
 "/private/object-read-export": {"id": 55, "auth": ["jwt"], "is_connection_param": True},
-"/private/user-read": {"id": 56, "auth": ["jwt"], "is_connection_param": True},
+"/private/user-read": {"id": 56, "auth": ["jwt"]},
 "/private/table-column-groupby": {"id": 57, "auth": ["jwt"], "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}, "is_connection_param": True},
 "/private/table-column-distinct": {"id": 58, "auth": ["jwt"], "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}, "is_connection_param": True},
 # admin
