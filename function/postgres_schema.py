@@ -28,6 +28,7 @@ COLUMN_KEYS_REMOVED = {"is_primary": "is_primary_key", "is_mandatory": "is_not_n
 CONTROL_KEYS_REMOVED = {"is_truncate_table": "is_truncate_disabled (True = TRUNCATE blocked)", "is_root_user_create": "config_is_root_user in config.py", "is_root_user_delete_disabled": "config_is_root_user in config.py", "is_log_users_password": "config_is_users_password_log in config.py", "is_log_users_delete": "config_is_users_delete_log in config.py", "is_totp_clear": "config_is_totp_clear in config.py (# totp)"}
 TABLE_KEYS_MOVED = {"public": "public_create / public_read", "private": "private_read", "my": "my_create, my_read, my_update, my_delete, my_delete_all", "row_lock": "row_update_disabled / row_delete_disabled", "row_delete_max": "row_delete_max: {table: number}", "buffer_limit": "buffer_limit: {table: number}", "retention_day": "retention_day: {table: days}"}
 ATOM_UPDATED_TABLES = ("users", "otp", "script_run", "queue_job")    # Atom updates their rows itself, so row_update_disabled may not list them
+RETENTION_BLOCKED_TABLES = ("users", "config")    # never aged out: retention_day may not list them, and the cleanup refuses them
 TABLE_BUFFER_LIMIT = 100
 
 def func_postgres_schema_columns(*, config_postgres_schema: dict) -> dict:
@@ -145,8 +146,19 @@ def func_postgres_schema_control_validate(*, config_postgres_schema: dict) -> No
             if isinstance(number, bool) or not isinstance(number, int) or number < low or (high and number > high): raise Exception(f"control.{key}.{table} must be an integer from {low}" + (f" to {high}" if high else " up"))
     if writes := [f"{key}" for key in CONTROL_ACCESS if CONTROL_ACCESS[key][1] != "read" and "users" in (control.get(key) or [])]: raise Exception(f"control.{writes[0]}: users not allowed; users rows are written only through /my/user-* and /admin/user-*")
     if wrong := [table for table in control.get("row_update_disabled") or [] if table in ATOM_UPDATED_TABLES]: raise Exception(f"control.row_update_disabled: {wrong[0]} not allowed; Atom updates its rows itself")
+    for key in ("my_update", "admin_update"):
+        if wrong := [table for table in control.get(key) or [] if table in (control.get("row_update_disabled") or [])]: raise Exception(f"control.{key}: {wrong[0]} is in row_update_disabled, so every update would fail")
+    for key in ("my_delete", "my_delete_all", "admin_delete"):
+        if wrong := [table for table in control.get(key) or [] if table in (control.get("row_delete_disabled") or [])]: raise Exception(f"control.{key}: {wrong[0]} is in row_delete_disabled, so every delete would fail")
+    for key, (_, action) in CONTROL_ACCESS.items():
+        if not key.startswith("my_"): continue
+        for table in control.get(key) or []:
+            names = {col.get("name") for col in tables.get(table) or [] if isinstance(col, dict)}
+            owners = {"created_by_id"} & names if action == "create" else {col.get("name") for col in tables.get(table) or [] if isinstance(col, dict) and ("delete" if action == "delete_all" else action) in (col.get("ownership") or [])} | ({"created_by_id"} & names)
+            if table in tables and table != "users" and not owners: raise Exception(f"control.{key}: {table} has no created_by_id" + ("" if action == "create" else f" or column with ownership [\"{'delete' if action == 'delete_all' else action}\"]") + ", so /my could never find a user's rows")
     for table in control.get("retention_day") or {}:
-        if table == "users": raise Exception("control.retention_day: users not allowed; it would delete users by age")
+        if table in RETENTION_BLOCKED_TABLES: raise Exception(f"control.retention_day: {table} not allowed; cleanup would delete its rows by age")
+        if control.get("is_protected_delete_disabled", True) and "is_protected" in {col.get("name") for col in tables[table] or [] if isinstance(col, dict)}: raise Exception(f"control.retention_day: {table} has is_protected and is_protected_delete_disabled is on, so cleanup would stop at the first old protected row")
         if table in (control.get("row_delete_disabled") or []): raise Exception(f"control.retention_day: {table} is in row_delete_disabled, so cleanup could never delete its rows")
         if table in (control.get("row_delete_max") or {}): raise Exception(f"control.retention_day: {table} is in row_delete_max; cleanup deletes in batches that would trip it")
         if "created_at" not in {col.get("name") for col in tables[table] or [] if isinstance(col, dict)}: raise Exception(f"control.retention_day: {table} needs a created_at column (rows older than the days are deleted)")
